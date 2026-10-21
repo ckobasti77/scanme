@@ -24,6 +24,7 @@ import type { GuestActions } from "@/lib/menu/guest-actions";
 import { MENU_MY_REQUESTS_PATH, MENU_ROOM_SERVICE_PATH } from "@/lib/menu/guest-actions";
 import { guestTokenOf, myRequestsKeyOf } from "@/lib/menu/http/guest-actions";
 import type { MenuRequestChannel } from "@/lib/menu/request-status";
+import type { PublicReservationEntry } from "@/lib/menu/reservation-config";
 import {
   mogucnostiIzPrezentacije,
   type JavniRazdelnikView,
@@ -174,3 +175,18 @@ export const ucitajJavno = cache(
 
 /** Which path serves the venue when a sub-link has no public page: new, legacy, or none. */
 export const ulazJavno = cache(async (slug: string) => fetchQuery(api.menuPublic.entry, { slug }));
+
+/**
+ * K25: how the venue takes reservations (the ScanMe form, its own system, or
+ * not at all). An optional extra of the menu: if the answer cannot be had, the
+ * menu is served without the entry rather than not at all.
+ */
+export const ucitajUlazRezervacije = cache(async (slug: string): Promise<PublicReservationEntry> => {
+  try {
+    return await fetchQuery(api.menuReservations.publicEntry, { slug });
+  } catch (error) {
+    // Only the kind of failure reaches the log.
+    console.error("MENU_RESERVATION_ENTRY_FAILED", error instanceof Error ? error.name : typeof error);
+    return { mode: "off" };
+  }
+});

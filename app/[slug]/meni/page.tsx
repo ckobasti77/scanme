@@ -7,7 +7,7 @@
 
 import type { Metadata, Viewport } from "next";
 import { JavniPrikaz, javniMetadata, javniViewport } from "./_lib/prikaz";
-import { jedanParametar, ucitajJavno } from "./_lib/ucitaj";
+import { jedanParametar, ucitajJavno, ucitajUlazRezervacije } from "./_lib/ucitaj";
 import { StariMeni, stariMeniMetadata } from "./_stari/stari-meni";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,9 @@ export async function generateViewport(props: PageProps<"/[slug]/meni">): Promis
 }
 
 export default async function MenuPage(props: PageProps<"/[slug]/meni">) {
-  const { slug, ucitano } = await ucitaj(props);
-  if (ucitano) return <JavniPrikaz ucitano={ucitano} />;
+  const { slug } = await props.params;
+  // K25: how the venue takes reservations is read in parallel with the menu (an optional extra).
+  const [{ ucitano }, rezervacija] = await Promise.all([ucitaj(props), ucitajUlazRezervacije(slug)]);
+  if (ucitano) return <JavniPrikaz ucitano={ucitano} rezervacija={rezervacija} />;
   return <StariMeni slug={slug} />;
 }

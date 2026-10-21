@@ -6,6 +6,9 @@
 
 import type { FloorLayout } from "@/lib/menu/floor-layout";
 import type { OccupancyState } from "@/lib/menu/occupancy";
+import type { ReservationMode } from "@/lib/menu/reservation-config";
+import type { ReservationRow } from "@/lib/menu/reservation-queue";
+import type { MenuReservationStatus } from "@/lib/menu/reservation-status";
 import type { PanelTiming } from "@/lib/menu/thresholds";
 import type {
   MenuPaymentPreference,
@@ -98,7 +101,59 @@ export type KonobarRadnje = {
   postaviMojuZonu(zoneId: string | null): Promise<KonobarSalaIshod>;
   /** K23: a manager re-assigns someone's zone. */
   postaviZonuOsoblja(staffId: string, zoneId: string | null): Promise<KonobarSalaIshod>;
+  // K25 — reservations (convex/menuReservations.ts). Every action carries the status the waiter
+  // saw (`ocekivani`): when the reservation moved meanwhile, nothing is written.
+  prihvatiRezervaciju(id: string, ocekivani: MenuReservationStatus): Promise<KonobarRezIshod>;
+  odbijRezervaciju(id: string, ocekivani: MenuReservationStatus): Promise<KonobarRezIshod>;
+  /** Another time (epoch) and an optional short message; the staff then tell the guest. */
+  predloziIzmenu(id: string, proposedAt: number, poruka: string | null, ocekivani: MenuReservationStatus): Promise<KonobarRezIshod>;
+  /** The guest agreed to the proposal by phone or e-mail. */
+  gostPrihvataPredlog(id: string, ocekivani: MenuReservationStatus): Promise<KonobarRezIshod>;
+  otkaziRezervaciju(id: string, ocekivani: MenuReservationStatus): Promise<KonobarRezIshod>;
+  /** The table of an accepted reservation, chosen by hand (null = no table). */
+  poveziSto(id: string, positionId: string | null, ocekivani: MenuReservationStatus): Promise<KonobarRezIshod>;
+  /** The guests arrived; `positionId` chooses (or changes) the table now, null keeps the bound one. */
+  gostiStigli(id: string, positionId: string | null, ocekivani: MenuReservationStatus): Promise<KonobarRezIshod>;
 };
+
+// -----------------------------------------------------------------------------
+// K25 — reservations (convex/menuReservations.ts forPanel, detail)
+// -----------------------------------------------------------------------------
+
+/** A reservation in the waiter's list (lib/menu/reservation-queue.ts; no contact, no note text). */
+export type KonobarRezervacija = ReservationRow;
+
+export type KonobarRezervacije = {
+  rows: KonobarRezervacija[];
+  /** More than 200 of one status in the window: the earliest 200 are shown. */
+  skraceno: boolean;
+  /** How the venue takes reservations now (existing ones stay workable after a switch). */
+  mode: ReservationMode;
+  /** How long the venue holds a reservation after its time (minutes). */
+  holdMinutes: number;
+};
+
+/** One reservation with what the decision needs (the contact, the note), while its detail is open. */
+export type KonobarRezervacijaDetalj = {
+  reservation: KonobarRezervacija & {
+    contactEmail: string | null;
+    contactPhone: string | null;
+    note: string | null;
+    proposalNote: string | null;
+    decidedAt: number | null;
+    decidedBy: string | null;
+    boundBy: string | null;
+    arrivedBy: string | null;
+    cancelledByName: string | null;
+  };
+  /** Other reservations of the same table that day (accepted or arrived), earliest first. */
+  sameTable: KonobarRezervacija[];
+};
+
+/** What a reservation action answered (convex/menuReservations.ts WaiterReservationOutcome). */
+export type KonobarRezIshod =
+  | { ok: true; status: MenuReservationStatus; changed: boolean }
+  | { ok: false; code: string; status?: MenuReservationStatus };
 
 // -----------------------------------------------------------------------------
 // K23 — the floor (convex/menuWaiter.ts floor, occupancy, positionDetail)

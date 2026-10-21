@@ -1,8 +1,8 @@
-// Dev-only izlog of the ScanMe Menu waiter panel (K07, K22, K23). The PIN
-// sign-in, the work queue, the request detail, the floor and the table detail
-// are the REAL screens over the invented "Demo restoran" and an in-memory
-// store (no Convex); reservations (K25) still show an honest "this screen is
-// built by step K.." state. Unavailable in production, never indexed.
+// Dev-only izlog of the ScanMe Menu waiter panel (K07, K22, K23, K25). The PIN
+// sign-in, the work queue, the request detail, the floor, the table detail and
+// the reservations (the Rezervacije filter, the detail of a reservation, the
+// reservation on a table) are the REAL screens over the invented "Demo restoran"
+// and an in-memory store (no Convex). Unavailable in production, never indexed.
 //
 //   /dev/menu-konobar-preview                   → Radni red (K22)
 //   ?ekran=pin|red|detalj|sala-raspored|sala-tabela|sto|rezervacije
@@ -18,6 +18,10 @@
 //   ?zona=Terasa                                → the waiter's own zone (a filter; "Bez zone" stays visible)
 //   ?kasni=1                                    → a 5-minute threshold: several waits are late
 //   ?zvuk=iskljucen                             → the device sound starts off
+//   ?ekran=rezervacije                          → the queue on its Rezervacije filter (K25)
+//   ?ekran=rezervacije&rezervacija=rv_07        → the detail of that reservation (rv_01 new, rv_02 accepted, rv_03 proposal, rv_07 late, rv_08 tomorrow)
+//   ?ekran=sto&rezervacija=1                    → Sto 7, the table with the bound, late reservation rv_07
+//   ?otkazana=1                                 → a guest has just cancelled rv_06 (the strip in the queue)
 //   ?tema=svetla|tamna                          → forces the app theme while open
 
 import type { Metadata } from "next";
@@ -42,7 +46,7 @@ export default async function MenuKonobarPreviewPage({ searchParams }: PageProps
 
   const params = parseKonobarPreview(await searchParams);
   const korak = KONOBAR_EKRAN_KORAK[params.ekran].korak;
-  const pravi = korak === "K22" || korak === "K23";
+  const pravi = korak === "K22" || korak === "K23" || korak === "K25";
 
   return (
     <>

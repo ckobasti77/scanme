@@ -16,6 +16,14 @@
 // and the recovery after a lost connection (nothing queued, the view kept,
 // "Veza je vraćena."). Presentation only: the live route (ruta.tsx) and the
 // izlog feed it through KonobarRadnje.
+//
+// K25 adds the reservations (master §10.2–§10.5, §11.3; plan K24-13..K24-15):
+// the "Rezervacije" filter and the new ones among "Novi" in the queue, the detail
+// of a reservation in the SAME contextual pane as a request, a badge on the
+// bound table (and a column and a legend entry), the reservations of a table in
+// its detail, a polite announcement and the short sound for a new reservation
+// (no reminder), and the strip for a guest's cancellation. ONE live subscription
+// (forPanel) feeds all of it; the detail subscription lives only while one is open.
 
 import { Grid2x2, ListChecks, OctagonAlert, RotateCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -26,8 +34,11 @@ import { clockTime, isLate, waitingFor } from "@/lib/menu/elapsed-time";
 import { POCETNA_VEZA, sledecaVeza } from "@/lib/menu/konobar/veza";
 import type { OccupancyState } from "@/lib/menu/occupancy";
 import { dospeliPodsetnici } from "@/lib/menu/reminder";
+import { DEFAULT_RESERVATION_HOLD_MIN } from "@/lib/menu/reservation-late";
+import { guestReservationCancellationsSince, newReservationArrivals, type ReservationRow } from "@/lib/menu/reservation-queue";
+import type { MenuReservationStatus } from "@/lib/menu/reservation-status";
 import { DEFAULT_PANEL_TIMING } from "@/lib/menu/thresholds";
-import { guestCancellationsSince, newArrivals, queueSummary, type QueueAction } from "@/lib/menu/waiter-queue";
+import { guestCancellationsSince, newArrivals, queueSummary, type QueueAction, type QueueFilter } from "@/lib/menu/waiter-queue";
 import { cn } from "@/lib/utils";
 import { Dugme } from "../zajednicko/dugme";
 import { MenuPovrsina } from "../zajednicko/povrsina";
@@ -40,6 +51,9 @@ import type {
   KonobarKorisnik,
   KonobarRadnje,
   KonobarRed,
+  KonobarRezIshod,
+  KonobarRezervacije,
+  KonobarRezervacijaDetalj,
   KonobarSala,
   KonobarSalaIshod,
   KonobarZahtev,
@@ -47,6 +61,9 @@ import type {
 } from "./model";
 import { PragKasnjenja } from "./prag";
 import { RadniRed } from "./radni-red/radni-red";
+import { DetaljRezervacije, type RezDetaljRadnja } from "./rezervacije/detalj-rezervacije";
+import { RezervacijeStola } from "./rezervacije/rezervacije-stola";
+import { terminTekst } from "./rezervacije/tekst";
 import { mestaSale, zahteviUZoni, filterZone } from "./sala/pogled";
 import { Sala, type SalaPrikaz } from "./sala/sala";
 import { DetaljStola } from "./sto/detalj-stola";
@@ -66,6 +83,7 @@ const POTVRDA_MS = 4000;
 /** How long a reminder keeps its row or table marked (the flash itself is shorter; reduced motion shows it still). */
 const PODSETNIK_MS = 6000;
 const PRAZNO: ReadonlySet<string> = new Set();
+const NEMA_REZERVACIJA: readonly ReservationRow[] = [];
 
 export type KonobarPrikaz = "red" | "sala";
 
@@ -103,9 +121,24 @@ export type KonobarPanelProps = {
   zvukIzlog?: { pocetno: boolean };
   /** Izlog / an account: the starting zone filter (a PIN waiter's comes from the server). */
   pocetnaZona?: string | null;
+  // K25 — reservations
+  /** undefined = not wired (the K22 queue as it was); null = loading; else the venue's reservations. */
+  rezervacije?: KonobarRezervacije | null;
+  /** The chosen reservation (its detail fills the contextual pane). */
+  izabranaRezervacijaId?: string | null;
+  onIzaberiRezervaciju?(id: string | null): void;
+  /** The chosen reservation's detail (undefined = loading, null = not available). */
+  detaljRezervacije?: KonobarRezervacijaDetalj | null;
+  /** Izlog: the filter the queue starts on ("rezervacije" shows the reservations). */
+  pocetniFilterReda?: QueueFilter;
 };
 
 type Greska = { id: string | null; tekst: string; ponovo: boolean };
+
+/** What a reservation action answered, in words (the codes are in menu-domen errors). */
+function porukaGreskeRez(ishod: Extract<KonobarRezIshod, { ok: false }>): string {
+  return (d.errors as Record<string, string>)[ishod.code] ?? t.greska.nepoznata;
+}
 
 function porukaGreske(ishod: Extract<KonobarIshod, { ok: false }>): string {
   if (ishod.code === "request/taken" && ishod.takenBy) return fmt(t.detalj.vec, { ime: ishod.takenBy });
@@ -136,6 +169,11 @@ export function KonobarPanel({
   pocetniPrikazSale,
   zvukIzlog,
   pocetnaZona,
+  rezervacije,
+  izabranaRezervacijaId = null,
+  onIzaberiRezervaciju,
+  detaljRezervacije,
+  pocetniFilterReda,
 }: KonobarPanelProps) {
   const sadaMs = useSat(pocetnoMs, { izlogOd });
   const siroko = useSiroko();
@@ -144,6 +182,7 @@ export function KonobarPanel({
   const [prikazSale, setPrikazSale] = useState<SalaPrikaz>(pocetniPrikazSale ?? "raspored");
   const [radi, setRadi] = useState<{ id: string; radnja: DetaljRadnja } | null>(null);
   const [radiZauzetost, setRadiZauzetost] = useState(false);
+  const [radiRez, setRadiRez] = useState<{ id: string; radnja: RezDetaljRadnja } | null>(null);
   const [greska, setGreska] = useState<Greska | null>(null);
   const [greskaStola, setGreskaStola] = useState<string | null>(null);
   const [najava, setNajava] = useState<{ tekst: string; vidljiva: boolean }>({ tekst: "", vidljiva: false });
@@ -156,13 +195,28 @@ export function KonobarPanel({
   const [podsetnik, setPodsetnik] = useState<{ zahtevi: ReadonlySet<string>; mesta: ReadonlySet<string>; do: number } | null>(null);
   const [offlineOd, setOfflineOd] = useState<number | null>(null);
   const prethodni = useRef<ReadonlySet<string> | null>(null);
+  const prethodneRez = useRef<ReadonlySet<string> | null>(null);
+  const prethodnoOtkazaneRez = useRef<ReadonlySet<string> | null>(null);
   const poslednjiOtvoren = useRef<string | null>(null);
+  const poslednjaRezervacija = useRef<string | null>(null);
   const poslednjeMesto = useRef<string | null>(null);
   const podsetnici = useRef<Map<string, number>>(new Map());
   const vezaRef = useRef(POCETNA_VEZA);
   const ponovi = useRef<(() => void) | null>(null);
   const offline = veza === "offline";
   const mestoId = izabranoMestoId;
+  const rezId = izabranaRezervacijaId;
+
+  // K25: the reservations. The floor, its legend and the table detail get them only when the venue takes
+  // reservations through the ScanMe form or has some to show (like the queue's filter).
+  const rezRedovi = rezervacije ? rezervacije.rows : NEMA_REZERVACIJA;
+  const rezHold = rezervacije ? rezervacije.holdMinutes : DEFAULT_RESERVATION_HOLD_MIN;
+  const rezRezim = rezervacije ? rezervacije.mode : null;
+  const prikaziRez = rezRezim === "form" || (rezervacije ? rezRedovi.length > 0 : false);
+  const rezZaSalu = useMemo(
+    () => (prikaziRez ? { redovi: rezRedovi, holdMin: rezHold } : undefined),
+    [prikaziRez, rezRedovi, rezHold],
+  );
 
   const timing = sala?.timing ?? DEFAULT_PANEL_TIMING;
   const serverZona = sala?.me.staffId ? sala.me.activeZoneId : null;
@@ -186,6 +240,37 @@ export function KonobarPanel({
     // Only a new snapshot of the queue is news; the zone filter changing is not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [red]);
+
+  // K25: a new reservation is announced politely and gets the same short sound as a new request, but NO
+  // reminder (a reservation is not urgent like a call). A guest's cancellation made while the panel is open
+  // is announced and sounds too; the strip in the queue (below) shows it either way. What was already there
+  // when the panel opened is not news.
+  useEffect(() => {
+    if (!rezervacije) return;
+    const redovi = rezervacije.rows;
+    const novi = newReservationArrivals(prethodneRez.current, redovi);
+    prethodneRez.current = new Set(redovi.map((red0) => red0.id));
+    const otkazane = new Set(redovi.filter((red0) => red0.status === "cancelled" && red0.cancelledBy === "guest").map((red0) => red0.id));
+    const prethodnoOtkazane = prethodnoOtkazaneRez.current;
+    prethodnoOtkazaneRez.current = otkazane;
+    const noveOtkazane = prethodnoOtkazane === null ? [] : redovi.filter((red0) => otkazane.has(red0.id) && !prethodnoOtkazane.has(red0.id));
+    const poslednjaNova = novi[novi.length - 1];
+    const poslednjaOtkazana = noveOtkazane[noveOtkazane.length - 1];
+    if (poslednjaNova) {
+      setNajava({
+        tekst: fmt(t.rezervacije.najava, { ime: poslednjaNova.guestName, termin: terminTekst(poslednjaNova.requestedAt, sadaMs) }),
+        vidljiva: true,
+      });
+    } else if (poslednjaOtkazana) {
+      setNajava({
+        tekst: fmt(t.rezervacije.otkazaoGost, { ime: poslednjaOtkazana.guestName, termin: terminTekst(poslednjaOtkazana.requestedAt, sadaMs) }),
+        vidljiva: true,
+      });
+    }
+    if (poslednjaNova || poslednjaOtkazana) zvuk.zvoni();
+    // Only a new snapshot of the reservations is news; the clock ticking is not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rezervacije]);
 
   // The reminder (master §8.5): once per interval for a visible request still `Novi`; one sound per tick.
   useEffect(() => {
@@ -238,6 +323,18 @@ export function KonobarPanel({
     cilj?.focus();
   }, [izabranId, mestoId]);
 
+  // Back from a reservation detail: the focus returns to the card (or the table's reservation) that was opened.
+  useEffect(() => {
+    if (rezId !== null || poslednjaRezervacija.current === null) return;
+    const id = poslednjaRezervacija.current;
+    poslednjaRezervacija.current = null;
+    const dugme = [...document.querySelectorAll<HTMLButtonElement>(`[data-rezervacija="${CSS.escape(id)}"] button`)].find(
+      (kandidat) => kandidat.offsetParent !== null,
+    );
+    const cilj = dugme ?? document.querySelector<HTMLElement>(mestoId ? "#sto-naslov" : "#radni-red-naslov");
+    cilj?.focus();
+  }, [rezId, mestoId]);
+
   // Back from a table detail: the focus returns to that table on the floor.
   useEffect(() => {
     if (mestoId !== null || poslednjeMesto.current === null) return;
@@ -261,7 +358,60 @@ export function KonobarPanel({
     setGreska(null);
     setGreskaStola(null);
     if (izabranId !== null) onIzaberi(null);
+    if (rezId !== null) onIzaberiRezervaciju?.(null);
     onIzaberiMesto?.(id);
+  }
+
+  function otvoriRez(id: string | null) {
+    if (id !== null) poslednjaRezervacija.current = id;
+    setGreska(null);
+    onIzaberiRezervaciju?.(id);
+  }
+
+  /** The status the waiter sees for a reservation (the open detail, else the list). */
+  function videniStatusRez(id: string): MenuReservationStatus | null {
+    if (detaljRezervacije && detaljRezervacije.reservation.id === id) return detaljRezervacije.reservation.status;
+    return rezRedovi.find((red0) => red0.id === id)?.status ?? null;
+  }
+
+  /** One reservation action: nothing is queued offline, an error is said in words, the answer is announced politely. */
+  async function izvrsiRez(id: string, radnja: RezDetaljRadnja, posao: () => Promise<KonobarRezIshod>, potvrdaTekst: string) {
+    if (radi || radiRez || offline) return;
+    setRadiRez({ id, radnja });
+    setGreska(null);
+    ponovi.current = null;
+    let ishod: KonobarRezIshod;
+    try {
+      ishod = await posao();
+    } catch {
+      ishod = { ok: false, code: "network" };
+    }
+    setRadiRez(null);
+    if (!ishod.ok) {
+      const mreza = ishod.code === "network";
+      ponovi.current = mreza ? () => void izvrsiRez(id, radnja, posao, potvrdaTekst) : null;
+      setGreska({ id, tekst: mreza ? t.greska.mreza : porukaGreskeRez(ishod), ponovo: mreza });
+      return;
+    }
+    setNajava({ tekst: potvrdaTekst, vidljiva: true });
+  }
+
+  const potvrdeRez = t.rezervacije.detalj.potvrde;
+  const nazivMesta = (positionId: string) => sala?.positions.find((mesto0) => mesto0.id === positionId)?.label ?? "";
+
+  /** `Stigli su` / `Gosti su stigli`: the guests arrived (the bound table, if any, stays). */
+  function gostiStigli(red0: Pick<ReservationRow, "id" | "status">) {
+    void izvrsiRez(red0.id, "stigli", () => radnje.gostiStigli(red0.id, null, red0.status), potvrdeRez.arrived);
+  }
+
+  /** `Poveži rezervaciju` from a table: an explicit choice of the waiter. */
+  function poveziRezervacijuSaStolom(red0: Pick<ReservationRow, "id" | "status">, positionId: string) {
+    void izvrsiRez(
+      red0.id,
+      "poveziSto",
+      () => radnje.poveziSto(red0.id, positionId, red0.status),
+      fmt(potvrdeRez.bound, { sto: nazivMesta(positionId) }),
+    );
   }
 
   /** "Prihvaćeno: Poziv konobara · Sto 3": the request the action was about, from the queue or the detail. */
@@ -271,7 +421,7 @@ export function KonobarPanel({
   }
 
   async function izvrsi(zahtev: Pick<KonobarZahtev, "id">, radnja: DetaljRadnja, posao: () => Promise<KonobarIshod>) {
-    if (radi || offline) return;
+    if (radi || radiRez || offline) return;
     setRadi({ id: zahtev.id, radnja });
     setGreska(null);
     ponovi.current = null;
@@ -353,6 +503,10 @@ export function KonobarPanel({
   const obavestenja = red
     ? guestCancellationsSince(red.otkazani, otvorenOd).filter((otkazan) => !zatvorena.has(otkazan.id))
     : [];
+  // K25: a guest's cancellation of a reservation stays as a strip until the waiter closes it (K24-15).
+  const obavestenjaRez = rezervacije
+    ? guestReservationCancellationsSince(rezervacije.rows, otvorenOd).filter((otkazana) => !zatvorena.has(otkazana.id))
+    : [];
   const prikazOd = poslednjaVezaMs ?? offlineOd;
   const offlineTraka = offline ? <OfflineTraka vreme={prikazOd !== null ? clockTime(prikazOd) : undefined} /> : null;
   const greskaTraka = (prikazi: boolean) =>
@@ -384,10 +538,13 @@ export function KonobarPanel({
   );
   const izabranoMesto = mestoId !== null ? (svaMesta.find((mesto) => mesto.id === mestoId) ?? null) : null;
   const zahteviMesta = mestoId !== null && red ? red.zahtevi.filter((zahtev) => zahtev.positionId === mestoId) : [];
-  const istaknutoMesto = mestoId ?? (izabranId !== null && detalj ? detalj.request.positionId : null);
+  const istaknutoMesto =
+    mestoId ??
+    (izabranId !== null && detalj ? detalj.request.positionId : null) ??
+    (rezId !== null && detaljRezervacije ? detaljRezervacije.reservation.positionId : null);
   const aktivniPodsetnik = podsetnik && sadaMs < podsetnik.do ? podsetnik : null;
   const modulZauzetosti = Boolean(sala?.occupancyEnabled && zauzetost && !zauzetost.off);
-  const kontekst = izabranId !== null ? "zahtev" : mestoId !== null ? "sto" : "red";
+  const kontekst = izabranId !== null ? "zahtev" : rezId !== null ? "rezervacija" : mestoId !== null ? "sto" : "red";
   const panoVidljiv = prikaz === "red" || kontekst !== "red";
 
   return (
@@ -443,6 +600,7 @@ export function KonobarPanel({
               podsetnik={aktivniPodsetnik?.mesta ?? PRAZNO}
               zonaNaziv={zonaNaziv}
               napomena={vanZoneTraka}
+              rezervacije={rezZaSalu}
             />
           </div>
 
@@ -478,6 +636,65 @@ export function KonobarPanel({
                   }
                 />
               </div>
+            ) : kontekst === "rezervacija" && rezId !== null ? (
+              <div className="grid gap-4">
+                {greska?.ponovo && greska.id === rezId ? greskaTraka(true) : null}
+                <DetaljRezervacije
+                  key={rezId}
+                  detalj={detaljRezervacije}
+                  sala={sala}
+                  sadaMs={sadaMs}
+                  holdMin={rezHold}
+                  zauzetostUkljucena={modulZauzetosti}
+                  radi={radiRez && radiRez.id === rezId ? radiRez.radnja : null}
+                  greska={greska && greska.id === rezId && !greska.ponovo ? greska.tekst : null}
+                  radnjeIskljucene={offline}
+                  razlogIskljucenja={offline ? t.detalj.offline : null}
+                  onNazad={() => otvoriRez(null)}
+                  onPrihvati={() => {
+                    const status = videniStatusRez(rezId);
+                    if (status) void izvrsiRez(rezId, "prihvati", () => radnje.prihvatiRezervaciju(rezId, status), potvrdeRez.accepted);
+                  }}
+                  onOdbij={() => {
+                    const status = videniStatusRez(rezId);
+                    if (status) void izvrsiRez(rezId, "odbij", () => radnje.odbijRezervaciju(rezId, status), potvrdeRez.declined);
+                  }}
+                  onPredlozi={(proposedAt, poruka) => {
+                    const status = videniStatusRez(rezId);
+                    if (status) {
+                      void izvrsiRez(rezId, "predlozi", () => radnje.predloziIzmenu(rezId, proposedAt, poruka, status), potvrdeRez.change_proposed);
+                    }
+                  }}
+                  onGostPrihvata={() => {
+                    const status = videniStatusRez(rezId);
+                    if (status) void izvrsiRez(rezId, "gostPrihvata", () => radnje.gostPrihvataPredlog(rezId, status), potvrdeRez.accepted);
+                  }}
+                  onOtkazi={() => {
+                    const status = videniStatusRez(rezId);
+                    if (status) void izvrsiRez(rezId, "otkazi", () => radnje.otkaziRezervaciju(rezId, status), potvrdeRez.cancelled);
+                  }}
+                  onPoveziSto={(positionId) => {
+                    const status = videniStatusRez(rezId);
+                    if (!status) return;
+                    void izvrsiRez(
+                      rezId,
+                      positionId === null ? "ukloniSto" : "poveziSto",
+                      () => radnje.poveziSto(rezId, positionId, status),
+                      positionId === null ? potvrdeRez.unbound : fmt(potvrdeRez.bound, { sto: nazivMesta(positionId) }),
+                    );
+                  }}
+                  onGostiStigli={() => {
+                    const status = videniStatusRez(rezId);
+                    if (status) gostiStigli({ id: rezId, status });
+                  }}
+                  onOtvoriDrugu={(id) => otvoriRez(id)}
+                  nazadNa={
+                    izabranoMesto
+                      ? { oznaka: izabranoMesto.label, citac: fmt(t.sto.nazadNaStoCitac, { sto: izabranoMesto.label }) }
+                      : undefined
+                  }
+                />
+              </div>
             ) : kontekst === "sto" ? (
               sala === undefined ? (
                 <UcitavanjeStanje oblik="forma" redova={3} />
@@ -502,6 +719,22 @@ export function KonobarPanel({
                     onRadnja={naRadnju}
                     onOtvoriZahtev={(id) => otvori(id)}
                     onZauzetost={(stanje) => mestoId !== null && void postaviZauzetost(mestoId, stanje)}
+                    rezervacija={
+                      prikaziRez && mestoId !== null ? (
+                        <RezervacijeStola
+                          mestoId={mestoId}
+                          redovi={rezRedovi}
+                          sadaMs={sadaMs}
+                          holdMin={rezHold}
+                          radiId={radiRez?.id ?? null}
+                          radnjeIskljucene={offline}
+                          razlogId={offline ? "sto-razlog" : undefined}
+                          onOtvori={(id) => otvoriRez(id)}
+                          onStigli={gostiStigli}
+                          onPovezi={(red0) => poveziRezervacijuSaStolom(red0, mestoId)}
+                        />
+                      ) : undefined
+                    }
                   />
                 </div>
               )
@@ -516,6 +749,12 @@ export function KonobarPanel({
                 obavestenja={obavestenja}
                 onZatvoriObavestenje={(id) => setZatvorena((staro) => new Set([...staro, id]))}
                 podsetnik={aktivniPodsetnik?.zahtevi ?? PRAZNO}
+                pocetniFilter={pocetniFilterReda}
+                rezervacije={rezervacije}
+                radiRezId={radiRez?.id ?? null}
+                onOtvoriRezervaciju={(id) => otvoriRez(id)}
+                onRezervacijaStigli={gostiStigli}
+                obavestenjaRez={obavestenjaRez}
                 traka={
                   offlineTraka || greska || vanZoneTraka ? (
                     <div className="grid gap-2">
@@ -551,6 +790,7 @@ export function KonobarPanel({
                   onClick={() => {
                     setPrikaz(kljuc);
                     if (izabranId !== null) otvori(null);
+                    if (rezId !== null) otvoriRez(null);
                     if (mestoId !== null) onIzaberiMesto?.(null);
                   }}
                   className={cn(

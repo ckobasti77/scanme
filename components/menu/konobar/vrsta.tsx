@@ -7,10 +7,13 @@
 
 import {
   Bell,
+  CalendarCheck,
   CalendarClock,
+  CalendarSync,
   CircleCheck,
   CircleDot,
   CircleSlash,
+  CircleX,
   ConciergeBell,
   Hand,
   ReceiptText,
@@ -21,8 +24,9 @@ import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
 import type { MenuRequestKind, MenuRequestStatus } from "@/lib/menu/request-status";
 import { REQUEST_STATUS_TONE } from "@/lib/menu/request-status";
+import type { MenuReservationStatus } from "@/lib/menu/reservation-status";
 import { cn } from "@/lib/utils";
-import { StatusOznaka } from "../zajednicko/status-oznaka";
+import { StatusOznaka, type StatusTon } from "../zajednicko/status-oznaka";
 import type { KonobarZahtev } from "./model";
 
 const d = menuDomenSr;
@@ -46,6 +50,16 @@ const STATUS_IKONICA: Record<MenuRequestStatus, LucideIcon> = {
   accepted: Hand,
   done: CircleCheck,
   cancelled: CircleSlash,
+};
+
+// K25 — a reservation's status: always an icon AND a word (master §10.4), never colour alone.
+const STATUS_REZERVACIJE: Record<MenuReservationStatus, { ikonica: LucideIcon; ton: StatusTon }> = {
+  new: { ikonica: CircleDot, ton: "info" },
+  change_proposed: { ikonica: CalendarSync, ton: "neutralno" },
+  accepted: { ikonica: CalendarCheck, ton: "uspeh" },
+  declined: { ikonica: CircleX, ton: "neutralno" },
+  arrived: { ikonica: CircleCheck, ton: "uspeh" },
+  cancelled: { ikonica: CircleSlash, ton: "neutralno" },
 };
 
 /** The kind's icon in its soft circle (decorative: the word stands next to it). */
@@ -102,6 +116,22 @@ export function StatusZahteva({
       className="text-sm font-bold"
     >
       {ko ? `${d.requestStatuses[zahtev.status]} · ${ko}` : d.requestStatuses[zahtev.status]}
+    </StatusOznaka>
+  );
+}
+
+/** K25: the status of a reservation in words with its icon ("Nova", "Prihvaćena", "Predložena izmena"…). */
+export function StatusRezervacije({
+  status,
+  velicina = "standardna",
+}: {
+  status: MenuReservationStatus;
+  velicina?: "standardna" | "mala";
+}) {
+  const { ikonica, ton } = STATUS_REZERVACIJE[status];
+  return (
+    <StatusOznaka ton={ton} ikonica={ikonica} velicina={velicina} className="text-sm font-bold">
+      {d.reservationStatuses[status]}
     </StatusOznaka>
   );
 }

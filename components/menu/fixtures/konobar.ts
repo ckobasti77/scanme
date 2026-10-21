@@ -19,16 +19,20 @@ import type {
   KonobarDetaljMesta,
   KonobarKorisnik,
   KonobarOtkazan,
+  KonobarRezervacija,
+  KonobarRezervacije,
+  KonobarRezervacijaDetalj,
   KonobarSala,
   KonobarZahtev,
   KonobarZauzetost,
 } from "@/components/menu/konobar/model";
+import type { ReservationMode } from "@/lib/menu/reservation-config";
 import { normalizeArticleName } from "@/lib/menu/text";
 import { DEFAULT_PANEL_TIMING } from "@/lib/menu/thresholds";
 import { IZLOG_SADA, fixtureVenue } from "./lokal";
 import { fixtureLokalPodaci } from "./lokal-qr";
-import { fixtureRequests, fixtureTeam } from "./operativa";
-import type { IzlogRequest } from "./tipovi";
+import { fixtureRequests, fixtureReservations, fixtureTeam } from "./operativa";
+import type { IzlogRequest, IzlogReservation } from "./tipovi";
 
 /** The PIN Milan types in the izlog (the izlog's own invented PIN; never a real one). */
 export const KONOBAR_IZLOG_PIN = "246";
@@ -245,4 +249,98 @@ export function fixtureSale(
     (kartice[mesto] ??= { cards: [] }).cards.push({ label: kartica.label });
   }
   return { sala, zauzetost, kartice };
+}
+
+// -----------------------------------------------------------------------------
+// K25 — reservations
+// -----------------------------------------------------------------------------
+
+export type RezervacijeFixture = {
+  /** What the panel's one reservations subscription answers (declined ones are not in the list). */
+  rezervacije: KonobarRezervacije;
+  /** Every reservation's detail by id (contact, note, who decided), the declined one included. */
+  detalji: Record<string, KonobarRezervacijaDetalj>;
+};
+
+const MINUT = 60_000;
+/** The venue's hold after a reservation's time (minutes) in the izlog. */
+export const REZERVACIJE_HOLD_MIN = 15;
+
+/** The other reservations of the same table that day (accepted or arrived), earliest first (convex/menuReservations.ts detail). */
+export function rezervacijeIstogStola(redovi: readonly KonobarRezervacija[], red: Pick<KonobarRezervacija, "id" | "positionId" | "requestedAt">): KonobarRezervacija[] {
+  if (red.positionId === null) return [];
+  return redovi
+    .filter(
+      (drugi) =>
+        drugi.id !== red.id &&
+        drugi.positionId === red.positionId &&
+        (drugi.status === "accepted" || drugi.status === "arrived") &&
+        Math.abs(drugi.requestedAt - red.requestedAt) < 12 * 60 * MINUT,
+    )
+    .sort((a, b) => a.requestedAt - b.requestedAt);
+}
+
+/**
+ * The reservations of the invented "Demo restoran" as the waiter Milan sees them
+ * at 18:27 (K07's fixtureReservations): a new one tonight at 19:00 (rv_01), an
+ * accepted one at 20:00 bound to Sto 6 (rv_02), a proposal (rv_03), a declined one
+ * (rv_04, only in the detail), guests who arrived at 18:04 (rv_05), one the guest
+ * cancelled (rv_06), guests 25 minutes late on Sto 7 with a 15-minute hold (rv_07)
+ * and tomorrow at 13:00 on Sto 2 (rv_08). `otkazana`: the guest cancelled rv_06
+ * two minutes ago (the strip shows); otherwise 40 minutes ago (only in the list).
+ */
+export function fixtureKonobarRezervacije(
+  opcije: { otkazana?: boolean; prazno?: boolean; nacin?: ReservationMode } = {},
+): RezervacijeFixture {
+  const venue = fixtureVenue("restaurant");
+  const tim = fixtureTeam();
+  const osoblje = tim.staff[0].displayName;
+  const menadzer = tim.staff[1].displayName;
+  const pozicija = new Map(venue.positions.map((position) => [position.key, position]));
+  const izvori: IzlogReservation[] = opcije.prazno ? [] : fixtureReservations(venue);
+
+  const uRed = (izvor: IzlogReservation): KonobarRezervacija => {
+    const otkazanaPre = izvor.id === "rv_06" && opcije.otkazana === true ? IZLOG_SADA - 2 * MINUT : izvor.cancelledAt;
+    return {
+      id: izvor.id,
+      status: izvor.status,
+      guestName: izvor.guestName,
+      partySize: izvor.partySize,
+      requestedAt: izvor.requestedAt,
+      createdAt: izvor.createdAt,
+      positionId: izvor.positionKey,
+      positionLabel: izvor.positionKey ? (pozicija.get(izvor.positionKey)?.label ?? null) : null,
+      hasNote: izvor.note !== null,
+      proposedAt: izvor.proposedAt,
+      arrivedAt: izvor.status === "arrived" ? izvor.requestedAt + 4 * MINUT : null,
+      cancelledAt: otkazanaPre,
+      cancelledBy: izvor.cancelledBy,
+    };
+  };
+
+  const redovi = izvori.map(uRed);
+  const detalji: Record<string, KonobarRezervacijaDetalj> = {};
+  for (const izvor of izvori) {
+    const red = redovi.find((kandidat) => kandidat.id === izvor.id) as KonobarRezervacija;
+    detalji[izvor.id] = {
+      reservation: {
+        ...red,
+        contactEmail: izvor.contactEmail,
+        contactPhone: izvor.contactPhone,
+        note: izvor.note,
+        proposalNote: izvor.status === "change_proposed" ? "Imamo sto za vas u 20:15." : null,
+        decidedAt: izvor.status === "new" ? null : izvor.createdAt + 12 * MINUT,
+        decidedBy: izvor.status === "new" ? null : menadzer,
+        boundBy: izvor.positionKey ? osoblje : null,
+        arrivedBy: izvor.status === "arrived" ? osoblje : null,
+        cancelledByName: null,
+      },
+      sameTable: rezervacijeIstogStola(redovi, red),
+    };
+  }
+
+  // The list as the server answers it: new, proposed, accepted, arrived, then the cancelled ones (a declined one is not listed).
+  const redosled = ["new", "change_proposed", "accepted", "arrived", "cancelled"] as const;
+  const uListi = redosled.flatMap((status) => redovi.filter((red) => red.status === status));
+  return { rezervacije: { rows: uListi, skraceno: false, mode: opcije.nacin ?? "form", holdMinutes: REZERVACIJE_HOLD_MIN }, detalji };
 }

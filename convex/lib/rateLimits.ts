@@ -1,4 +1,4 @@
-import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
+import { HOUR, MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { components } from "../_generated/api";
 
 // Abuse throttling for the new public Memories/cards surfaces (RFC-001 §2.9).
@@ -108,6 +108,20 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // Završi, Otkaži. A busy waiter taps a few times a minute; 60/min only
   // stops a stuck client from hammering the requests.
   menuStaffAction: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 60 },
+  // ScanMe Menu V1 (K25, plan docs/meni/planovi/K24.md §2.1) — the guest's
+  // reservation form (menuReservations.submit) and the cancel link. Numbers
+  // are a proposal to the owner (BLOCKED K24/5).
+  // menuReservationIp — per IP hash: a person books a table, maybe corrects
+  // it once; 5 in 10 minutes from one address stops a script, not a family
+  // (a whole dining room behind one NAT does not book tables at once).
+  menuReservationIp: { kind: "token bucket", rate: 5, period: 10 * MINUTE, capacity: 5 },
+  // menuReservationDevice — per guest device in the venue: 3 an hour.
+  menuReservationDevice: { kind: "token bucket", rate: 3, period: HOUR, capacity: 3 },
+  // menuReservationService — per venue: 60 requests an hour is far above a
+  // busy restaurant's real demand and keeps a flood off the waiters' screens.
+  menuReservationService: { kind: "token bucket", rate: 60, period: HOUR, capacity: 60 },
+  // menuReservationCancel — per IP hash, the cancel link and Moji zahtevi.
+  menuReservationCancel: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 10 },
   // TASK-66 (RFC-004 §2.9): the two GUEST ACTIONS. Deliberately keyed
   // differently from each other, and from the per-IP hop buckets above —
   // §2.9 rejects a per-IP action limit outright, because a whole hall sits

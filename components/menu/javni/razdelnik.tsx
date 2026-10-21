@@ -29,6 +29,7 @@ export function JavniRazdelnik({
   ugradjen = false,
   jezikLinkovi,
   dodatak = null,
+  rezervacija,
 }: {
   view: JavniRazdelnikView;
   izgled: JavniIzgled;
@@ -39,6 +40,8 @@ export function JavniRazdelnik({
   jezikLinkovi?: Readonly<Record<string, string>>;
   /** K21: the guest actions of a scanned position (a client island), below the pages. */
   dodatak?: ReactNode;
+  /** K25: the way into reservations (a server-rendered card), right before the footer. */
+  rezervacija?: ReactNode;
 }) {
   const meni = `/${view.lokal.slug}/meni`;
   const linkovi =
@@ -51,6 +54,7 @@ export function JavniRazdelnik({
       jezik={view.jezik}
       ugradjen={ugradjen}
       className={styles.razdelnik}
+      rezervacija={rezervacija}
       alati={ugradjen || view.jezici.length <= 1 ? null : <JezikIzbor jezik={view.jezik} jezici={view.jezici} linkovi={linkovi} />}
     >
       {view.stranice.length === 0 ? (

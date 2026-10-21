@@ -76,6 +76,17 @@ export const MENU_AUDIT_ACTIONS = [
   // OWN active zone is not audited; re-assigning someone else is.
   /** The Owner, a Manager or a panel manager set another staff member's active zone. */
   "staff.zone_assigned",
+  // K25 — reservations (master §11). Accepting, proposing a change, the table
+  // and the arrival are recorded on the reservation itself (who and when, as
+  // K19-16); a decline, a cancellation and the venue's switch are audited.
+  /** Staff declined a reservation request. */
+  "reservation.declined",
+  /** A reservation was cancelled by the guest (link or Moji zahtevi) or by the staff. */
+  "reservation.cancelled",
+  /** The venue chose the ScanMe form, its own system or no reservations (Funkcionalnosti). */
+  "reservation.mode_changed",
+  /** The venue's working hours changed (Podešavanja). */
+  "settings.working_hours_changed",
 ] as const;
 
 export type MenuAuditAction = (typeof MENU_AUDIT_ACTIONS)[number];

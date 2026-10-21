@@ -86,6 +86,19 @@ export const MENU_MAX_CARDS_ON_POSITION = 10;
 /** K23 — QR links of one position read to find them (old, inactive links are skipped, not counted). */
 export const MENU_MAX_QR_LINKS_ON_POSITION = 100;
 
+/** K25 — open reservation requests (new, proposed, accepted and still ahead) of one guest device in one venue. */
+export const MENU_MAX_OPEN_RESERVATIONS_PER_DEVICE = 3;
+/** K25 — the guest's own reservations "Moji zahtevi" lists (newest first). */
+export const MENU_MAX_MY_RESERVATIONS = 10;
+/** K25 — reservations of ONE status the waiter panel reads (new, proposed, accepted in the window, arrived). */
+export const MENU_MAX_PANEL_RESERVATIONS = 200;
+/** K25 — the last cancelled reservations the waiter panel reads (the "Gost je otkazao" strip). */
+export const MENU_MAX_RECENT_CANCELLED_RESERVATIONS = 20;
+/** K25 — the window of accepted reservations the waiter panel subscribes to: from `fromMs` (12 h back) for 60 h. */
+export const MENU_RESERVATION_PANEL_WINDOW_MS = 60 * 60 * 60 * 1000;
+/** K25 — other reservations of the same table read in a reservation detail. */
+export const MENU_MAX_RESERVATIONS_ON_POSITION = 20;
+
 /** Text lengths, in characters after whitespace cleaning. */
 export const MENU_TEXT = {
   pageName: 80,
@@ -109,6 +122,8 @@ export const MENU_TEXT = {
   cartLineNote: 280,
   // K22 — the name of a staff member as the waiter panel shows it ("Ana", "Marko I.").
   staffName: 40,
+  // K25 — the message of a proposed change of a reservation ("Imamo sto u 21:00").
+  reservationProposalNote: 300,
 } as const;
 
 /** Whole dinars; inclusive upper bound of any single price. */

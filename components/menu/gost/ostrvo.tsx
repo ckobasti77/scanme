@@ -5,14 +5,16 @@
 // next/dynamic ONLY when the page knows the guest's position (a scanned
 // table or room card); a plain menu link never downloads it (the K14 JS
 // budget). Writes go through the page's Server Actions (the HttpOnly guest
-// cookies stay on the server); "Moji zahtevi" is one live Convex
-// subscription read with the device's venue-scoped key, which can read the
-// list but neither send nor cancel anything.
+// cookies stay on the server); "Moji zahtevi" is a live Convex subscription
+// read with the device's venue-scoped key, which can read the list but neither
+// send nor cancel anything. K25: on that page only, the same key also reads the
+// phone's reservations (convex/menuReservations.ts `mine`).
 
 import { useQuery } from "convex/react";
 import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import type { GuestActionResult, GuestCancelResult } from "@/lib/menu/http/guest-actions";
+import type { ReservationCancelResult } from "@/lib/menu/http/reservation";
 import type { MenuPaymentPreference } from "@/lib/menu/request-status";
 import { useMinutniSat } from "../javni/use-minutni-sat";
 import { GostPanel } from "./gost-panel";
@@ -68,15 +70,20 @@ export function MojiZahteviOstrvo({
   akcije,
   meniHref,
   sadaMs,
+  otkaziRezervaciju,
 }: {
   slug: string;
   citanje: string | null;
   akcije: GostAkcije;
   meniHref: string;
   sadaMs: number;
+  /** K25: cancelling a reservation of this phone (app/[slug]/meni/_lib/radnje-rezervacije.ts). */
+  otkaziRezervaciju?: (slug: string, reservationId: string) => Promise<ReservationCancelResult>;
 }) {
   const radnje = useRadnje(slug, akcije);
   const zahtevi = useMojiZahtevi(slug, citanje);
+  // K25: the reservations of this phone, with the same read key (only on this page).
+  const rezervacije = useQuery(api.menuReservations.mine, citanje ? { slug, deviceKey: citanje } : "skip");
   const online = useVeza();
   const sada = useMinutniSat(sadaMs, true);
   return (
@@ -86,6 +93,8 @@ export function MojiZahteviOstrvo({
       online={online}
       meniHref={meniHref}
       onOtkazi={radnje.otkazi}
+      rezervacije={rezervacije}
+      onOtkaziRezervaciju={otkaziRezervaciju ? (reservationId) => otkaziRezervaciju(slug, reservationId) : undefined}
     />
   );
 }

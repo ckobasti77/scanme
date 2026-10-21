@@ -8,6 +8,11 @@
 //   ?uloga=vlasnik|menadzer|urednik|osoblje|admin  → what that role sees (osoblje: no panel)
 //   ?plan=standard|premium                      → Premium lines and the Premium badge
 //   ?stanje=ucitava|prijava|neaktivno|bez-pristupa → whole-screen states of the shell
+//   ?sekcija=funkcionalnosti[&rezervacije=forma|eksterni|iskljuceno]
+//                                               → K25: the reservation choice above the "u pripremi" card
+//                                                 (default: the ScanMe form, or off without working hours)
+//   ?sekcija=podesavanja                        → K25: Radno vreme and Zadržavanje rezervacije above it
+//   ?radno-vreme=prazno                         → K25: no working hours yet (the ScanMe form is locked)
 //   ?sekcija=primitivi[&fioka=otvorena]         → every primitive in every state (K07)
 //   ?tema=svetla|tamna                          → forces the app theme while open
 

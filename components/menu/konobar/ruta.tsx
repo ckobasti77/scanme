@@ -12,17 +12,24 @@
 // K23 adds, still per venue (plan K19-17): the static floor (`floor`), the
 // occupancy only when the venue uses that module, and the cards of the open
 // table only while a table is open (`positionDetail`).
+//
+// K25 adds the reservations (plan K24-13): ONE more subscription per device,
+// `menuReservations.forPanel`, with `fromMs` from the device (the start of the
+// current Belgrade hour minus 12 h, so the argument changes once an hour), and
+// the detail only while a reservation is open (`menuReservations.detail`).
 
 import { useConvexConnectionState, useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { StaffSessionBody } from "@/lib/menu/http/staff-session";
 import type { MenuRequestStatus } from "@/lib/menu/request-status";
+import type { MenuReservationStatus } from "@/lib/menu/reservation-status";
 import { useVeza } from "../gost/use-veza";
-import type { KonobarIshod, KonobarRadnje, KonobarSalaIshod, PinIshod } from "./model";
+import type { KonobarIshod, KonobarRadnje, KonobarRezervacije, KonobarRezIshod, KonobarSalaIshod, PinIshod } from "./model";
 import { KonobarPanel } from "./panel";
 import { PinEkran } from "./pin/pin-ekran";
+import { msDoSledecegSata, okvirOd } from "./rezervacije/okvir-vremena";
 
 export type KonobarRutaProps = {
   slug: string;
@@ -43,8 +50,23 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
   const [nalogom, setNalogom] = useState(false);
   const [izabranId, setIzabranId] = useState<string | null>(null);
   const [mestoId, setMestoId] = useState<string | null>(null);
+  const [rezervacijaId, setRezervacijaId] = useState<string | null>(null);
   const [odjavljuje, setOdjavljuje] = useState(false);
   const [bioPrijavljen, setBioPrijavljen] = useState(pocetniToken !== null);
+  // The reservations' time window moves once an hour (the query never reads the clock).
+  const [okvirMs, setOkvirMs] = useState(() => okvirOd(pocetnoMs));
+  useEffect(() => {
+    let tajmer: ReturnType<typeof setTimeout> | undefined;
+    const pomeri = () => {
+      const sada = Date.now();
+      setOkvirMs(okvirOd(sada));
+      tajmer = setTimeout(pomeri, msDoSledecegSata(sada) + 50);
+    };
+    tajmer = setTimeout(pomeri, 0);
+    return () => {
+      if (tajmer !== undefined) clearTimeout(tajmer);
+    };
+  }, []);
 
   const prijava = token !== null ? { slug, panelCode, sessionToken: token } : nalogom ? { slug, panelCode } : null;
   const me = useQuery(api.menuWaiter.me, prijava ?? "skip");
@@ -61,6 +83,26 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
     api.menuWaiter.positionDetail,
     prijavljen && prijava && mestoId ? { ...prijava, positionId: mestoId as Id<"menuPositions"> } : "skip",
   );
+  const rezervacijeSirovo = useQuery(api.menuReservations.forPanel, prijavljen && prijava ? { ...prijava, fromMs: okvirMs } : "skip");
+  const detaljRezervacije = useQuery(
+    api.menuReservations.detail,
+    prijavljen && prijava && rezervacijaId ? { ...prijava, reservationId: rezervacijaId as Id<"menuReservations"> } : "skip",
+  );
+  // null while loading (no filter yet); an empty "off" venue when the server has nothing for this device.
+  const rezervacije = useMemo<KonobarRezervacije | null>(
+    () =>
+      rezervacijeSirovo === undefined
+        ? null
+        : rezervacijeSirovo === null
+          ? { rows: [], skraceno: false, mode: "off", holdMinutes: 15 }
+          : {
+              rows: rezervacijeSirovo.rows,
+              skraceno: rezervacijeSirovo.truncated,
+              mode: rezervacijeSirovo.mode,
+              holdMinutes: rezervacijeSirovo.holdMinutes,
+            },
+    [rezervacijeSirovo],
+  );
 
   const preuzmi = useMutation(api.menuWaiter.accept);
   const zavrsi = useMutation(api.menuWaiter.complete);
@@ -70,6 +112,13 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
   const zauzmi = useMutation(api.menuWaiter.setOccupancy);
   const mojaZona = useMutation(api.menuWaiter.setMyZone);
   const zonaOsoblja = useMutation(api.menuWaiter.setStaffZone);
+  const prihvatiRez = useMutation(api.menuReservations.accept);
+  const odbijRez = useMutation(api.menuReservations.decline);
+  const predloziRez = useMutation(api.menuReservations.proposeChange);
+  const gostPrihvataRez = useMutation(api.menuReservations.acceptProposal);
+  const otkaziRez = useMutation(api.menuReservations.cancelByStaff);
+  const poveziRez = useMutation(api.menuReservations.bindPosition);
+  const stigliRez = useMutation(api.menuReservations.markArrived);
 
   const naMrezi = useVeza();
   const konekcija = useConvexConnectionState();
@@ -93,6 +142,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
       setNalogom(false);
       setIzabranId(null);
       setMestoId(null);
+      setRezervacijaId(null);
       setToken(telo.sessionToken);
       setBioPrijavljen(true);
       return { ok: true };
@@ -128,6 +178,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
       setNalogom(false);
       setIzabranId(null);
       setMestoId(null);
+      setRezervacijaId(null);
       return;
     }
     setOdjavljuje(true);
@@ -144,6 +195,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
     setToken(null);
     setIzabranId(null);
     setMestoId(null);
+    setRezervacijaId(null);
     setBioPrijavljen(false);
   }
 
@@ -164,6 +216,37 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
         staffId: staffId as Id<"menuStaff">,
         zoneId: zoneId as Id<"menuZones"> | null,
       })) as KonobarSalaIshod,
+    // K25 — every reservation action carries the status the waiter saw; the server writes nothing when it moved.
+    prihvatiRezervaciju: async (id, ocekivani) =>
+      (await prihvatiRez({ ...prijavaArgs, reservationId: id as Id<"menuReservations">, expectedStatus: ocekivani })) as KonobarRezIshod,
+    odbijRezervaciju: async (id, ocekivani) =>
+      (await odbijRez({ ...prijavaArgs, reservationId: id as Id<"menuReservations">, expectedStatus: ocekivani })) as KonobarRezIshod,
+    predloziIzmenu: async (id, proposedAt, poruka, ocekivani: MenuReservationStatus) =>
+      (await predloziRez({
+        ...prijavaArgs,
+        reservationId: id as Id<"menuReservations">,
+        expectedStatus: ocekivani,
+        proposedAt,
+        ...(poruka ? { proposalNote: poruka } : {}),
+      })) as KonobarRezIshod,
+    gostPrihvataPredlog: async (id, ocekivani) =>
+      (await gostPrihvataRez({ ...prijavaArgs, reservationId: id as Id<"menuReservations">, expectedStatus: ocekivani })) as KonobarRezIshod,
+    otkaziRezervaciju: async (id, ocekivani) =>
+      (await otkaziRez({ ...prijavaArgs, reservationId: id as Id<"menuReservations">, expectedStatus: ocekivani })) as KonobarRezIshod,
+    poveziSto: async (id, positionId, ocekivani) =>
+      (await poveziRez({
+        ...prijavaArgs,
+        reservationId: id as Id<"menuReservations">,
+        expectedStatus: ocekivani,
+        positionId: positionId as Id<"menuPositions"> | null,
+      })) as KonobarRezIshod,
+    gostiStigli: async (id, positionId, ocekivani) =>
+      (await stigliRez({
+        ...prijavaArgs,
+        reservationId: id as Id<"menuReservations">,
+        expectedStatus: ocekivani,
+        ...(positionId ? { positionId: positionId as Id<"menuPositions"> } : {}),
+      })) as KonobarRezIshod,
   };
 
   if (!prijavljen || !me) {
@@ -205,6 +288,10 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
       izabranoMestoId={mestoId}
       onIzaberiMesto={setMestoId}
       detaljMesta={detaljMesta}
+      rezervacije={rezervacije}
+      izabranaRezervacijaId={rezervacijaId}
+      onIzaberiRezervaciju={setRezervacijaId}
+      detaljRezervacije={detaljRezervacije}
     />
   );
 }

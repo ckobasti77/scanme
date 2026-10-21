@@ -16,6 +16,8 @@ import { clockTime, elapsedSeconds } from "@/lib/menu/elapsed-time";
 import { compareLabels } from "@/lib/menu/floor-layout";
 import type { LokalPozicija, LokalZona } from "@/lib/menu/lokal/model";
 import { occupancyView, type OccupancyView } from "@/lib/menu/occupancy";
+import { reservationTiming } from "@/lib/menu/reservation-late";
+import type { TableReservation } from "@/lib/menu/reservation-queue";
 import {
   activeKinds,
   effectiveZoneFilter,
@@ -26,10 +28,20 @@ import {
   visibleInZone,
   type TableSummary,
 } from "@/lib/menu/table-summary";
-import type { KonobarMesto, KonobarSala, KonobarZahtev, KonobarZauzetost } from "../model";
+import type { KonobarMesto, KonobarRezervacija, KonobarSala, KonobarZahtev, KonobarZauzetost } from "../model";
+import { gostiTekst, terminTekst } from "../rezervacije/tekst";
 import { trajanjeZaCitac } from "../vreme";
 
 const t = menuKonobarSr;
+
+/** K25: the accepted reservation a table shows (from 120 min before its time until the guests arrive or it is cancelled). */
+export type SalaRezervacija = {
+  row: KonobarRezervacija;
+  /** More accepted reservations of the table later in the window. */
+  more: number;
+  /** How long the venue holds the table after the time (minutes). */
+  holdMin: number;
+};
 
 export type SalaMesto = KonobarMesto & {
   zoneName: string | null;
@@ -38,6 +50,8 @@ export type SalaMesto = KonobarMesto & {
   occupancy: OccupancyView;
   /** Who set the state and when (only with the module and a marked table). */
   occupancyMeta: { updatedAt: number; updatedBy: string | null } | null;
+  /** K25: the bound reservation the table shows, if any (never makes the table "free" or "occupied"). */
+  rezervacija?: SalaRezervacija | null;
 };
 
 /** The zone of every position of the floor (null = "Bez zone"). */
@@ -89,12 +103,15 @@ export function mestaSale({
   zauzetost,
   filterZoneId = null,
   pretraga = "",
+  rezervacije,
 }: {
   sala: KonobarSala;
   zahtevi: readonly KonobarZahtev[];
   zauzetost?: KonobarZauzetost;
   filterZoneId?: string | null;
   pretraga?: string;
+  /** K25: the reservation each table shows (lib/menu/reservation-queue.ts reservationsByTable) and the venue's hold. */
+  rezervacije?: { poStolu: ReadonlyMap<string, TableReservation<KonobarRezervacija>>; holdMin: number };
 }): SalaMesto[] {
   const filter = filterZone(sala, filterZoneId);
   const zone = new Map(sala.zones.map((zona) => [zona.id, zona.name]));
@@ -106,12 +123,14 @@ export function mestaSale({
     .map((mesto): SalaMesto => {
       const zoneName = mesto.zoneId ? (zone.get(mesto.zoneId) ?? null) : null;
       const stanje = modulUkljucen ? stanja.get(mesto.id) : undefined;
+      const vezana = rezervacije?.poStolu.get(mesto.id);
       return {
         ...mesto,
         zoneName,
         summary: tableSummaryOf(sazeci, mesto.id),
         occupancy: occupancyView(modulUkljucen, stanje?.state ?? null),
         occupancyMeta: stanje ? { updatedAt: stanje.updatedAt, updatedBy: stanje.updatedBy } : null,
+        ...(rezervacije ? { rezervacija: vezana ? { row: vezana.row, more: vezana.more, holdMin: rezervacije.holdMin } : null } : {}),
       };
     })
     .filter((mesto) => tableMatches(mesto.label, mesto.zoneName, pretraga))
@@ -145,6 +164,21 @@ export function sedistaTekst(seats: number | null): string | null {
 }
 
 /**
+ * The reservation of a table as a sentence: who, how many, when, the lateness
+ * once the term has come (a neutral "kasni 3 min", then a red "kasni 25 min" after the
+ * venue's hold) and how many more follow.
+ */
+export function opisRezervacijeStola(rezervacija: SalaRezervacija, sadaMs: number): string {
+  const { row, more, holdMin } = rezervacija;
+  const r = t.rezervacije;
+  let opis = fmt(r.znackaCitac, { ime: row.guestName, gosti: gostiTekst(row.partySize), termin: terminTekst(row.requestedAt, sadaMs) });
+  const { phase, lateSeconds } = reservationTiming(row.requestedAt, holdMin, sadaMs);
+  if (lateSeconds !== null) opis += `; ${fmt(phase === "kasni" ? r.kasni : r.uTerminu, { vreme: trajanjeZaCitac(lateSeconds) })}`;
+  if (more > 0) opis += ` (${fmt(r.sto.jos[srPluralCategory(more)], { n: more })})`;
+  return opis;
+}
+
+/**
  * What a screen reader hears for a position: its name and zone, then every
  * parallel state with the exact time and the wait in minutes, or "nema
  * aktivnih zahteva"; with the occupancy module, the state staff set.
@@ -162,6 +196,7 @@ export function opisMestaSale(mesto: SalaMesto, sadaMs: number): string {
     });
     delovi.push(stanje.count > 1 ? `${opis} (${fmt(t.sala.jos, { n: stanje.count - 1 })})` : opis);
   }
+  if (mesto.rezervacija) delovi.push(opisRezervacijeStola(mesto.rezervacija, sadaMs));
   if (delovi.length === 0) delovi.push(t.sala.neutralnoCitac);
   if (mesto.occupancy !== "neutral") delovi.push(`${t.sto.status}: ${t.zauzetost[mesto.occupancy]}`);
   return fmt(t.sala.mestoCitac, { mesto: ime, stanje: delovi.join("; ") });

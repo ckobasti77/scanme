@@ -277,6 +277,8 @@ export type MenuOwnedTable =
   | "menuStaffSessions"
   | "menuPinAttempts"
   | "menuSecrets"
+  // K25
+  | "menuReservations"
   // K23
   | "menuPositionOccupancy";
 

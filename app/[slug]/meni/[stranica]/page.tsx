@@ -10,7 +10,7 @@ import { notFound, redirect } from "next/navigation";
 import { JavniOkvir } from "@/components/menu/javni/okvir";
 import { StranicaNedostupna } from "@/components/menu/javni/stanja";
 import { JAVNI_ROBOTS, JavniPrikaz, javniMetadata, javniViewport } from "../_lib/prikaz";
-import { jedanParametar, ucitajJavno, ulazJavno } from "../_lib/ucitaj";
+import { jedanParametar, ucitajJavno, ucitajUlazRezervacije, ulazJavno } from "../_lib/ucitaj";
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +31,10 @@ export async function generateViewport(props: PageProps<"/[slug]/meni/[stranica]
 }
 
 export default async function MenuStranicaPage(props: PageProps<"/[slug]/meni/[stranica]">) {
-  const { slug, jezik, ucitano } = await ucitaj(props);
-  if (ucitano) return <JavniPrikaz ucitano={ucitano} />;
+  const { slug } = await props.params;
+  // K25: how the venue takes reservations is read in parallel with the page (an optional extra).
+  const [{ jezik, ucitano }, rezervacija] = await Promise.all([ucitaj(props), ucitajUlazRezervacije(slug)]);
+  if (ucitano) return <JavniPrikaz ucitano={ucitano} rezervacija={rezervacija} />;
 
   const ulaz = await ulazJavno(slug);
   if (ulaz.kind === "legacy") redirect(`/${slug}/meni`);

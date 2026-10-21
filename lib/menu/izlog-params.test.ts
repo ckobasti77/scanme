@@ -90,13 +90,40 @@ describe("/dev/menu-panel-preview", () => {
       uloga: "vlasnik",
       stanje: null,
       fiokaOtvorena: false,
+      // K25 (intentional): the reservation choice and the working hours, absent by default.
+      rezervacije: null,
+      bezRadnogVremena: false,
     });
   });
 
   test("known values are read", () => {
     expect(
       parsePanelPreview({ sekcija: "primitivi", plan: "premium", uloga: "urednik", fioka: "otvorena" }),
-    ).toEqual({ tema: null, sekcija: "primitivi", plan: "premium", uloga: "urednik", stanje: null, fiokaOtvorena: true });
+    ).toEqual({
+      tema: null,
+      sekcija: "primitivi",
+      plan: "premium",
+      uloga: "urednik",
+      stanje: null,
+      fiokaOtvorena: true,
+      rezervacije: null,
+      bezRadnogVremena: false,
+    });
+  });
+
+  test("K25: the reservation choice and missing working hours; anything else gives the default", () => {
+    expect(parsePanelPreview({ sekcija: "funkcionalnosti", rezervacije: "eksterni" })).toMatchObject({
+      sekcija: "funkcionalnosti",
+      rezervacije: "eksterni",
+    });
+    expect(parsePanelPreview({ rezervacije: "iskljuceno", "radno-vreme": "prazno" })).toMatchObject({
+      rezervacije: "iskljuceno",
+      bezRadnogVremena: true,
+    });
+    expect(parsePanelPreview({ rezervacije: "telefon", "radno-vreme": "puno" })).toMatchObject({
+      rezervacije: null,
+      bezRadnogVremena: false,
+    });
   });
 
   test("K08: staff and ScanMe admin roles and the whole-screen states of the shell", () => {
@@ -150,7 +177,24 @@ describe("/dev/menu-konobar-preview", () => {
       kasni: false,
       zvukIskljucen: false,
       sto: null,
+      // K25 (intentional): no reservation open, no cancellation strip.
+      rezervacija: null,
+      otkazana: false,
     });
+  });
+
+  test("K25: a reservation detail, the table with a reservation and the cancellation strip", () => {
+    expect(parseKonobarPreview({ ekran: "rezervacije", rezervacija: "rv_01" })).toMatchObject({
+      ekran: "rezervacije",
+      rezervacija: "rv_01",
+    });
+    expect(parseKonobarPreview({ ekran: "sto", rezervacija: "1", otkazana: "1" })).toMatchObject({
+      ekran: "sto",
+      rezervacija: "1",
+      otkazana: true,
+    });
+    expect(parseKonobarPreview({ rezervacija: "rq_01", otkazana: "da" })).toMatchObject({ rezervacija: null, otkazana: false });
+    expect(parseKonobarPreview({ rezervacija: "<script>" }).rezervacija).toBeNull();
   });
 
   test("K23: occupancy, zone, late threshold, sound and the open table; anything else gives the default", () => {
@@ -295,6 +339,10 @@ describe("existing parameters keep working (TASK-51, TASK-52)", () => {
       stanjeZahteva: null,
       greska: null,
       offline: false,
+      // K25 (intentional): the reservation screens, absent by default.
+      rezervacija: null,
+      kontakt: null,
+      rezervacije: null,
     };
     expect(parsePublicPreview({})).toEqual({ tema: null, long: false, darkDesign: false, ...PODRAZUMEVANO });
     expect(parsePublicPreview({ state: "long", design: "dark", tema: "svetla" })).toEqual({
@@ -332,5 +380,18 @@ describe("existing parameters keep working (TASK-51, TASK-52)", () => {
       parsePublicPreview({ pozicija: "terasa", korpa: "da", zahtev: "kuhinja", "stanje-zahteva": "krenuo", greska: "x", veza: "spora" }),
     ).toMatchObject({ pozicija: null, korpa: false, zahtev: null, stanjeZahteva: null, greska: null, offline: false });
     expect(parsePublicPreview({ pozicija: ["soba", "sto"] }).pozicija).toBe("soba");
+  });
+  test("public K25: the reservation screens, the contact and the venue system", () => {
+    expect(parsePublicPreview({ rezervacija: "poslato", kontakt: "telefon" })).toMatchObject({
+      rezervacija: "poslato",
+      kontakt: "telefon",
+      rezervacije: null,
+    });
+    expect(parsePublicPreview({ rezervacije: "eksterni" }).rezervacije).toBe("eksterni");
+    expect(parsePublicPreview({ rezervacija: "sto", kontakt: "fax", rezervacije: "da" })).toMatchObject({
+      rezervacija: null,
+      kontakt: null,
+      rezervacije: null,
+    });
   });
 });

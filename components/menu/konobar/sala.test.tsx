@@ -233,8 +233,16 @@ describe("the floor (Raspored): every parallel state of a table side by side", (
     expect(imeStola("Sto 5")).toBe(
       fmt(t.sala.mestoCitac, { mesto: "Sto 5, Glavna sala", stanje: stanja(citac("call", 9 * 60), citac("bill", 3 * 60 + 10)) }),
     );
+    // K25 (intentional): Sto 7 now also carries the reservation bound to it (rv_07, 25 minutes late with a 15-minute hold), said in its name.
     expect(imeStola("Sto 7")).toBe(
-      fmt(t.sala.mestoCitac, { mesto: "Sto 7, Glavna sala", stanje: stanja(citac("order", 6 * 60 + 10), citac("bill", 5 * 60)) }),
+      fmt(t.sala.mestoCitac, {
+        mesto: "Sto 7, Glavna sala",
+        stanje: stanja(
+          citac("order", 6 * 60 + 10),
+          citac("bill", 5 * 60),
+          `${fmt(t.rezervacije.znackaCitac, { ime: "Ivana B.", gosti: "5 osoba", termin: "Danas · 18:02" })}; ${fmt(t.rezervacije.kasni, { vreme: "25 min" })}`,
+        ),
+      }),
     );
     expect(imeStola("Sto 1")).toBe(fmt(t.sala.mestoCitac, { mesto: "Sto 1, Glavna sala", stanje: citac("call", 17 * 60) }));
 
@@ -263,12 +271,13 @@ describe("the floor (Raspored): every parallel state of a table side by side", (
 });
 
 describe("the table view (Tabela): a column per kind of request", () => {
-  test("the header has the columns of the dictionary and neither a reservation nor a status column without the module", () => {
+  test("the header has the columns of the dictionary: the reservation column (K25) but no status column without the module", () => {
     const k = t.sala.kolone;
     const zaglavlja = zaglavljaTabele(izlog(TABELA));
     // After the UX review the zone and the seats live in the table cell (a narrower table, every kind in view).
-    expect(zaglavlja).toEqual([k.sto, k.call, k.order, k.bill, k.konobar]);
-    expect(zaglavlja).not.toContain(k.reservation);
+    // K25 (intentional): the venue of the izlog takes reservations, so the table view has its reservation column (before the waiter).
+    expect(zaglavlja).toEqual([k.sto, k.call, k.order, k.bill, k.reservation, k.konobar]);
+    expect(zaglavlja).toContain(k.reservation);
     expect(zaglavlja).not.toContain(k.status);
     expect(stranaSale(izlog(TABELA))).toContain('data-sala="tabela"');
   });
@@ -373,7 +382,8 @@ describe("neutral, never free: no occupancy anywhere without the module", () => 
   test("the legend names the kinds, the taken badge (plan) or the dash (table) and the late threshold, by default 15 minutes", () => {
     const natpisi = tekst(legenda(izlog(RASPORED)));
     for (const vrsta of ["call", "order", "bill"] as const) expect(natpisi).toContain(t.sala.vrste[vrsta]);
-    expect(natpisi).not.toContain(t.sala.vrste.reservation);
+    // K25 (intentional): the legend names the reservation too (CalendarClock + the word) when the venue takes reservations.
+    expect(natpisi).toContain(t.sala.vrste.reservation);
     expect(natpisi).toContain(t.sala.legendaPrihvaceno);
     expect(natpisi).not.toContain(t.sala.legendaNeutralno);
     expect(tekst(legenda(izlog(TABELA)))).toContain(t.sala.legendaNeutralno);
@@ -425,12 +435,14 @@ describe("the optional occupancy module (zauzetost=1)", () => {
     const html = izlog({ ...TABELA, ...MODUL });
     const zaglavlja = zaglavljaTabele(html);
     // The status column comes right after the table, so it is never the one cut off.
+    // K25 (intentional): the reservation column joins the kinds, before the waiter.
     expect(zaglavlja).toEqual([
       t.sala.kolone.sto,
       t.sala.kolone.status,
       t.sala.kolone.call,
       t.sala.kolone.order,
       t.sala.kolone.bill,
+      t.sala.kolone.reservation,
       t.sala.kolone.konobar,
     ]);
     const status = (naziv: string) => celije(redTabele(html, mestoId(naziv)))[zaglavlja.indexOf(t.sala.kolone.status)];
@@ -699,7 +711,10 @@ describe("zones", () => {
     const red = bocniPano(html);
     expect(redosled(red)).toEqual([]);
     expect(naslovi(red, 1)).toEqual([t.red.naslov]);
-    expect(naslovi(red, 2)).toEqual([t.red.prazno.naslov]);
+    // K25 (intentional): reservations belong to the whole venue, not to a zone. The terrace's queue has no request, but the new
+    // reservation (rv_01) stands in "Novi" and the late and near ones in "Uskoro", so it is no longer the empty state.
+    expect(naslovi(red, 2)).toEqual([`${t.red.grupaNovi} 1`, t.red.uskoro]);
+    expect(naslovi(red, 2)).not.toContain(t.red.prazno.naslov);
     expect(tekst(sala)).toContain(t.zaglavlje.bezAktivnih);
   });
 

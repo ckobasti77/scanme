@@ -959,17 +959,27 @@ function topLevelBlocks(source: string): Block[] {
 describe("nothing scheduled ever writes occupancy", () => {
   const TABLE = "menuPositionOccupancy";
 
-  test("the table is named only in the schema, the table-name union of menuAccess.ts, archivePosition and menuWaiter.ts", () => {
+  test("the table is named only in the schema, the table-name union of menuAccess.ts, archivePosition, menuWaiter.ts and markArrived", () => {
     // Not vacuous: the glob really found the sources.
     expect(Object.keys(sources).length).toBeGreaterThan(50);
-    for (const key of ["./schema.ts", "./crons.ts", "./menuWaiter.ts", "./lib/menuAccess.ts"]) {
+    for (const key of ["./schema.ts", "./crons.ts", "./menuWaiter.ts", "./lib/menuAccess.ts", "./menuReservations.ts"]) {
       expect(typeof sources[key], key).toBe("string");
     }
     const mentioning = Object.entries(sources)
       .filter(([, text]) => text.includes(TABLE))
       .map(([file]) => file)
       .sort();
-    expect(mentioning).toEqual(["./lib/menuAccess.ts", "./menuFloor.ts", "./menuWaiter.ts", "./schema.ts"]);
+    // K25 (intentional, plan K24-12 / K19-19): realizing a reservation may mark its table
+    // occupied, only with the module on — the one writer outside setOccupancy.
+    expect(mentioning).toEqual(["./lib/menuAccess.ts", "./menuFloor.ts", "./menuReservations.ts", "./menuWaiter.ts", "./schema.ts"]);
+
+    // menuReservations.ts: only markArrived, a public mutation (a person marks the arrival), never scheduled.
+    const reservationBlocks = topLevelBlocks(sources["./menuReservations.ts"]).filter((block) => block.text.includes(TABLE));
+    expect(reservationBlocks.map((block) => block.name)).toEqual(["markArrived"]);
+    expect(reservationBlocks[0].text).toMatch(/^export const markArrived = mutation\(/);
+    expect(reservationBlocks[0].text).not.toMatch(/scheduler|internalMutation|internalAction/);
+    expect(reservationBlocks[0].text).toMatch(/features\.occupancy === true/);
+    expect(sources["./menuReservations.ts"]).not.toMatch(/ctx\.scheduler\./);
 
     // menuFloor.ts: only archivePosition, a public mutation (a person archives the table), which only deletes.
     const floorBlocks = topLevelBlocks(sources["./menuFloor.ts"]).filter((block) => block.text.includes(TABLE));

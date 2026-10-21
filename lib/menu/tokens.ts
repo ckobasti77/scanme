@@ -54,6 +54,15 @@ export async function staffDeviceKeyHashFor(menuServiceId: string, deviceKey: st
   return await sha256Hex(`menu-staff-device:${menuServiceId}:${deviceKey}`);
 }
 
+/**
+ * K25 — the stored hash of a reservation's cancel token (the secret of the
+ * link /[slug]/meni/rezervacija/[token]); its own namespace, so it can never
+ * match a session or a device hash.
+ */
+export async function reservationCancelTokenHash(token: string): Promise<string> {
+  return await sha256Hex(`menu-reservation-cancel:${token}`);
+}
+
 /** K22 — the stored hash of a staff session token. */
 export async function staffSessionTokenHash(token: string): Promise<string> {
   return await sha256Hex(`menu-staff-session:${token}`);

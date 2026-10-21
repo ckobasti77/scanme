@@ -4,6 +4,8 @@
 // HttpOnly device cookie the card hop set (smm_d); the page passes on a READ
 // key derived from it (the device's venue-scoped hash), never the cookie
 // itself. Without a device it says how to start. In the venue's identity.
+// K25: the reservations sent from this phone are listed above the requests,
+// and can be cancelled the same way.
 
 import type { Metadata, Viewport } from "next";
 import { notFound, redirect } from "next/navigation";
@@ -14,6 +16,7 @@ import { menuGostSr } from "@/lib/i18n/sr/menu-gost";
 import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
 import { saJezikom } from "@/lib/menu/i18n-fallback";
 import { GOST_AKCIJE, JAVNI_ROBOTS, javniViewport } from "../_lib/prikaz";
+import { otkaziRezervacijuSaUredjaja } from "../_lib/radnje-rezervacije";
 import { jedanParametar, ucitajCitanje, ucitajJavno, ulazJavno } from "../_lib/ucitaj";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +59,7 @@ export default async function MojiZahteviPage(props: PageProps<"/[slug]/meni/zah
         akcije={GOST_AKCIJE}
         meniHref={saJezikom(`/${slug}/meni`, view.jezik, view.jezici)}
         sadaMs={sadaMs}
+        otkaziRezervaciju={otkaziRezervacijuSaUredjaja}
       />
     </JavniOkvir>
   );

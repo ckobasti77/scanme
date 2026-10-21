@@ -6,7 +6,9 @@
 // sum, and when it was accepted, finished or cancelled. A request that is
 // still `Novi` can be cancelled after a confirmation; an accepted one only by
 // the staff. Without a device there is nothing to show, and the page says how
-// to start.
+// to start. K25: the reservations sent from this phone are the "Rezervacije"
+// section above the requests (./rezervacija/moje-rezervacije.tsx); it is
+// absent when the phone has none, and the page reads exactly as before.
 
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -16,6 +18,8 @@ import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuGostSr } from "@/lib/i18n/sr/menu-gost";
 import type { GostOtkazIshod, GostZahtev } from "./model";
 import { Iznos } from "./korpa/korpa";
+import { MojeRezervacije } from "./rezervacija/moje-rezervacije";
+import { vidljiveRezervacije, type MojaRezervacija, type OtkaziRezervaciju } from "./rezervacija/model";
 import { brojStavki, IKONICA_VRSTE, porukaGreske, satBeograd, StatusZahteva } from "./stanje-zahteva";
 import styles from "./gost.module.css";
 
@@ -169,6 +173,8 @@ export function MojiZahtevi({
   online,
   meniHref,
   onOtkazi,
+  rezervacije,
+  onOtkaziRezervaciju,
 }: {
   /** undefined = loading; null = this phone has no device here (no QR scanned). */
   zahtevi: readonly GostZahtev[] | null | undefined;
@@ -176,8 +182,14 @@ export function MojiZahtevi({
   online: boolean;
   meniHref: string;
   onOtkazi: (id: string) => Promise<GostOtkazIshod>;
+  /** K25: this phone's reservations at the venue; absent/null/undefined = none to show (no section). */
+  rezervacije?: readonly MojaRezervacija[] | null;
+  /** K25: cancelling a reservation (the page's Server Action); without it the section is not shown. */
+  onOtkaziRezervaciju?: OtkaziRezervaciju;
 }) {
   const skori = zahtevi ? skoriZahtevi(zahtevi, sadaMs) : [];
+  const rezervacijeZaPrikaz = rezervacije && onOtkaziRezervaciju ? vidljiveRezervacije(rezervacije, sadaMs) : [];
+  const imaRezervacije = rezervacijeZaPrikaz.length > 0;
   return (
     <section className={styles.zahtevi} aria-labelledby="moji-zahtevi-naslov" data-moji-zahtevi="">
       <Link href={meniHref} className={styles.nazad}>
@@ -187,9 +199,12 @@ export function MojiZahtevi({
       <h2 id="moji-zahtevi-naslov" className={styles.listNaslov}>
         {t.zahtevi.naslov}
       </h2>
+      {imaRezervacije && onOtkaziRezervaciju ? (
+        <MojeRezervacije rezervacije={rezervacijeZaPrikaz} sadaMs={sadaMs} online={online} onOtkazi={onOtkaziRezervaciju} />
+      ) : null}
       {zahtevi === null ? (
         <div className={styles.prazno}>
-          <p>{t.zahtevi.bezUredjaja}</p>
+          {imaRezervacije ? null : <p>{t.zahtevi.bezUredjaja}</p>}
           <Link href={meniHref} className={styles.dugmeSporedno}>
             {t.zahtevi.otvoriMeni}
           </Link>
@@ -200,7 +215,7 @@ export function MojiZahtevi({
         </p>
       ) : skori.length === 0 ? (
         <div className={styles.prazno}>
-          <p>{t.zahtevi.prazno}</p>
+          {imaRezervacije ? null : <p>{t.zahtevi.prazno}</p>}
           <Link href={meniHref} className={styles.dugmeSporedno}>
             {t.zahtevi.otvoriMeni}
           </Link>

@@ -15,6 +15,8 @@ import { DodajUKorpu } from "../gost/dodaj-u-korpu";
 import { GostPanel, type GostPocetno } from "../gost/gost-panel";
 import type { GostKontekst, GostZahtev } from "../gost/model";
 import { MojiZahtevi } from "../gost/moji-zahtevi";
+import { izlogOtkaziRezervaciju } from "../gost/rezervacija/izlog-podaci";
+import type { MojaRezervacija } from "../gost/rezervacija/model";
 import { zasejKorpu } from "../gost/use-korpa";
 import { useVeza } from "../gost/use-veza";
 import { JavniMeni, type JavniPocetno } from "../javni/javni-meni";
@@ -39,6 +41,10 @@ export type GostIzlogProps = {
   linije: CartLine[];
   zahtevi: GostZahtev[];
   offline: boolean;
+  /** K25: the way into reservations under the menu (a server-rendered card); absent = none. */
+  rezervacija?: ReactNode;
+  /** K25: this phone's reservations in "Moji zahtevi" (`moji-zahtevi=1&rezervacija=…`); absent = no section. */
+  rezervacije?: MojaRezervacija[];
 };
 
 export function GostIzlog(props: GostIzlogProps) {
@@ -73,6 +79,8 @@ export function GostIzlog(props: GostIzlogProps) {
           online={online}
           meniHref={kontekst.linkovi.meni}
           onOtkazi={radnje.otkazi}
+          rezervacije={props.rezervacije}
+          onOtkaziRezervaciju={izlogOtkaziRezervaciju}
         />
       </JavniOkvir>
     );
@@ -92,6 +100,7 @@ export function GostIzlog(props: GostIzlogProps) {
       pocetniDetalj={props.pocetniDetalj}
       cuvaj={false}
       napomena={props.napomena}
+      rezervacija={props.rezervacija}
       radnjeGosta={
         <GostPanel
           kontekst={kontekst}

@@ -117,6 +117,36 @@ export const menuPanelTimingValidator = v.object({
   reminderMin: v.number(),
 });
 
+// K25 — which contact the ScanMe reservation form asks for (master §11.2):
+// exactly one of the three choices.
+export const menuReservationContactValidator = v.union(
+  v.literal("email"),
+  v.literal("phone"),
+  v.literal("both"),
+);
+
+// K25 — one open interval of a day in minutes from the venue's midnight; `end`
+// may pass midnight up to 30:00 (lib/menu/working-hours.ts checks the rest).
+export const menuWorkingIntervalValidator = v.object({
+  start: v.number(),
+  end: v.number(),
+});
+
+// K25 — the venue's working hours: seven days, Monday first; an empty day is
+// closed (plan K24-7). Always in Podešavanja (master §11.6, §13.9).
+export const menuWorkingHoursValidator = v.object({
+  days: v.array(v.array(menuWorkingIntervalValidator)),
+});
+
+// K25 — menuServices.settings.reservation (plan K24-9): the contact of the
+// ScanMe form, the link of the venue's own system, and how long the venue
+// holds a reservation after its time (5–180 min; absent = 15).
+export const menuReservationSettingsValidator = v.object({
+  contact: menuReservationContactValidator,
+  externalUrl: v.optional(v.string()),
+  holdMinutes: v.optional(v.number()),
+});
+
 // menuServices.settings — grows one optional key per step that needs it
 // (working hours and reservations K25, panel thresholds K23/K28).
 export const menuServiceSettingsValidator = v.object({
@@ -136,6 +166,10 @@ export const menuServiceSettingsValidator = v.object({
   // K23 — the waiter panel timing (late threshold, reminder); operational, never
   // part of the draft. Absent = the defaults (15 and 5 minutes).
   panel: v.optional(menuPanelTimingValidator),
+  // K25 — the working hours (operational, never part of the draft) and the
+  // reservation settings (the form's contact, the external link, the hold).
+  workingHours: v.optional(menuWorkingHoursValidator),
+  reservation: v.optional(menuReservationSettingsValidator),
 });
 
 export const menuRoomServiceMarkupScopeValidator = v.union(
@@ -433,3 +467,20 @@ export const menuOccupancyStateValidator = v.union(
   v.literal("reserved"),
   v.literal("out_of_service"),
 );
+
+// -----------------------------------------------------------------------------
+// K25 — reservations (master §11; plan docs/meni/planovi/K24.md §2.1)
+// -----------------------------------------------------------------------------
+
+// lib/menu/reservation-status.ts MENU_RESERVATION_STATUSES (a test keeps the two equal).
+export const menuReservationStatusValidator = v.union(
+  v.literal("new"),
+  v.literal("accepted"),
+  v.literal("declined"),
+  v.literal("change_proposed"),
+  v.literal("arrived"),
+  v.literal("cancelled"),
+);
+
+// The contact, working-hours and reservation-settings validators are defined
+// above menuServiceSettingsValidator (they are part of it).

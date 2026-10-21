@@ -21,6 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { MenuPanelDict, MenuPanelSekcijaUPripremi } from "@/lib/i18n/types";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
 import { roleCan, type MenuActor } from "@/lib/menu/permissions";
@@ -48,12 +49,15 @@ export function SekcijaUPripremi({
   plan,
   actor,
   editorHref,
+  iznad,
 }: {
   sekcija: MenuPanelSekcijaUPripremi;
   plan: MenuTier;
   actor: MenuActor;
   /** Where "Otvori Editor" leads; omit it for a role without the Editor. */
   editorHref?: string;
+  /** A finished block of the section, between the header and the "u pripremi" card. */
+  iznad?: ReactNode;
 }) {
   const Ikonica = IKONICA[sekcija];
   const stavke = t.sekcija.stavke[sekcija].filter((stavka) => !stavka.dozvola || roleCan(actor, stavka.dozvola));
@@ -73,6 +77,7 @@ export function SekcijaUPripremi({
         }
         opis={t.sekcija.opisi[sekcija]}
       />
+      {iznad}
       <Kartica
         as="section"
         aria-labelledby={naslovKartice}

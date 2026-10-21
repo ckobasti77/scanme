@@ -14,11 +14,12 @@ import { LayoutGrid, Rows3, Search, SearchX, X } from "lucide-react";
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { fmt, srPluralCategory } from "@/lib/i18n/format";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
+import { reservationsByTable } from "@/lib/menu/reservation-queue";
 import type { TableKind } from "@/lib/menu/table-summary";
 import { cn } from "@/lib/utils";
 import { IkonicaDugme } from "../../zajednicko/dugme";
 import { PraznoStanje, UcitavanjeStanje } from "../../zajednicko/stanja";
-import type { KonobarSala, KonobarZahtev, KonobarZauzetost } from "../model";
+import type { KonobarRezervacija, KonobarSala, KonobarZahtev, KonobarZauzetost } from "../model";
 import { usePragKasnjenja } from "../prag";
 import { Legenda } from "./legenda";
 import { mestaSale } from "./pogled";
@@ -27,8 +28,10 @@ import { TabelaSale } from "./tabela";
 
 const t = menuKonobarSr;
 
-/** The kinds the floor shows today; K25 adds "reservation" (its column, its badge, its legend entry). */
+/** The kinds of request the floor shows. */
 export const SALA_VRSTE: readonly TableKind[] = ["call", "order", "bill"];
+/** K25: with reservations the floor adds the reservation (its column, its badge, its legend entry). */
+export const SALA_VRSTE_REZERVACIJE: readonly TableKind[] = [...SALA_VRSTE, "reservation"];
 
 export type SalaPrikaz = "raspored" | "tabela";
 
@@ -46,6 +49,7 @@ export function Sala({
   pocetnaPretraga = "",
   zonaNaziv = null,
   napomena,
+  rezervacije,
 }: {
   /** undefined = loading. */
   sala: KonobarSala | undefined;
@@ -65,19 +69,34 @@ export function Sala({
   zonaNaziv?: string | null;
   /** A strip under the header (what waits in the other zones). */
   napomena?: ReactNode;
+  /** K25: the venue's reservations and its hold; given only when the venue takes reservations (or has some). */
+  rezervacije?: { redovi: readonly KonobarRezervacija[]; holdMin: number };
 }) {
   const [pretraga, setPretraga] = useState(pocetnaPretraga);
   const pretragaId = useId();
   const prag = usePragKasnjenja();
   const modulZauzetosti = Boolean(sala?.occupancyEnabled && zauzetost && !zauzetost.off);
+  const vrste = rezervacije ? SALA_VRSTE_REZERVACIJE : SALA_VRSTE;
+
+  // The table of each reservation changes with the minute (from 120 min before its time), not with the second.
+  const redoviRezervacija = rezervacije?.redovi;
+  const holdMin = rezervacije?.holdMin;
+  const minut = Math.floor(sadaMs / 60_000);
+  const rezPoStolu = useMemo(
+    () =>
+      redoviRezervacija && holdMin !== undefined
+        ? { poStolu: reservationsByTable(redoviRezervacija, minut * 60_000, holdMin), holdMin }
+        : undefined,
+    [redoviRezervacija, holdMin, minut],
+  );
 
   const sva = useMemo(
-    () => (sala ? mestaSale({ sala, zahtevi, zauzetost, filterZoneId }) : []),
-    [sala, zahtevi, zauzetost, filterZoneId],
+    () => (sala ? mestaSale({ sala, zahtevi, zauzetost, filterZoneId, rezervacije: rezPoStolu }) : []),
+    [sala, zahtevi, zauzetost, filterZoneId, rezPoStolu],
   );
   const nadjena = useMemo(
-    () => (sala && pretraga.trim() ? mestaSale({ sala, zahtevi, zauzetost, filterZoneId, pretraga }) : sva),
-    [sala, zahtevi, zauzetost, filterZoneId, pretraga, sva],
+    () => (sala && pretraga.trim() ? mestaSale({ sala, zahtevi, zauzetost, filterZoneId, pretraga, rezervacije: rezPoStolu }) : sva),
+    [sala, zahtevi, zauzetost, filterZoneId, pretraga, sva, rezPoStolu],
   );
   const aktivnih = zahtevi.length;
 
@@ -138,7 +157,7 @@ export function Sala({
       {napomena}
 
       {sala && sala.positions.length > 0 ? (
-        <Legenda vrste={SALA_VRSTE} pragMin={prag} zauzetost={modulZauzetosti} tabela={prikaz === "tabela"} />
+        <Legenda vrste={vrste} pragMin={prag} zauzetost={modulZauzetosti} tabela={prikaz === "tabela"} />
       ) : null}
 
       {prikaz === "tabela" && sala && sala.positions.length > 0 ? (
@@ -186,7 +205,7 @@ export function Sala({
           onIzaberi={onIzaberi}
           prikaziZonu={sala.zones.length > 0}
           zauzetost={modulZauzetosti}
-          vrste={SALA_VRSTE}
+          vrste={vrste}
         />
       )}
 

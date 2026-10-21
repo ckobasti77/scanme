@@ -2,7 +2,8 @@
 // ikonice prikazuju u koloni zahteva sa legendom"): every kind a table can
 // show (icon + colour + word), what the dash means (nothing active — never
 // "free"), when a wait turns red, and the four occupancy states only when the
-// venue uses that module. Reservations join when K25 brings them.
+// venue uses that module. K25: the reservation joins the kinds when the venue takes
+// reservations (CalendarClock + the word; a bound reservation turns red after the hold).
 
 import { ClockAlert } from "lucide-react";
 import { fmt } from "@/lib/i18n/format";
@@ -22,7 +23,7 @@ export function Legenda({
   tabela = false,
   className,
 }: {
-  /** The kinds the floor can show now (reservations only once K25 is there). */
+  /** The kinds the floor can show now (the reservation only when the venue takes reservations). */
   vrste: readonly TableKind[];
   pragMin: number;
   /** The occupancy module is on: its four states join the legend. */

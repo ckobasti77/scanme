@@ -63,6 +63,7 @@ import type { PresentationErrorCode } from "../menu/errors/presentation";
 import type { FloorErrorCode } from "../menu/errors/floor";
 import type { RequestErrorCode } from "../menu/errors/requests";
 import type { StaffErrorCode } from "../menu/errors/waiter";
+import type { ReservationErrorCode } from "../menu/errors/reservations";
 import type {
   MenuMigrationErrorCode,
   MenuMigrationIssueCode,
@@ -2378,7 +2379,8 @@ export interface MenuDomenDict {
     | PresentationErrorCode
     | FloorErrorCode
     | RequestErrorCode
-    | StaffErrorCode,
+    | StaffErrorCode
+    | ReservationErrorCode,
     string
   >;
   // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
@@ -2416,6 +2418,28 @@ export interface MenuDomenDict {
   requestKinds: { call: string; bill: string; order: string };
   /** How the guest wants to pay the bill (a preference, not a payment). */
   paymentPreferences: { cash: string; card: string };
+  // --- K25: reservations (master §11), shared by the guest, the waiter panel and the client panel.
+  /** Nova, Prihvaćena, Odbijena, Predložena izmena, Realizovana, Otkazana (staff wording). */
+  reservationStatuses: {
+    new: string;
+    accepted: string;
+    declined: string;
+    change_proposed: string;
+    arrived: string;
+    cancelled: string;
+  };
+  /** Monday first: Pon, Uto, Sre, Čet, Pet, Sub, Ned. */
+  weekdaysShort: readonly string[];
+  /** Monday first, full names (the working-hours form). */
+  weekdays: readonly string[];
+  /** "Danas", "Sutra". */
+  relativeDays: { today: string; tomorrow: string };
+  /** A reservation's date and time: {datum} · {vreme}. */
+  reservationTerm: string;
+  /** {dan} {d}. {m}. — "Sub 25. 10." */
+  shortDate: string;
+  /** "4 osobe" (the number of guests). */
+  guests: MenuStudioMnozina;
 }
 
 export interface MenuAdminDict {
@@ -7179,6 +7203,63 @@ export interface MenuPanelDict {
     bezLinka: string;
     vlasnik: string;
   };
+  // K25 — Funkcionalnosti > Rezervacije (master §11.1, §11.2, §11.6, §13.7).
+  rezervacije: {
+    naslov: string;
+    opis: string;
+    izbor: string;
+    rezimi: { off: string; form: string; external: string };
+    rezimiOpis: { off: string; form: string; external: string };
+    kontakt: string;
+    kontakti: { email: string; phone: string; both: string };
+    gostPopunjava: string;
+    gostPopunjavaKontakt: { email: string; phone: string; both: string };
+    link: string;
+    linkPrimer: string;
+    linkOpis: string;
+    bezRadnogVremena: string;
+    unesiRadnoVreme: string;
+    radnoVremeNapomena: string;
+    sacuvaj: string;
+    cuva: string;
+    sacuvano: string;
+    vaziOdmah: string;
+    postojece: string;
+    greska: string;
+  };
+  // K25 — Podešavanja > Radno vreme (master §11.6, §13.9).
+  radnoVreme: {
+    naslov: string;
+    opis: string;
+    zatvoreno: string;
+    otvoreno: string;
+    od: string;
+    do: string;
+    intervalCitac: string;
+    dodaj: string;
+    ukloni: string;
+    ukloniCitac: string;
+    poslePonoci: string;
+    kopiraj: string;
+    greske: { neispravno: string; preklapanje: string; previse: string };
+    sacuvaj: string;
+    cuva: string;
+    sacuvano: string;
+    prazno: string;
+    greska: string;
+  };
+  // K25 — Podešavanja > Zadržavanje rezervacije (master §11.5).
+  zadrzavanje: {
+    naslov: string;
+    opis: string;
+    oznaka: string;
+    jedinica: string;
+    opseg: string;
+    sacuvaj: string;
+    cuva: string;
+    sacuvano: string;
+    greska: string;
+  };
 }
 
 // ScanMe Menu V1 (MENI run, K10) — the editor (master §13.4, §5.3, §6.1).
@@ -9095,6 +9176,101 @@ export interface MenuGostDict {
     nedostupanOpis: string;
   };
   greska: { nepoznata: string; pokusaj: string };
+  // K25 — the reservation request (master §11.2, §11.7): the form, the
+  // confirmation, the cancel link, "Moji zahtevi" and the venue's own system.
+  rezervacija: {
+    ulaz: string;
+    ulazOpis: string;
+    ulazEksterniCitac: string;
+    naslov: string;
+    uvod: string;
+    bezStola: string;
+    ime: string;
+    imePrimer: string;
+    datum: string;
+    vreme: string;
+    vremeOpis: string;
+    bezTermina: string;
+    nemaTermina: string;
+    izaberiVreme: string;
+    brojGostiju: string;
+    manje: string;
+    vise: string;
+    email: string;
+    emailPrimer: string;
+    telefon: string;
+    telefonPrimer: string;
+    napomena: string;
+    napomenaOpis: string;
+    napomenaBroj: string;
+    opciono: string;
+    kontaktOpis: { email: string; phone: string; both: string };
+    posalji: string;
+    saljeSe: string;
+    greskaForme: string;
+    greskePolja: {
+      required: string;
+      invalid: string;
+      too_long: string;
+      range: string;
+      in_past: string;
+      too_far: string;
+      outside_hours: string;
+    };
+    poslato: {
+      naslov: string;
+      opis: string;
+      nijePotvrda: string;
+      linkNaslov: string;
+      linkOpis: string;
+      kopiraj: string;
+      kopirano: string;
+      kopiranjeNeuspelo: string;
+      mojiZahtevi: string;
+      nazadNaMeni: string;
+      ponovljeno: string;
+    };
+    link: {
+      naslov: string;
+      nevazeciNaslov: string;
+      nevazeciOpis: string;
+      termin: string;
+      gosti: string;
+      status: string;
+      predlog: string;
+      predlogPoruka: string;
+      predlogUputstvo: string;
+      otkazi: string;
+      otkaziPitanje: string;
+      otkaziOpis: string;
+      otkaziDa: string;
+      otkaziNe: string;
+      otkazuje: string;
+      otkazano: string;
+      nemozeOtkazati: string;
+      nazadNaMeni: string;
+    };
+    /** The guest's wording of the statuses ("Poslato — čeka odgovor lokala"…). */
+    statusi: {
+      new: string;
+      accepted: string;
+      declined: string;
+      change_proposed: string;
+      arrived: string;
+      cancelled: string;
+    };
+    moji: {
+      naslov: string;
+      vrsta: string;
+      poslato: string;
+      otkazaliSte: string;
+      otkazaoLokal: string;
+      prazno: string;
+    };
+    eksterni: { naslov: string; opis: string; dugme: string };
+    iskljuceno: { naslov: string; opis: string };
+    greska: { mreza: string; nepoznata: string };
+  };
 }
 
 // ScanMe Menu V1 (MENI run, K22) — the waiter panel (lib/i18n/sr/menu-konobar.ts;
@@ -9219,6 +9395,7 @@ export interface MenuKonobarDict {
     legenda: string;
     neutralno: string;
     neutralnoCitac: string;
+    nemaRezervacijeCitac: string;
     legendaNeutralno: string;
     legendaKasni: string;
     legendaZauzetost: string;
@@ -9294,6 +9471,117 @@ export interface MenuKonobarDict {
   zvuk: { ukljucen: string; iskljucen: string; oznaka: string; podsetnik: string };
   veza: { vracena: string; pokusajPonovo: string };
   greska: { nepoznata: string; mreza: string };
+  // K25 — reservations in the waiter panel (master §10.3, §10.4, §11.3–§11.7).
+  rezervacije: {
+    naslov: string;
+    grupe: {
+      cekajuOdgovor: string;
+      kasne: string;
+      uskoro: string;
+      danas: string;
+      kasnije: string;
+      stigli: string;
+      otkazane: string;
+    };
+    iskljuceno: string;
+    skraceno: string;
+    bezStola: string;
+    imaNapomenu: string;
+    kasni: string;
+    uTerminu: string;
+    predlogKratko: string;
+    radnja: { odgovori: string; stigli: string; poveziSto: string; otvori: string };
+    radnjaCitac: string;
+    otvoriCitac: string;
+    najava: string;
+    otkazaoGost: string;
+    noviBroj: MenuStudioMnozina;
+    detalj: {
+      naslov: string;
+      nazad: string;
+      nazadCitac: string;
+      termin: string;
+      gosti: string;
+      ime: string;
+      kontakt: string;
+      pozovi: string;
+      pozoviCitac: string;
+      pisi: string;
+      pisiCitac: string;
+      napomena: string;
+      bezNapomene: string;
+      poslato: string;
+      odluka: string;
+      sto: string;
+      bezStola: string;
+      vezao: string;
+      predlogNaslov: string;
+      predlogTermin: string;
+      prihvati: string;
+      predlozi: string;
+      odbij: string;
+      odbijPitanje: string;
+      odbijOpis: string;
+      odbijDa: string;
+      odbijNe: string;
+      gostPrihvata: string;
+      gostPrihvataOpis: string;
+      stigli: string;
+      stigliZauzetost: string;
+      stigliBezStola: string;
+      otkazi: string;
+      otkaziPitanje: string;
+      otkaziOpis: string;
+      otkaziDa: string;
+      otkaziNe: string;
+      poveziSto: string;
+      promeniSto: string;
+      ukloniSto: string;
+      izaberiSto: string;
+      izaberiStoOpis: string;
+      nemaStolova: string;
+      drugeNaStolu: string;
+      javiteGostu: string;
+      javiteGostuOpis: string;
+      realizovana: string;
+      otkazanaGost: string;
+      otkazanaOsoblje: string;
+      odbijena: string;
+      potvrde: {
+        accepted: string;
+        declined: string;
+        change_proposed: string;
+        arrived: string;
+        cancelled: string;
+        bound: string;
+        unbound: string;
+      };
+      nestala: { naslov: string; opis: string };
+      ucitava: string;
+    };
+    predlog: {
+      naslov: string;
+      opis: string;
+      datum: string;
+      vreme: string;
+      poruka: string;
+      porukaPrimer: string;
+      sacuvaj: string;
+      odustani: string;
+    };
+    sto: {
+      naslov: string;
+      otkazana: string;
+      ko: { guest: string; staff: string };
+      jos: MenuStudioMnozina;
+      poveziRezervaciju: string;
+      poveziOpis: string;
+      nemaZaPovezivanje: string;
+      poveziCitac: string;
+    };
+    znacka: string;
+    znackaCitac: string;
+  };
 }
 
 export interface DictBySurface {

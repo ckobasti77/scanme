@@ -13,14 +13,24 @@
 // module (off unless `zauzetost=1`; with it, states are set by hand exactly
 // as menuWaiter.setOccupancy does: refused when off, null = neutral), the
 // venue's threshold (`kasni=1` = 5 min) and the device sound.
+//
+// K25: the reservations of the same venue (fixtureKonobarRezervacije: mode
+// "form", hold 15 min) — the `Rezervacije` filter, the detail of a reservation
+// (`ekran=rezervacije&rezervacija=rv_07`), the table with a bound, late
+// reservation (`ekran=sto&rezervacija=1`: Sto 7), the guest's cancellation strip
+// (`otkazana=1`). The actions change the rows in memory by the server's rules
+// (lib/menu/reservation-status.ts): accept, decline, propose, the guest agrees,
+// bind a table, arrive (with `zauzetost=1` the table becomes Zauzet), cancel.
 
 import { useMemo, useState } from "react";
 import {
   KONOBAR_IZLOG_MENADZER,
   KONOBAR_IZLOG_PIN,
   fixtureKonobar,
+  fixtureKonobarRezervacije,
   fixtureSale,
   mestoPoNazivu,
+  rezervacijeIstogStola,
   zonaPoNazivu,
 } from "@/components/menu/fixtures/konobar";
 import { IZLOG_SADA } from "@/components/menu/fixtures/lokal";
@@ -30,6 +40,9 @@ import type {
   KonobarIshod,
   KonobarKorisnik,
   KonobarRadnje,
+  KonobarRezIshod,
+  KonobarRezervacije,
+  KonobarRezervacijaDetalj,
   KonobarSala,
   KonobarSalaIshod,
   KonobarZahtev,
@@ -39,6 +52,7 @@ import type {
 } from "@/components/menu/konobar/model";
 import { KonobarPanel } from "@/components/menu/konobar/panel";
 import { PinEkran } from "@/components/menu/konobar/pin/pin-ekran";
+import { primeniRezervaciju, type RezMemorija, type RezNaredba } from "@/components/menu/konobar/rezervacije/memorija";
 import type { KonobarPreviewParams } from "@/lib/menu/izlog-params";
 import {
   PIN_DEVICE_MAX_FAILURES,
@@ -98,9 +112,21 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
   );
   const [sala, setSala] = useState<KonobarSala>(pocetnaSala.sala);
   const [zauzetost, setZauzetost] = useState<KonobarZauzetost>(pocetnaSala.zauzetost);
+  // `rezervacija=1` opens Sto 7, the table with the bound, late reservation rv_07.
   const [mestoId, setMestoId] = useState<string | null>(() =>
-    params.ekran === "sto" ? (mestoPoNazivu(pocetnaSala.sala, params.sto ?? "Sto 3") ?? mestoPoNazivu(pocetnaSala.sala, "Sto 3")) : null,
+    params.ekran === "sto"
+      ? (mestoPoNazivu(pocetnaSala.sala, params.sto ?? (params.rezervacija === "1" ? "Sto 7" : "Sto 3")) ?? mestoPoNazivu(pocetnaSala.sala, "Sto 3"))
+      : null,
   );
+  const rezFx = useMemo(
+    () => fixtureKonobarRezervacije({ otkazana: params.otkazana, prazno: params.stanje === "prazno" }),
+    [params.otkazana, params.stanje],
+  );
+  const [rezMem, setRezMem] = useState<RezMemorija>({ redovi: rezFx.rezervacije.rows, detalji: rezFx.detalji });
+  const [rezId, setRezId] = useState<string | null>(
+    params.ekran === "rezervacije" && params.rezervacija && rezFx.detalji[params.rezervacija] ? params.rezervacija : null,
+  );
+  const rezervacije = useMemo<KonobarRezervacije>(() => ({ ...rezFx.rezervacije, rows: rezMem.redovi }), [rezFx, rezMem.redovi]);
   // The izlog clock: 18:27 when the izlog opened, then real time.
   const [pomak] = useState(() => IZLOG_SADA - Date.now());
   const ime = korisnik.displayName;
@@ -163,7 +189,44 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
     return { ok: true, changed: true };
   }
 
+  /** One action on the reservations in memory (the server's rules, rezervacije/memorija.ts): the memory and, on an arrival, the occupancy change. */
+  function rezIzvrsi(naredba: RezNaredba): KonobarRezIshod {
+    const korak = primeniRezervaciju(rezMem, { ime, sada: Date.now() + pomak, sala, zauzetost }, naredba);
+    if (korak.memorija !== rezMem) setRezMem(korak.memorija);
+    if (korak.zauzetost !== zauzetost) setZauzetost(korak.zauzetost);
+    return korak.ishod;
+  }
+
   const radnje: KonobarRadnje = {
+    prihvatiRezervaciju: async (id, ocekivani) => {
+      await cekaj(ODGOVOR_MS);
+      return rezIzvrsi({ vrsta: "prihvati", id, ocekivani });
+    },
+    odbijRezervaciju: async (id, ocekivani) => {
+      await cekaj(ODGOVOR_MS);
+      return rezIzvrsi({ vrsta: "odbij", id, ocekivani });
+    },
+    predloziIzmenu: async (id, proposedAt, poruka, ocekivani) => {
+      await cekaj(ODGOVOR_MS);
+      if (proposedAt <= Date.now() + pomak) return { ok: false, code: "reservation/in_past" };
+      return rezIzvrsi({ vrsta: "predlozi", id, ocekivani, proposedAt, poruka });
+    },
+    gostPrihvataPredlog: async (id, ocekivani) => {
+      await cekaj(ODGOVOR_MS);
+      return rezIzvrsi({ vrsta: "gostPrihvata", id, ocekivani });
+    },
+    otkaziRezervaciju: async (id, ocekivani) => {
+      await cekaj(ODGOVOR_MS);
+      return rezIzvrsi({ vrsta: "otkazi", id, ocekivani });
+    },
+    poveziSto: async (id, positionId, ocekivani) => {
+      await cekaj(ODGOVOR_MS);
+      return rezIzvrsi({ vrsta: "poveziSto", id, ocekivani, positionId });
+    },
+    gostiStigli: async (id, positionId, ocekivani) => {
+      await cekaj(ODGOVOR_MS);
+      return rezIzvrsi({ vrsta: "stigli", id, ocekivani, positionId });
+    },
     postaviZauzetost: async (positionId, stanje) => {
       await cekaj(ODGOVOR_MS);
       return zauzmi(positionId, stanje);
@@ -192,6 +255,7 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
     odjava: () => {
       setIzabranId(null);
       setMestoId(null);
+      setRezId(null);
       setPrijavljen(false);
     },
   };
@@ -242,6 +306,12 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
             others: zahtevi.filter((red) => red.positionId === izabran.request.positionId && red.id !== izabranId),
           }
         : null;
+  const rezervacijaDetalj: KonobarRezervacijaDetalj | null | undefined =
+    rezId === null
+      ? undefined
+      : rezMem.detalji[rezId]
+        ? { ...rezMem.detalji[rezId], sameTable: rezervacijeIstogStola(rezMem.redovi, rezMem.detalji[rezId].reservation) }
+        : null;
 
   return (
     <KonobarPanel
@@ -266,6 +336,11 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
       detaljMesta={mestoId ? (pocetnaSala.kartice[mestoId] ?? { cards: [] }) : undefined}
       zvukIzlog={{ pocetno: !params.zvukIskljucen }}
       pocetnaZona={sala.me.staffId ? undefined : zonaPoNazivu(pocetnaSala.sala, params.zona)}
+      rezervacije={rezervacije}
+      izabranaRezervacijaId={rezId}
+      onIzaberiRezervaciju={setRezId}
+      detaljRezervacije={rezervacijaDetalj}
+      pocetniFilterReda={params.ekran === "rezervacije" ? "rezervacije" : undefined}
     />
   );
 }

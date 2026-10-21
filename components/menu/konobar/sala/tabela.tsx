@@ -26,12 +26,15 @@ import type { ReactNode } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
 import { clockTime, elapsedSeconds, formatElapsed, isLate } from "@/lib/menu/elapsed-time";
+import { reservationTiming } from "@/lib/menu/reservation-late";
 import type { KindState, TableKind } from "@/lib/menu/table-summary";
 import { cn } from "@/lib/utils";
+import { KasnjenjeRezervacije } from "../rezervacije/kasnjenje";
+import { gostiTekst } from "../rezervacije/tekst";
 import { usePragKasnjenja } from "../prag";
 import { KASNI_CIP, trajanjeZaCitac } from "../vreme";
 import { VRSTA } from "../vrsta";
-import { opisMestaSale, sedistaTekst, type SalaMesto } from "./pogled";
+import { opisMestaSale, opisRezervacijeStola, sedistaTekst, type SalaMesto } from "./pogled";
 import { ZauzetostOznaka } from "./zauzetost-oznaka";
 
 const t = menuKonobarSr;
@@ -199,6 +202,41 @@ function CelijaVrste({
   );
 }
 
+/**
+ * K25: the cell of the reservation column — the guest, the term and the guests
+ * ("Ivana B." / "18:02 · 5 osoba"), the live lateness once the term has come
+ * (the same chip as the queue: calm in the hold, red "kasni" after it), or a
+ * dash. Not a request: it carries its own marks (`data-rez-celija`,
+ * `data-rez-kasni`), because its threshold is the venue's hold. In the table the
+ * screen reader hears one sentence (pogled.ts opisRezervacijeStola).
+ */
+function CelijaRezervacije({ mesto, sadaMs }: { mesto: SalaMesto; sadaMs: number }) {
+  const rezervacija = mesto.rezervacija;
+  if (!rezervacija) {
+    return (
+      <td className={CELIJA}>
+        <Crta />
+        <span className="sr-only">{tk.nemaRezervacijeCitac}</span>
+      </td>
+    );
+  }
+  const { row, more, holdMin } = rezervacija;
+  const kasni = reservationTiming(row.requestedAt, holdMin, sadaMs).phase === "kasni";
+  return (
+    <td data-rez-celija={row.id} data-rez-kasni={kasni ? "" : undefined} className={CELIJA}>
+      <span className="sr-only">{opisRezervacijeStola(rezervacija, sadaMs)}</span>
+      <div aria-hidden="true" className="grid min-w-0 justify-items-start gap-0.5 leading-tight">
+        <span className="max-w-[10rem] break-words text-[1.0625rem] font-bold text-[var(--mp-tekst)]">{row.guestName}</span>
+        <span className="text-[0.9375rem] font-semibold text-[var(--mp-tekst-sporedni)]">
+          {clockTime(row.requestedAt)} · {gostiTekst(row.partySize)}
+          {more > 0 ? ` · +${more}` : ""}
+        </span>
+        <KasnjenjeRezervacije requestedAt={row.requestedAt} holdMin={holdMin} sadaMs={sadaMs} />
+      </div>
+    </td>
+  );
+}
+
 function RedTabele({
   mesto,
   izabran,
@@ -259,9 +297,13 @@ function RedTabele({
           )}
         </td>
       ) : null}
-      {vrste.map((vrsta) => (
-        <CelijaVrste key={vrsta} vrsta={vrsta} mesto={mesto} sadaMs={sadaMs} prag={prag} />
-      ))}
+      {vrste.map((vrsta) =>
+        vrsta === "reservation" ? (
+          <CelijaRezervacije key={vrsta} mesto={mesto} sadaMs={sadaMs} />
+        ) : (
+          <CelijaVrste key={vrsta} vrsta={vrsta} mesto={mesto} sadaMs={sadaMs} prag={prag} />
+        ),
+      )}
       <td className={cn(CELIJA, "max-w-[12rem] break-words")}>{ko || <Crta />}</td>
     </tr>
   );
@@ -290,12 +332,17 @@ function RedListe({
     const stanje = mesto.summary.kinds[vrsta];
     return stanje ? [{ vrsta, stanje, kasni: isLate(stanje.oldestAt, sadaMs, prag) }] : [];
   });
+  // K25: the bound reservation is one more state of the card (its own hold decides when it is late).
+  const rezervacija = vrste.includes("reservation") ? (mesto.rezervacija ?? null) : null;
+  const rezervacijaKasni = rezervacija
+    ? reservationTiming(rezervacija.row.requestedAt, rezervacija.holdMin, sadaMs).phase === "kasni"
+    : false;
   const zona = prikaziZonu ? (mesto.zoneName ?? tk.bezZone) : null;
   const sedista = sedistaTekst(mesto.seats);
   const oznaka = zauzetost && mesto.occupancy !== "neutral" ? mesto.occupancy : null;
   const raspored = rasporedListe(
-    aktivne.length,
-    aktivne.some((aktivna) => aktivna.kasni),
+    aktivne.length + (rezervacija ? 1 : 0),
+    aktivne.some((aktivna) => aktivna.kasni) || rezervacijaKasni,
     oznaka !== null,
   );
   return (
@@ -335,13 +382,25 @@ function RedListe({
           {sedista ? <span className="text-[0.9375rem] text-[var(--mp-tekst-sporedni)]">{sedista}</span> : null}
         </span>
         <span aria-hidden="true" className={cn("grid min-w-0 gap-2", raspored.stanja)}>
-          {aktivne.length > 0 ? (
+          {aktivne.length > 0 || rezervacija ? (
             <span className="flex flex-wrap gap-x-4 gap-y-2">
               {aktivne.map(({ vrsta, stanje, kasni }) => (
                 <span key={vrsta} data-lista-stanje={vrsta} data-lista-kasni={kasni ? "" : undefined}>
                   <StanjeVrste vrsta={vrsta} stanje={stanje} sadaMs={sadaMs} kasni={kasni} lista />
                 </span>
               ))}
+              {rezervacija ? (
+                <span data-lista-rez={rezervacija.row.id} data-lista-rez-kasni={rezervacijaKasni ? "" : undefined} className="flex min-w-0 items-center gap-2.5">
+                  <KrugVrste vrsta="reservation" className="size-9" ikonica="size-[1.125rem]" />
+                  <span className="grid min-w-0 justify-items-start gap-0.5 leading-tight">
+                    <span className="max-w-[9rem] break-words text-base font-bold text-[var(--mp-tekst)]">{rezervacija.row.guestName}</span>
+                    <span className="text-[0.9375rem] font-semibold tabular-nums text-[var(--mp-tekst-sporedni)]">
+                      {clockTime(rezervacija.row.requestedAt)} · {gostiTekst(rezervacija.row.partySize)}
+                    </span>
+                    <KasnjenjeRezervacije requestedAt={rezervacija.row.requestedAt} holdMin={rezervacija.holdMin} sadaMs={sadaMs} />
+                  </span>
+                </span>
+              ) : null}
             </span>
           ) : (
             <Crta />
@@ -374,7 +433,7 @@ export function TabelaSale({
   prikaziZonu: boolean;
   /** The occupancy module is on: the "Status stola" column. */
   zauzetost: boolean;
-  /** Kind columns in order (today call, order, bill; reservation later). */
+  /** Kind columns in order (call, order, bill; K25: reservation when the venue takes reservations). */
   vrste: readonly TableKind[];
 }) {
   const prag = usePragKasnjenja();

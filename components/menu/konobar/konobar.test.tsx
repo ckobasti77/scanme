@@ -93,6 +93,7 @@ const zahtevPo = (id: string) => FX.zahtevi.find((r) => r.id === id)!;
 const NISTA = () => undefined;
 const ishod = (status: "accepted" | "done" | "cancelled") => async () => ({ ok: true as const, status, changed: true });
 const salaIshod = async () => ({ ok: true as const, changed: true });
+const rezIshod = async () => ({ ok: true as const, status: "accepted" as const, changed: true });
 const RADNJE: KonobarRadnje = {
   preuzmi: ishod("accepted"),
   zavrsi: ishod("done"),
@@ -102,6 +103,14 @@ const RADNJE: KonobarRadnje = {
   postaviZauzetost: salaIshod,
   postaviMojuZonu: salaIshod,
   postaviZonuOsoblja: salaIshod,
+  // K25: the reservations' actions (covered in rezervacije.test.tsx; these panels never press them).
+  prihvatiRezervaciju: rezIshod,
+  odbijRezervaciju: rezIshod,
+  predloziIzmenu: rezIshod,
+  gostPrihvataPredlog: rezIshod,
+  otkaziRezervaciju: rezIshod,
+  poveziSto: rezIshod,
+  gostiStigli: rezIshod,
 };
 
 const crveniRed = (fx: KonobarFixture = FX, preko: Partial<KonobarRed> = {}): KonobarRed => ({ zahtevi: fx.zahtevi, skraceno: false, otkazani: fx.otkazani, ...preko });
@@ -407,6 +416,8 @@ describe("work queue", () => {
       renderToStaticMarkup(
         <RadniRed red={crveniRed()} sadaMs={IZLOG_SADA} radiId={extra.radiId ?? null} onOtvori={NISTA} onRadnja={NISTA} radnjeIskljucene={false} obavestenja={[]} onZatvoriObavestenje={NISTA} pocetniFilter={extra.pocetniFilter} />,
       );
+    // K25: still true while no reservation data is wired (`rezervacije` undefined = the K22 queue);
+    // the wired Rezervacije filter (groups, cards, badge) is covered in rezervacije.test.tsx.
     const rezervacije = rad({ pocetniFilter: "rezervacije" });
     expect(naslovi(rezervacije, 2)).toEqual([t.red.praznoRezervacije.naslov]);
     expect(rezervacije).not.toContain("<article");

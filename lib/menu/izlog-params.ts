@@ -107,6 +107,10 @@ export const PANEL_ULOGA_AKTER = {
   admin: "admin",
 } as const satisfies Record<(typeof PANEL_ULOGE)[number], string>;
 
+/** K25: how the venue takes reservations in the izlog (`rezervacije=…`); absent = the ScanMe form. */
+export const PANEL_REZERVACIJE = ["forma", "eksterni", "iskljuceno"] as const;
+export type PanelRezervacije = (typeof PANEL_REZERVACIJE)[number];
+
 export type PanelPreviewParams = {
   tema: IzlogTema | null;
   sekcija: PanelSekcija;
@@ -116,6 +120,13 @@ export type PanelPreviewParams = {
   stanje: PanelStanje | null;
   /** `?fioka=otvorena`: the primitives page opens its drawer example (for snapshots). */
   fiokaOtvorena: boolean;
+  /**
+   * K25 `rezervacije=forma|eksterni|iskljuceno` (with sekcija=funkcionalnosti): the reservation
+   * choice of Funkcionalnosti; null = the ScanMe form.
+   */
+  rezervacije: PanelRezervacije | null;
+  /** K25 `radno-vreme=prazno`: the venue has not entered its working hours yet (the form is locked). */
+  bezRadnogVremena: boolean;
 };
 
 export function parsePanelPreview(params: IzlogSearchParams): PanelPreviewParams {
@@ -126,6 +137,8 @@ export function parsePanelPreview(params: IzlogSearchParams): PanelPreviewParams
     uloga: pickParam(params.uloga, PANEL_ULOGE, "vlasnik"),
     stanje: pickOptional(params.stanje, PANEL_STANJA),
     fiokaOtvorena: firstParam(params.fioka) === "otvorena",
+    rezervacije: pickOptional(params.rezervacije, PANEL_REZERVACIJE),
+    bezRadnogVremena: firstParam(params["radno-vreme"]) === "prazno",
   };
 }
 
@@ -199,11 +212,21 @@ export type KonobarPreviewParams = {
   zvukIskljucen: boolean;
   /** K23 `sto=<naziv>` (with ekran=sto): which table is open (default Sto 3, three parallel states). */
   sto: string | null;
+  /**
+   * K25 `rezervacija=rv_XX` (with ekran=rezervacije): that reservation's detail is open;
+   * `rezervacija=1` (with ekran=sto): the table with a bound, late reservation is open.
+   */
+  rezervacija: string | null;
+  /** K25 `otkazana=1`: a guest has just cancelled a reservation (the strip shows). */
+  otkazana: boolean;
 };
+
+const KONOBAR_REZERVACIJA = /^(?:1|rv_[a-z0-9]{2,4})$/;
 
 export function parseKonobarPreview(params: IzlogSearchParams): KonobarPreviewParams {
   const stanje = pickOptional(params.stanje, KONOBAR_STANJA);
   const zahtev = firstParam(params.zahtev);
+  const rezervacija = firstParam(params.rezervacija);
   return {
     tema: parseTema(params.tema),
     ekran: pickParam(params.ekran, KONOBAR_EKRANI, "red"),
@@ -217,6 +240,8 @@ export function parseKonobarPreview(params: IzlogSearchParams): KonobarPreviewPa
     kasni: firstParam(params.kasni) === "1",
     zvukIskljucen: firstParam(params.zvuk) === "iskljucen",
     sto: naziv(params.sto),
+    rezervacija: rezervacija !== undefined && KONOBAR_REZERVACIJA.test(rezervacija) ? rezervacija : null,
+    otkazana: firstParam(params.otkazana) === "1",
   };
 }
 
@@ -400,7 +425,25 @@ export type PublicPreviewParams = {
   greska: JavnaGreskaParam | null;
   /** K21 — `veza=offline`: the phone has no connection (nothing can be sent, nothing says "poslato"). */
   offline: boolean;
+  /**
+   * K25 — `rezervacija=forma|poslato|otkazivanje|otkazano|nevazece|greska`: the reservation screens
+   * (the form, the confirmation with the cancel link, the cancel link's page, after cancelling, a
+   * wrong link, the form after the server refused it).
+   */
+  rezervacija: JavnaRezervacijaParam | null;
+  /** K25 — `kontakt=email|telefon|oba`: the contact the venue's form asks for (default: both). */
+  kontakt: JavniKontaktParam | null;
+  /** K25 — `rezervacije=eksterni|iskljuceno`: the venue's own system (a link) or no reservations. */
+  rezervacije: JavneRezervacijeParam | null;
 };
+
+/** K25 — reservations in the public izlog (docs/MENI-PLAN.md §7). */
+export const JAVNE_REZERVACIJE_EKRANI = ["forma", "poslato", "otkazivanje", "otkazano", "nevazece", "greska"] as const;
+export type JavnaRezervacijaParam = (typeof JAVNE_REZERVACIJE_EKRANI)[number];
+export const JAVNI_KONTAKTI = ["email", "telefon", "oba"] as const;
+export type JavniKontaktParam = (typeof JAVNI_KONTAKTI)[number];
+export const JAVNE_REZERVACIJE = ["eksterni", "iskljuceno"] as const;
+export type JavneRezervacijeParam = (typeof JAVNE_REZERVACIJE)[number];
 
 /** K21 — guest requests in the public izlog (docs/MENI-PLAN.md §7; plan K19 §6 K21). */
 export const JAVNE_POZICIJE = ["sto", "soba"] as const;
@@ -466,6 +509,9 @@ export function parsePublicPreview(params: IzlogSearchParams): PublicPreviewPara
     stanjeZahteva: pickOptional(params["stanje-zahteva"], JAVNA_STANJA_ZAHTEVA),
     greska: pickOptional(params.greska, JAVNE_GRESKE),
     offline: firstParam(params.veza) === "offline",
+    rezervacija: pickOptional(params.rezervacija, JAVNE_REZERVACIJE_EKRANI),
+    kontakt: pickOptional(params.kontakt, JAVNI_KONTAKTI),
+    rezervacije: pickOptional(params.rezervacije, JAVNE_REZERVACIJE),
   };
 }
 

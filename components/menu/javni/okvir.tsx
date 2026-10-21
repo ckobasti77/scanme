@@ -32,6 +32,7 @@ export function JavniOkvir({
   ugradjen = false,
   navigacija,
   alati,
+  rezervacija,
   children,
   className,
 }: {
@@ -44,6 +45,8 @@ export function JavniOkvir({
   navigacija?: ReactNode;
   /** K14: the language and currency switches at the top. */
   alati?: ReactNode;
+  /** K25: the way into reservations, right before the footer (a server-rendered card; not in the editor preview). */
+  rezervacija?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
@@ -82,7 +85,10 @@ export function JavniOkvir({
         {alati ? <div className={styles.zaglavljeAlati}>{alati}</div> : null}
       </Zaglavlje>
       {navigacija}
-      <Glavni>{children}</Glavni>
+      <Glavni>
+        {children}
+        {ugradjen ? null : rezervacija}
+      </Glavni>
       <Podnozje className={styles.podnozje}>
         {izgled.brending === "reduced" ? t.podnozje.kratko : t.podnozje.pokrece}
       </Podnozje>

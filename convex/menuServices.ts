@@ -11,9 +11,18 @@ import {
 } from "./lib/menuAccess";
 import { getMenuCapabilities, requireMenuCapability } from "./lib/menuCapabilities";
 import { auditActorKind, writeMenuAudit } from "./lib/menuDraft";
-import { menuBooleanFeatureValidator, menuModeValidator } from "./lib/menuDomainValidators";
+import {
+  menuBooleanFeatureValidator,
+  menuModeValidator,
+  menuReservationContactValidator,
+  menuReservationsModeValidator,
+} from "./lib/menuDomainValidators";
 import { ensureMenuProfile } from "./menuAdmin";
-import { MENU_ERROR } from "../lib/menu/errors/core";
+import { MENU_ERROR, type MenuErrorCode } from "../lib/menu/errors/core";
+import { RESERVATION_ERROR, type ReservationErrorCode } from "../lib/menu/errors/reservations";
+import { normalizeExternalReservationUrl } from "../lib/menu/external-url";
+import { DEFAULT_RESERVATION_CONTACT, reservationConfigOf } from "../lib/menu/reservation-config";
+import { hasAnyHours } from "../lib/menu/working-hours";
 import { newMenuKey } from "../lib/menu/keys";
 import {
   DEFAULT_MENU_MODE,
@@ -154,6 +163,8 @@ export const context = query({
       canEdit: access.canEdit,
       features: menuService.features,
       capabilities: await getMenuCapabilities(ctx, business._id),
+      // K25: how the venue takes reservations (Funkcionalnosti > Rezervacije).
+      reservation: reservationConfigOf(menuService.features, menuService.settings),
     };
   },
 });
@@ -195,6 +206,70 @@ export const setFeature = mutation({
       details: { feature: args.feature, enabled: args.enabled },
     });
     return { ok: true as const };
+  },
+});
+
+export type SetReservationsOutcome = { ok: true; changed: boolean } | { ok: false; code: ReservationErrorCode | MenuErrorCode };
+
+/**
+ * K25 — `Funkcionalnosti > Rezervacije` (master §11.1, §11.2, §11.6; plan
+ * K24-8, K24-9, K24-16): no reservations, the ScanMe form (with the contact
+ * it asks for: e-mail, phone or both), or the venue's own system (an https
+ * link; ScanMe stores none of its reservations). Live at once, outside the
+ * draft. The form needs the working hours (Podešavanja) first. Switching
+ * away from the form never deletes the requests already sent: staff finish
+ * them; new ones are refused. The contact and the link are kept when the
+ * switch is off, so turning it on again restores them. Audited.
+ */
+export const setReservations = mutation({
+  args: {
+    menuServiceId: v.id("menuServices"),
+    mode: menuReservationsModeValidator,
+    contact: v.optional(menuReservationContactValidator),
+    externalUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<SetReservationsOutcome> => {
+    const access = await requireMenuAccessToRow(ctx, args.menuServiceId, "features.edit");
+    const { menuService } = access;
+    if (args.mode !== "off" && !modeSupportsFeature(menuService.mode, "reservations")) {
+      return { ok: false, code: MENU_ERROR.invalidInput };
+    }
+    const stored = menuService.settings?.reservation;
+    let externalUrl = stored?.externalUrl;
+    if (args.externalUrl !== undefined) {
+      const normalized = args.externalUrl.trim() === "" ? null : normalizeExternalReservationUrl(args.externalUrl);
+      if (normalized === null && args.externalUrl.trim() !== "") return { ok: false, code: RESERVATION_ERROR.urlInvalid };
+      externalUrl = normalized ?? undefined;
+    }
+    if (args.mode === "external" && !externalUrl) return { ok: false, code: RESERVATION_ERROR.urlInvalid };
+    if (args.mode === "form" && !hasAnyHours(menuService.settings?.workingHours)) {
+      return { ok: false, code: RESERVATION_ERROR.hoursMissing };
+    }
+    const reservation = {
+      contact: args.contact ?? stored?.contact ?? DEFAULT_RESERVATION_CONTACT,
+      ...(externalUrl ? { externalUrl } : {}),
+      ...(stored?.holdMinutes !== undefined ? { holdMinutes: stored.holdMinutes } : {}),
+    };
+    const sameSettings =
+      stored !== undefined &&
+      stored.contact === reservation.contact &&
+      (stored.externalUrl ?? null) === (reservation.externalUrl ?? null);
+    if (menuService.features.reservations === args.mode && sameSettings) return { ok: true, changed: false };
+    const now = Date.now();
+    await ctx.db.patch(menuService._id, {
+      features: { ...menuService.features, reservations: args.mode },
+      settings: { ...menuService.settings, reservation },
+      updatedAt: now,
+    });
+    await writeMenuAudit(ctx, {
+      menuServiceId: menuService._id,
+      actorKind: auditActorKind(access.actor),
+      actorUserId: access.user._id,
+      action: "reservation.mode_changed",
+      entityType: "menuServices",
+      details: { from: menuService.features.reservations, to: args.mode, contact: reservation.contact },
+    });
+    return { ok: true, changed: true };
   },
 });
 

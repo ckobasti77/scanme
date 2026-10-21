@@ -5,7 +5,8 @@
 // same layout (lib/menu/floor-layout.ts placeLayouts, so the plan looks
 // exactly as the owner arranged it in K20), and on every table ALL its
 // parallel states as badges standing on its top edge — call, order, bill
-// (reservation from K25). The badge of the longest wait carries its time
+// and, from K25, the bound reservation (CalendarClock, its time, then "kasni"
+// after the venue's hold). The badge of the longest wait carries its time
 // (`08:12`), so a time always belongs to its kind; the others show their time
 // too when the table is wide enough. A badge whose requests are all taken has
 // a dashed frame. Late badges pulse gently; a reminder flashes the table.
@@ -38,7 +39,7 @@ import stil from "../konobar.module.css";
 import type { KonobarSala } from "../model";
 import { opisMestaSale, zaRaspored, type SalaMesto } from "./pogled";
 import { ZAUZETOST, ZauzetostOznaka } from "./zauzetost-oznaka";
-import { ZnackaStanja } from "./znacka-stanja";
+import { ZnackaRezervacije, ZnackaStanja } from "./znacka-stanja";
 
 const t = menuKonobarSr.sala;
 /** The plan never zooms in beyond half of the editor's grid. */
@@ -150,7 +151,7 @@ function StoNaRasporedu({
           {mesto.label}
         </span>
       </span>
-      {vrste.length > 0 ? (
+      {vrste.length > 0 || mesto.rezervacija ? (
         // The badges stand ON the table's top edge, above its name, never over it.
         <span className="pointer-events-none absolute left-1/2 top-0 z-10 flex -translate-x-1/2 -translate-y-[calc(100%-0.375rem)] items-center gap-1">
           {vrste.map((vrsta, indeks) => {
@@ -165,6 +166,8 @@ function StoNaRasporedu({
               />
             ) : null;
           })}
+          {/* K25: the bound reservation stands beside the requests, with its own time and hold. */}
+          {mesto.rezervacija ? <ZnackaRezervacije rezervacija={mesto.rezervacija} sadaMs={sadaMs} /> : null}
         </span>
       ) : null}
       {zauzetost ? <ZauzetostOznaka stanje={zauzetost} samoIkonica className="absolute -bottom-2.5 -right-2.5" /> : null}

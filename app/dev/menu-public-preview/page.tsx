@@ -10,6 +10,13 @@
 //   ?tema=svetla|tamna                 the app theme only; the menu keeps the venue palette (P13)
 // K14: ?alergen=mleko,gluten  ?jezik=en  ?valuta=eur  ?kurs=star  ?pretraga=<tekst>  ?filter=vegan,promo
 //   (stanje=veliki also turns search and every filter on)
+// K25: reservations. The menu carries the entry card (form by default;
+//   ?rezervacije=eksterni the venue's own system, ?rezervacije=iskljuceno none).
+//   ?rezervacija=forma|poslato|otkazivanje|otkazano|nevazece|greska   one reservation page of
+//   "Demo restoran" (the form, the confirmation, the cancel link, after cancelling, a wrong link,
+//   the form after the server refused the term);  ?kontakt=email|telefon|oba   the contact it asks
+//   for (both by default);  ?pozicija=sto&moji-zahtevi=1&rezervacija=forma   adds the "Rezervacije"
+//   section to Moji zahtevi. Nothing is sent anywhere.
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";

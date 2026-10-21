@@ -236,6 +236,61 @@ describe("the Editor action, on every section in the izlog", () => {
   });
 });
 
+describe("K25: the reservation blocks of Funkcionalnosti and Podešavanja", () => {
+  const rez = t.rezervacije;
+  const radno = t.radnoVreme;
+  const zadrzavanje = t.zadrzavanje;
+
+  test("Funkcionalnosti: the reservation choice stands under the title and above the 'u pripremi' card, which stays", () => {
+    const main = element(panel({ sekcija: "funkcionalnosti" }), "main");
+    expect(count(main, "<h1")).toBe(1);
+    expect(main.indexOf("<h1")).toBeLessThan(main.indexOf("data-rezervacije-izbor"));
+    expect(main.indexOf("data-rezervacije-izbor")).toBeLessThan(main.indexOf('data-sekcija-u-pripremi="funkcionalnosti"'));
+    expect(main).toContain(`>${esc(rez.naslov)}</h2>`);
+    // The ScanMe form is the default way.
+    expect(main).toContain(esc(rez.rezimiOpis.form));
+  });
+
+  test("Funkcionalnosti: rezervacije= and radno-vreme= pick the way and the lock", () => {
+    expect(panel({ sekcija: "funkcionalnosti", rezervacije: "eksterni" })).toContain(esc(rez.rezimiOpis.external));
+    expect(panel({ sekcija: "funkcionalnosti", rezervacije: "iskljuceno" })).toContain(esc(rez.rezimiOpis.off));
+    const zakljucano = panel({ sekcija: "funkcionalnosti", "radno-vreme": "prazno", tema: "tamna" });
+    expect(zakljucano).toContain(esc(rez.bezRadnogVremena));
+    const veza = sidra(element(zakljucano, "main")).filter((sidro) => sidro.text === esc(rez.unesiRadnoVreme));
+    expect(veza.map((sidro) => sidro.href)).toEqual([
+      `${PUTANJA}?sekcija=podesavanja&uloga=vlasnik&plan=standard&radno-vreme=prazno&tema=tamna`,
+    ]);
+    expect(panel({ sekcija: "funkcionalnosti" })).not.toContain(esc(rez.bezRadnogVremena));
+  });
+
+  test("Podešavanja: the working hours and the hold stand above the 'u pripremi' card", () => {
+    const main = element(panel({ sekcija: "podesavanja" }), "main");
+    expect(count(main, "<h1")).toBe(1);
+    expect(main.indexOf("data-radno-vreme")).toBeLessThan(main.indexOf("data-zadrzavanje"));
+    expect(main.indexOf("data-zadrzavanje")).toBeLessThan(main.indexOf('data-sekcija-u-pripremi="podesavanja"'));
+    expect(main).toContain(`>${esc(radno.naslov)}</h2>`);
+    expect(main).toContain(`>${esc(zadrzavanje.naslov)}</h2>`);
+    expect(count(main, 'data-dan="')).toBe(7);
+    expect(main).not.toContain(esc(radno.prazno));
+  });
+
+  test("Podešavanja: radno-vreme=prazno shows the empty hours", () => {
+    const main = element(panel({ sekcija: "podesavanja", "radno-vreme": "prazno" }), "main");
+    expect(main).toContain(esc(radno.prazno));
+    expect(main).not.toContain('type="time"');
+  });
+
+  test("an editor gets the forbidden state in both sections, without the blocks", () => {
+    for (const sekcija of ["funkcionalnosti", "podesavanja"]) {
+      const main = element(panel({ uloga: "urednik", sekcija }), "main");
+      expect(main).toContain("data-sekcija-zabranjena");
+      expect(main).not.toContain("data-rezervacije-izbor");
+      expect(main).not.toContain("data-radno-vreme");
+      expect(main).not.toContain("data-zadrzavanje");
+    }
+  });
+});
+
 describe("uloga=urednik", () => {
   test("sees two nav links: Početna and Editor", () => {
     const html = panel({ uloga: "urednik" });
@@ -522,7 +577,14 @@ describe("tema", () => {
   });
 
   test("every link on the page keeps the theme, except the skip link", () => {
-    for (const query of [{}, { sekcija: "editor" }, { uloga: "urednik", sekcija: "tim" }, { sekcija: "analitika" }]) {
+    for (const query of [
+      {},
+      { sekcija: "editor" },
+      { uloga: "urednik", sekcija: "tim" },
+      { sekcija: "analitika" },
+      { sekcija: "funkcionalnosti", "radno-vreme": "prazno" },
+      { sekcija: "podesavanja" },
+    ]) {
       const links = nemaSkoka(sidra(panel({ ...query, tema: "tamna" })));
       expect(links.length).toBeGreaterThan(2);
       for (const link of links) expect(link.href).toContain("tema=tamna");
@@ -574,6 +636,10 @@ describe("accessibility of the whole panel", () => {
       { stanje: "prijava" },
       { stanje: "neaktivno" },
       { stanje: "bez-pristupa" },
+      { sekcija: "funkcionalnosti" },
+      { sekcija: "funkcionalnosti", rezervacije: "eksterni", "radno-vreme": "prazno" },
+      { sekcija: "podesavanja" },
+      { sekcija: "podesavanja", "radno-vreme": "prazno" },
     ];
     for (const upit of upiti) {
       const html = panel(upit);
@@ -600,6 +666,8 @@ describe("namespace", () => {
       { stanje: "ucitava" },
       { stanje: "prijava" },
       { stanje: "neaktivno" },
+      { sekcija: "funkcionalnosti", tema: "tamna" },
+      { sekcija: "podesavanja", tema: "tamna" },
     ];
     const html = upiti.map(panel).join("\n");
     expect(html).not.toContain(VENUE_NS);

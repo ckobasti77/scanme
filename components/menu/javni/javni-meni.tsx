@@ -83,6 +83,8 @@ export type JavniMeniProps = {
   radnjeGosta?: ReactNode;
   /** K21: ordering inside the detail, for a guest who may order; absent = the detail only informs. */
   dodajUKorpu?: (args: JavniDodajArgs) => ReactNode;
+  /** K25: the way into reservations (a server-rendered card); passed through to the frame, absent in the editor preview. */
+  rezervacija?: ReactNode;
 };
 
 /** K21: what the ordering slot of the detail gets. */
@@ -124,6 +126,7 @@ export function JavniMeni({
   napomena,
   radnjeGosta,
   dodajUKorpu,
+  rezervacija,
 }: JavniMeniProps) {
   // K17: the venue's menu-wide media display caps every article (master §7.4).
   const view = useMemo(() => {
@@ -270,6 +273,7 @@ export function JavniMeni({
         jezik={view.jezik}
         ugradjen={ugradjen}
         alati={alatiZaglavlja}
+        rezervacija={rezervacija}
         navigacija={
           <NavigacijaStranica
             slug={slug}

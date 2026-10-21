@@ -85,6 +85,7 @@ import {
   menuPositionLayoutValidator,
   menuPresenceEntityTypeValidator,
   menuRequestCancelledByValidator,
+  menuReservationStatusValidator,
   menuRequestChannelValidator,
   menuRequestItemAddonValidator,
   menuRequestKindValidator,
@@ -3769,6 +3770,62 @@ export default defineSchema({
   })
     .index("by_menuServiceId", ["menuServiceId"])
     .index("by_positionId", ["positionId"]),
+
+  // K25 — a reservation request sent through the venue's ScanMe form (master
+  // §11; plan docs/meni/planovi/K24.md §2.1). A function of the Menu service,
+  // separate from the Venue product's `venueReservations`. The guest never
+  // chooses a table: staff accept, decline or propose a change, bind an
+  // accepted reservation to a table by hand and mark the arrival; statuses
+  // move only through lib/menu/reservation-status.ts (writer:
+  // convex/lib/menuReservationWriter.ts). Nothing moves on its own — no
+  // default duration, no automatic cancellation. The contact is stored only
+  // as the venue's form asks for it; the cancel link's token only as its
+  // SHA-256 (`cancelTokenHash`); `deviceKeyHash` is the guest device
+  // pseudonym of THIS venue (Moji zahtevi), never returned to staff.
+  menuReservations: defineTable({
+    menuServiceId: v.id("menuServices"),
+    businessId: v.id("businesses"),
+    status: menuReservationStatusValidator,
+    guestName: v.string(),
+    partySize: v.number(),
+    requestedAt: v.number(),
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
+    note: v.optional(v.string()),
+    // The table staff bound it to, with its name as it was then.
+    positionId: v.optional(v.id("menuPositions")),
+    positionLabel: v.optional(v.string()),
+    boundAt: v.optional(v.number()),
+    boundByStaffId: v.optional(v.id("menuStaff")),
+    boundByUserId: v.optional(v.id("users")),
+    // A proposed change: the new time and a short message for the guest.
+    proposedAt: v.optional(v.number()),
+    proposalNote: v.optional(v.string()),
+    // Accepted, declined or proposed: who and when.
+    decidedAt: v.optional(v.number()),
+    decidedByStaffId: v.optional(v.id("menuStaff")),
+    decidedByUserId: v.optional(v.id("users")),
+    arrivedAt: v.optional(v.number()),
+    arrivedByStaffId: v.optional(v.id("menuStaff")),
+    arrivedByUserId: v.optional(v.id("users")),
+    cancelledAt: v.optional(v.number()),
+    cancelledBy: v.optional(menuRequestCancelledByValidator),
+    cancelledByStaffId: v.optional(v.id("menuStaff")),
+    cancelledByUserId: v.optional(v.id("users")),
+    cancelTokenHash: v.string(),
+    deviceKeyHash: v.optional(v.string()),
+    // The phone's key of one send attempt: a retry returns the reservation already written.
+    clientRequestId: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_status_and_requestedAt", ["menuServiceId", "status", "requestedAt"])
+    .index("by_menuServiceId_and_requestedAt", ["menuServiceId", "requestedAt"])
+    .index("by_positionId_and_requestedAt", ["positionId", "requestedAt"])
+    .index("by_cancelTokenHash", ["cancelTokenHash"])
+    .index("by_menuServiceId_and_deviceKeyHash_and_createdAt", ["menuServiceId", "deviceKeyHash", "createdAt"])
+    .index("by_menuServiceId_and_deviceKeyHash_and_clientRequestId", ["menuServiceId", "deviceKeyHash", "clientRequestId"])
+    .index("by_menuServiceId_and_cancelledAt", ["menuServiceId", "cancelledAt"]),
 
   // Explicit Menu roles (K01 §4.2). Account roles are DERIVED from
   // accountMemberships / businessMemberships; a row here grants an explicit
