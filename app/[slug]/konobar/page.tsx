@@ -6,9 +6,10 @@ import type { Metadata } from "next";
 import { KonobarUlaz } from "@/components/menu/konobar/ulaz";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
 import { klijentskiPanelHref } from "@/lib/menu/panel-nav";
+import { menuNaslov } from "@/lib/menu-naslovi";
 
 export const metadata: Metadata = {
-  title: menuPanelSr.konobar.naslov,
+  title: menuNaslov(menuPanelSr.konobar.naslov),
   robots: { index: false, follow: false },
 };
 

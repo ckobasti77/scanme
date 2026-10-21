@@ -151,7 +151,7 @@ export const menuStudioArtikalSr = {
     nazivOznaka: "Naziv varijante {n}",
     cenaOznaka: "Cena varijante {naziv}",
     nazivPrimer: "Na primer: Mala",
-    cenaKolona: "Cena, RSD",
+    cenaKolona: "Cena (RSD)",
     nova: "Nova varijanta",
     novaCena: "Cena nove varijante",
     dodaj: "Dodaj varijantu",

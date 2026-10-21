@@ -9,9 +9,10 @@
 import type { Metadata } from "next";
 import { StariIliNoviEditor } from "@/components/menu/studio/ruta/stari-ili-novi";
 import { menuEditorSr as dict } from "@/lib/i18n/sr/menu-editor";
+import { menuNaslov } from "@/lib/menu-naslovi";
 
 export const metadata: Metadata = {
-  title: dict.metaEditorTitle,
+  title: menuNaslov(dict.metaEditorTitle),
   robots: { index: false, follow: false },
 };
 

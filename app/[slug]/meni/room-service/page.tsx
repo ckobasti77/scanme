@@ -14,9 +14,7 @@ import { api } from "@/convex/_generated/api";
 import { JavniMeniUzivo } from "@/components/menu/javni/javni-meni-uzivo";
 import { JavniOkvir } from "@/components/menu/javni/okvir";
 import { RoomServiceNapomena, RoomServiceNedostupan } from "@/components/menu/gost/room-service/napomena";
-import { fmt } from "@/lib/i18n/format";
 import { menuGostSr } from "@/lib/i18n/sr/menu-gost";
-import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
 import { javniIzgled } from "@/lib/menu/identity/public-tokens";
 import { saJezikom } from "@/lib/menu/i18n-fallback";
 import { MENU_ROOM_SERVICE_PATH } from "@/lib/menu/guest-actions";
@@ -24,6 +22,7 @@ import { mogucnostiIzPrezentacije } from "@/lib/menu/public-view";
 import { roomServicePage, roomServiceSections } from "@/lib/menu/room-service-view";
 import { JAVNI_ROBOTS, analitikaZa, saAkcijama } from "../_lib/prikaz";
 import { gostZaStranicu, jedanParametar, ucitajGostSesiju, ucitajJavno, ulazJavno } from "../_lib/ucitaj";
+import { javniNaslov } from "@/lib/menu-naslovi";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +75,7 @@ export async function generateMetadata(props: PageProps<"/[slug]/meni/room-servi
   const { rs } = await ucitaj(props);
   if (!rs) return { robots: JAVNI_ROBOTS };
   return {
-    title: fmt(menuJavniSr.meta.naslovStranice, { stranica: t.naslov, lokal: rs.view.lokal.naziv }),
+    title: javniNaslov(rs.view.lokal.naziv, t.naslov),
     robots: JAVNI_ROBOTS,
   };
 }

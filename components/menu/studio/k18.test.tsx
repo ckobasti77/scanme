@@ -1260,7 +1260,7 @@ describe("K18 J: Objavi on its own", () => {
       expect(dugmad(sekcija)).toHaveLength(0);
     }
     const bezBroja = elementSaTragom(dijalog(modal({ pregled: { upozorenja: [jezik(null)] } })), "section", 'data-objava-upozorenja=""');
-    expect(tekst(elementSaTragom(bezBroja, "li", 'data-problem-objave="translation_missing"'))).toBe(`${izdanja.translation_missing} (DE)`);
+    expect(tekst(elementSaTragom(bezBroja, "li", 'data-problem-objave="translation_missing"'))).toBe(`${izdanja.translation_missing} (Nemački)`);
     expect(dugmad(bezBroja)).toHaveLength(0);
     const bezJezika = elementSaTragom(dijalog(modal({ pregled: { upozorenja: [jezik(null, "translation_missing", null)] } })), "section", 'data-objava-upozorenja=""');
     expect(tekst(elementSaTragom(bezJezika, "li", 'data-problem-objave="translation_missing"'))).toBe(izdanja.translation_missing);

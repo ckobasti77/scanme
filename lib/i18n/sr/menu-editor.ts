@@ -25,7 +25,7 @@ export const menuEditorSr = {
   shapeLabelIstaknuto: "Istaknuto",
   shapeLabelTabelaVarijanti: "Tabela varijanti",
   // --- the editor shell -------------------------------------------------------
-  metaEditorTitle: "Uredi meni | ScanMe",
+  metaEditorTitle: "Editor",
   editorLoading: "Učitavanje editora…",
   signInTitle: "Prijava je potrebna",
   signInBody:
@@ -53,6 +53,7 @@ export const menuEditorSr = {
   saveStateError: "Nije sačuvano",
   saveRetryHint: "Kliknite da pokušate ponovo.",
   saveErrorFallback: "Nacrt nije sačuvan.",
+  fontSistemsko: "Sistemsko pismo",
   savedToast: "Nacrt je sačuvan.",
   publishDialogTitle: "Objavi trenutni nacrt?",
   publishDialogBody:
@@ -164,7 +165,7 @@ export const menuEditorSr = {
   // --- the dayparts panel -----------------------------------------------------
   daypartsHeading: "Vremenski prozori",
   daypartsEmptyHint:
-    "Bez dobâ dana sve grupe su prikazane uvek. Dodajte doručak, ručak ili večeru da biste vezali grupe za deo dana.",
+    "Bez doba dana sve grupe su prikazane uvek. Dodajte doručak, ručak ili večeru da biste vezali grupe za deo dana.",
   daypartAdd: "Dodaj doba dana",
   daypartKeyLabel: "Ključ",
   daypartKeyHint: "Kratak ključ bez dijakritika, npr. dorucak, rucak, vecera.",

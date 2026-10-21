@@ -152,7 +152,7 @@ export function DetaljSadrzaj({
                       {opcija.priceDeltaRsd > 0 ? (
                         <span className={styles.cena}>
                           +{formatRsd(opcija.priceDeltaRsd)}
-                          <span className={styles.valuta}>RSD</span>
+                          <span className={styles.valuta}>{t.valuta.rsd}</span>
                           <EurIznos rsd={opcija.priceDeltaRsd} />
                         </span>
                       ) : null}

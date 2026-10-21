@@ -472,7 +472,7 @@ describe("the cancel-link page", () => {
     expect(tekst(html)).toContain(t.link.otkaziPitanje);
     expect(tekst(html)).toContain(t.link.otkaziOpis);
     expect(html).toMatch(/<button\b[^>]*type="submit"[^>]*data-otkazi-potvrda=""[^>]*>Da, otkaži<\/button>/);
-    expect(html).toMatch(/<a\b[^>]*href="\/demo-restoran\/meni\/rezervacija\/TOKEN"[^>]*>Ne<\/a>/);
+    expect(html).toMatch(/<a\b[^>]*href="\/demo-restoran\/meni\/rezervacija\/TOKEN"[^>]*>Ne, zadrži rezervaciju<\/a>/);
     expect(html).not.toContain("data-otkazi=");
   });
 

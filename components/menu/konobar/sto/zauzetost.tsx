@@ -44,9 +44,11 @@ export type ZauzetostStolaProps = {
 function trenutnoTekst(stanje: OccupancyView, meta: ZauzetostStolaProps["meta"]): string {
   if (stanje === "neutral") return `${t.neutralno} — ${t.neutralnoOpis}`;
   if (!meta) return fmt(t.statusTrenutno, { stanje: reci[stanje] });
-  // Built from the parts of the template, so a missing name leaves no trailing separator.
-  const delovi = t.statusPromenio.split(" · ").filter((deo) => meta.updatedBy || !deo.includes("{ime}"));
-  return fmt(delovi.join(" · "), { stanje: reci[stanje], vreme: clockTime(meta.updatedAt), ime: meta.updatedBy ?? "" });
+  return fmt(meta.updatedBy ? t.statusPromenio : t.statusPromenioBezImena, {
+    stanje: reci[stanje],
+    vreme: clockTime(meta.updatedAt),
+    ime: meta.updatedBy ?? "",
+  });
 }
 
 const PLOCICA = [

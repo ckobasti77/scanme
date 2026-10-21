@@ -2358,3 +2358,10 @@ Ne blokira kod. Definicije: `docs/menu/ANALITIKA-DEFINICIJE.md` §11.
 
 1. **„Procenti tek od 20 relevantnih sesija" (master §14.4).** Run je izabrao strožu varijantu: osnovica celog ekrana su sesije kad se mere, a dok se ne mere (podrazumevano, BLOCKED K29/1) otvaranja menija; ispod 20 panel ne prikazuje **nijedan** procenat i kaže „Još je malo podataka". Iznad toga svaki procenat i dalje traži svoj imenilac od 20 (npr. udeo završenih zahteva tek od 20 poslatih). Pitanje: da li je osnovica dobra dok sesije nisu uključene, ili procente treba vezati samo za svoj imenilac?
 2. **CSV** sadrži zbirne brojke po danu i nazive iz menija (artikli, stranice, QR kartice), bez ijednog podatka o gostu; polja su odvojena sa `;` (Excel sa srpskim podešavanjima). Pitanje: da li ScanMe želi i varijantu sa zarezom za druge programe?
+
+## SCANME MENU V1 — K31 (21. 10. 2026.) — rečnik: izbori koji traže odluku vlasnika
+
+Ne blokira kod. Rečnik: `docs/menu/RECNIK.md`.
+
+1. **Naziv funkcije „Poručivanje".** Stari rečnici (`ordering*.ts`) i nekoliko Menu poruka koriste „poručivanje" kao ime funkcije, a zahtev koji nastaje zove se „Porudžbina". Run je zadržao „poručivanje" samo kao ime radnje gosta. Pitanje: da li funkciju u panelu i naslovima zovemo „Porudžbine" ili ostaje „Poručivanje"?
+2. **Stari modeli zadržavaju „grupa/stavka".** Stari editor i interni admin (`menu-editor`, `menu-admin`) ostaju na starom rečniku do migracije; novi ekrani koriste „sekcija/artikal". Pitanje: u redu je da se stari ekrani ne usklađuju, jer ih migracija zamenjuje?

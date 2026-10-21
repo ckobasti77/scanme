@@ -11,9 +11,7 @@ import type { Metadata, Viewport } from "next";
 import { notFound, redirect } from "next/navigation";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
-import { fmt } from "@/lib/i18n/format";
 import { menuGostSr } from "@/lib/i18n/sr/menu-gost";
-import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
 import { RESERVATION_ERROR, type ReservationErrorCode } from "@/lib/menu/errors/reservations";
 import { reservationLinkPath } from "@/lib/menu/http/reservation";
 import { saJezikom } from "@/lib/menu/i18n-fallback";
@@ -21,6 +19,7 @@ import { isMenuToken } from "@/lib/menu/tokens";
 import { JAVNI_ROBOTS, LinkStrana, javniViewport } from "../../_lib/prikaz";
 import { jedanParametar, ucitajJavno, ulazJavno } from "../../_lib/ucitaj";
 import { otkaziIzLinka } from "./radnja";
+import { javniNaslov } from "@/lib/menu-naslovi";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +53,7 @@ export async function generateMetadata(props: PageProps<"/[slug]/meni/rezervacij
   const { ucitano } = await ucitaj(props);
   if (!ucitano) return ZASTITA;
   return {
-    title: fmt(menuJavniSr.meta.naslovStranice, { stranica: menuGostSr.rezervacija.link.naslov, lokal: ucitano.view.lokal.naziv }),
+    title: javniNaslov(ucitano.view.lokal.naziv, menuGostSr.rezervacija.link.naslov),
     ...ZASTITA,
   };
 }

@@ -75,7 +75,7 @@ export function EurIznos({ rsd }: { rsd: number }) {
   return (
     <span className={styles.eur} data-eur="">
       <span className={styles.vizuelnoSkriveno}>{t.valuta.eurCitac} </span>
-      {iznosEur(eurIzRsd(rsd, eurKurs))} EUR
+      {iznosEur(eurIzRsd(rsd, eurKurs))} {t.valuta.eurOznaka}
     </span>
   );
 }

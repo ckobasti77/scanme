@@ -9,9 +9,10 @@ import type { Metadata } from "next";
 import { StudioRuta } from "@/components/menu/studio/studio-ruta";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
 import { firstParam } from "@/lib/menu/izlog-params";
+import { menuNaslov } from "@/lib/menu-naslovi";
 
 export const metadata: Metadata = {
-  title: menuStudioSr.meta.naslov,
+  title: menuNaslov(menuStudioSr.meta.naslov),
 };
 
 export default async function MenuPanelEditorPage({

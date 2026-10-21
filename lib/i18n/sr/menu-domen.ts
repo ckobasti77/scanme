@@ -21,7 +21,7 @@ export const menuDomenSr = {
     "Podaci i podešavanja se ne prenose slepo između režima. Funkcije koje novi režim ne podržava biće isključene, a ništa se ne briše.",
   errors: {
     "menu/unauthenticated": "Prijavite se da biste nastavili.",
-    "menu/not_found": "Traženi meni ili stavka ne postoji.",
+    "menu/not_found": "Traženi meni ili artikal ne postoji.",
     "menu/forbidden": "Nemate dozvolu za ovu radnju.",
     "menu/service_inactive": "ScanMe Menu trenutno nije aktivan za ovaj lokal.",
     "menu/editing_disabled":
@@ -253,9 +253,9 @@ export const menuDomenSr = {
     price_rounded: "Cena nije bila u celim dinarima i zaokružena je.",
     price_invalid: "Cena nije ispravna i nije prebačena.",
     variants_truncated: "Artikal ima više od 20 varijanti. Prebačeno je prvih 20.",
-    duplicate_name: "Više artikala ima isti naziv. Proverite da li je to isti proizvod.",
+    duplicate_name: "Više artikala ima isti naziv. Proverite da li je to isti artikal.",
     duplicate_source_id:
-      "Stavka je u starom meniju imala ponovljen ili prazan identifikator. Proverite da nije prebačena dvaput.",
+      "Stavka je u starom meniju imala ponovljenu ili praznu oznaku. Proverite da nije prebačena dvaput.",
     image_pending: "Slika je sačuvana i čeka obradu. Do tada se prikazuje ikonica.",
     unavailable_from_live:
       "Na javnom meniju je označeno „nema više“. Artikal je prebačen kao privremeno nedostupan.",

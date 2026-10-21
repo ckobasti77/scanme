@@ -7,7 +7,7 @@ import type { MenuPanelDict } from "../types";
 // itself ("ScanMe Menu · Ugostiteljstvo") comes from menu-domen.serviceLabel.
 export const menuPanelSr = {
   meta: {
-    naslov: "{sekcija} · ScanMe Menu",
+    naslov: "{naziv} | ScanMe Menu",
     naslovPanela: "ScanMe Menu",
   },
   sekcije: {
@@ -114,7 +114,7 @@ export const menuPanelSr = {
     premiumOznaka: "Premium",
     premiumUkljucen: "uključeno u vaš Premium nalog",
     premiumZakljucan: "dostupno uz Premium nalog",
-    premiumNapomena: "Stavke sa oznakom Premium dolaze uz Premium nalog. Za više informacija pišite nam iz klijentskog panela.",
+    premiumNapomena: "Opcije sa oznakom Premium dolaze uz Premium nalog. Za više informacija pišite nam iz klijentskog panela.",
     napomenaMenadzer: {
       tim: "Ulogu Vlasnik može da dodeli samo vlasnik.",
       podesavanja: "Naplatu i vlasništvo naloga vodi vlasnik.",
@@ -603,7 +603,7 @@ export const menuPanelSr = {
       pinOdjava: "Prethodne prijave ove osobe su završene.",
       pinNikadVidljiv: "Postojeći PIN se nikad ne prikazuje. Ako ga je osoba zaboravila, postavite novi.",
       resetNaslov: "Resetovati PIN?",
-      resetOpis: "{ime} se odmah odjavljuje sa svih uređaja i ne može da uđe dok ne postavite novi PIN.",
+      resetOpis: "Stari PIN prestaje da važi. {ime} se odmah odjavljuje sa svih uređaja i ne može da uđe dok ne postavite novi PIN.",
       resetPotvrdi: "Resetuj PIN",
       resetSamoVlasnik: "PIN postavljaju i resetuju samo vlasnik i menadžer.",
       preimenuj: "Promeni ime",

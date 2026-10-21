@@ -6,8 +6,8 @@ import type { MenuJavniDict } from "../types";
 // for the editor and the guest). Placeholders are filled via fmt().
 export const menuJavniSr = {
   meta: {
-    naslov: "{lokal} · Meni",
-    naslovStranice: "{stranica} · {lokal}",
+    naslov: "{lokal} — Meni",
+    naslovStranice: "{lokal} — {stranica}",
     opis: "Meni i ponuda lokala {lokal}.",
   },
   razdelnik: {
@@ -66,7 +66,7 @@ export const menuJavniSr = {
     nedostupnaOpis: "Možda je uklonjena ili je link netačan. Ostatak menija je i dalje tu.",
     otvoriMeni: "Otvori meni",
     nijeDostupanNaslov: "Meni trenutno nije dostupan",
-    nijeDostupanOpis: "Lokal je privremeno sklonio meni. Pitajte osoblje za ponudu.",
+    nijeDostupanOpis: "Lokal je privremeno sakrio meni. Pitajte osoblje za ponudu.",
     sadrzajNaslov: "Sadržaj menija",
     novaVerzija: "Meni je osvežen.",
     prikaziNovu: "Prikaži novu verziju",
@@ -168,6 +168,7 @@ export const menuJavniSr = {
   valuta: {
     oznaka: "Valuta cena",
     rsd: "RSD",
+    eurOznaka: "EUR",
     eur: "RSD + EUR",
     eurCitac: "otprilike",
     napomena: "Cene u evrima su približne, po srednjem kursu NBS od {datum}. Važeća cena je u dinarima.",

@@ -2314,7 +2314,7 @@ export interface AdminLocationDict {
 // the five group shapes' chrome, item detail bottom-sheet, pricing, and inquiry.
 export interface MenuDict {
   // Route metadata (§2.11).
-  metaTitle: string; // "{name} · Meni"
+  metaTitle: string; // "{name} — Meni"
   metaDescription: string; // "Pogledajte meni i ponudu lokala {name}."
   // 404 / empty state.
   notFoundTitle: string; // "Meni nije pronađen"
@@ -2671,6 +2671,7 @@ export interface MenuEditorDict {
   saveStateError: string;
   saveRetryHint: string;
   saveErrorFallback: string;
+  fontSistemsko: string;
   savedToast: string;
   // Publish dialog + revision conflict.
   publishDialogTitle: string;
@@ -7198,7 +7199,7 @@ export type MenuPanelStavka = { readonly tekst: string; readonly premium?: true;
 
 export interface MenuPanelDict {
   meta: {
-    /** {sekcija} */
+    /** {naziv} */
     naslov: string;
     naslovPanela: string;
   };
@@ -9157,7 +9158,7 @@ export interface MenuJavniDict {
   /** K14 — languages (master §7.7); language names in their own language. */
   jezik: { oznaka: string; nazivi: Record<string, string> };
   /** K14 — the informative EUR price (master §5.3). */
-  valuta: { oznaka: string; rsd: string; eur: string; eurCitac: string; napomena: string };
+  valuta: { oznaka: string; rsd: string; eurOznaka: string; eur: string; eurCitac: string; napomena: string };
 }
 
 // ScanMe Menu V1 (MENI run, K20) — "Lokal i QR" (lib/i18n/sr/menu-lokal.ts, master §9, §13.6).
@@ -9921,6 +9922,7 @@ export interface MenuKonobarDict {
     statusOpis: string;
     statusTrenutno: string;
     statusPromenio: string;
+    statusPromenioBezImena: string;
     neutralno: string;
     neutralnoOpis: string;
     ukloniOznaku: string;

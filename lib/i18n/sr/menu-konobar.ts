@@ -10,7 +10,7 @@ import type { MenuKonobarDict } from "../types";
 export const menuKonobarSr = {
   meta: {
     naslov: "Konobarski panel",
-    naslovLokala: "{lokal} · Konobarski panel",
+    naslovLokala: "Konobarski panel · {lokal}",
   },
   pin: {
     podnaslov: "Konobarski panel",
@@ -139,9 +139,9 @@ export const menuKonobarSr = {
     zavrsi: "Završi zahtev",
     otkazi: "Otkaži zahtev",
     otkaziPitanje: "Otkazati ovaj zahtev?",
-    otkaziOpis: "Gost će u „Moji zahtevi” videti da je zahtev otkazan.",
+    otkaziOpis: "Gost će u „Moji zahtevi” videti da je zahtev otkazan. Otkazan zahtev ne može da se vrati.",
     otkaziDa: "Da, otkaži",
-    otkaziNe: "Ne",
+    otkaziNe: "Ne, zadrži zahtev",
     prihvacen: "{ime} · od {vreme}",
     zavrsen: "Završen u {vreme}",
     otkazanGost: "Gost je otkazao u {vreme}",
@@ -248,6 +248,7 @@ export const menuKonobarSr = {
     statusOpis: "Menjate ga ručno. Sistem ga nikad ne menja sam.",
     statusTrenutno: "Trenutno: {stanje}",
     statusPromenio: "{stanje} · od {vreme} · {ime}",
+    statusPromenioBezImena: "{stanje} · od {vreme}",
     neutralno: "Bez oznake",
     neutralnoOpis: "Sto nije označen.",
     ukloniOznaku: "Ukloni oznaku",
@@ -363,7 +364,7 @@ export const menuKonobarSr = {
       otkaziPitanje: "Otkazati rezervaciju?",
       otkaziOpis: "Odluku javite gostu. Sistem gosta ne obaveštava sam.",
       otkaziDa: "Da, otkaži",
-      otkaziNe: "Ne",
+      otkaziNe: "Ne, zadrži rezervaciju",
       poveziSto: "Poveži sa stolom",
       promeniSto: "Promeni sto",
       ukloniSto: "Ukloni sto",

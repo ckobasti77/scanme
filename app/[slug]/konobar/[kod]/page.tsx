@@ -17,6 +17,7 @@ import { fmt } from "@/lib/i18n/format";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
 import { STAFF_SESSION_COOKIE, readStaffSessionToken } from "@/lib/menu/http/staff-session";
 import { normalizePanelCode } from "@/lib/menu/panel-code";
+import { menuNaslov } from "@/lib/menu-naslovi";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export async function generateMetadata({ params }: PageProps<"/[slug]/konobar/[k
   const { slug, kod } = await params;
   const robots = { index: false, follow: false };
   const entry = await ulaz(slug.toLowerCase(), kod);
-  return { title: entry ? fmt(t.naslovLokala, { lokal: entry.businessName }) : t.naslov, robots, referrer: "no-referrer" };
+  return { title: menuNaslov(entry ? fmt(t.naslovLokala, { lokal: entry.businessName }) : t.naslov), robots, referrer: "no-referrer" };
 }
 
 export default async function KonobarskiPanelPage({ params }: PageProps<"/[slug]/konobar/[kod]">) {

@@ -13,6 +13,7 @@ import Link from "next/link";
 import { Check, Minus, Plus, WifiOff } from "lucide-react";
 import { fmt } from "@/lib/i18n/format";
 import { menuGostSr } from "@/lib/i18n/sr/menu-gost";
+import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
 import type { CartLine, OrderTotals } from "@/lib/menu/cart";
 import { REQUEST_ERROR } from "@/lib/menu/errors/requests";
 import { MENU_MAX_CART_QUANTITY } from "@/lib/menu/limits";
@@ -33,7 +34,7 @@ export function Iznos({ rsd }: { rsd: number }) {
   return (
     <span className={styles.iznos}>
       {formatRsd(rsd)}
-      <span className={styles.valuta}>RSD</span>
+      <span className={styles.valuta}>{menuJavniSr.valuta.rsd}</span>
     </span>
   );
 }

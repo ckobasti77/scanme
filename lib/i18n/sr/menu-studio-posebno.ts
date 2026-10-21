@@ -131,7 +131,7 @@ export const menuStudioPosebnoSr = {
     },
     sveGotovo: "Sve na ovoj stranici je prevedeno na {jezik}.",
     prikaziJos: "Prikaži još {n}",
-    skraceno: "Stranica je velika; prikazano je prvih {n} stavki.",
+    skraceno: "Stranica je velika; prikazano je prvih {n} artikala.",
     poljeOznaka: "{polje} ({jezik})",
     pripada: "u: {naziv}",
     jeDobar: "Prevod je i dalje dobar",

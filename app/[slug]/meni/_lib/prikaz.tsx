@@ -24,6 +24,7 @@ import type { PublicReservationEntry } from "@/lib/menu/reservation-config";
 import { otkaziZahtev, posaljiPorudzbinu, pozoviKonobara, zatraziRacun } from "./radnje-gosta";
 import { posaljiRezervaciju } from "./radnje-rezervacije";
 import type { GostServer, JavnoUcitano } from "./ucitaj";
+import { javniNaslov } from "@/lib/menu-naslovi";
 
 export { LinkStrana, RezervacijaStrana } from "@/components/menu/gost/rezervacija/strana";
 
@@ -58,8 +59,8 @@ export function javniMetadata(ucitano: JavnoUcitano): Metadata {
   const lokal = ucitano.view.lokal.naziv;
   const naslov =
     ucitano.vrsta === "stranica" && ucitano.view.stranice.length > 1
-      ? fmt(t.meta.naslovStranice, { stranica: naslovStraniceJavno(ucitano.view.stranica), lokal })
-      : fmt(t.meta.naslov, { lokal });
+      ? javniNaslov(lokal, naslovStraniceJavno(ucitano.view.stranica))
+      : javniNaslov(lokal);
   return { title: naslov, description: fmt(t.meta.opis, { lokal }), robots: JAVNI_ROBOTS };
 }
 

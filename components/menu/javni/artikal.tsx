@@ -74,7 +74,7 @@ function Iznos({ rsd, akcijska }: { rsd: number; akcijska: number | null }) {
       ) : null}
       {akcijska !== null ? <span className={styles.vizuelnoSkriveno}>{t.artikal.akcijskaCena} </span> : null}
       {formatRsd(akcijska ?? rsd)}
-      <span className={styles.valuta}>RSD</span>
+      <span className={styles.valuta}>{t.valuta.rsd}</span>
       <EurIznos rsd={akcijska ?? rsd} />
     </>
   );

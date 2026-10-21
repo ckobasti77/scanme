@@ -124,7 +124,7 @@ export function DodajUKorpu({ article, slug, kanal, pageKey, sadaMs, nedostupan,
               <span className={styles.iznos}>
                 {stavka.akcijska !== null ? <del className={styles.redovna}>{formatRsd(stavka.rsd)}</del> : null}
                 {formatRsd(stavka.akcijska ?? stavka.rsd)}
-                <span className={styles.valuta}>RSD</span>
+                <span className={styles.valuta}>{menuJavniSr.valuta.rsd}</span>
               </span>
             </label>
           ))}
@@ -166,7 +166,7 @@ export function DodajUKorpu({ article, slug, kanal, pageKey, sadaMs, nedostupan,
                   {opcija.priceDeltaRsd > 0 ? (
                     <>
                       +{formatRsd(opcija.priceDeltaRsd)}
-                      <span className={styles.valuta}>RSD</span>
+                      <span className={styles.valuta}>{menuJavniSr.valuta.rsd}</span>
                     </>
                   ) : null}
                 </span>

@@ -4,9 +4,10 @@
 import type { Metadata } from "next";
 import { PrihvatanjeRuta } from "@/components/menu/panel/poziv/prihvatanje-ruta";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
+import { menuNaslov } from "@/lib/menu-naslovi";
 
 export const metadata: Metadata = {
-  title: menuPanelSr.poziv.naslov,
+  title: menuNaslov(menuPanelSr.poziv.naslov),
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };

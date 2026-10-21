@@ -595,11 +595,11 @@ describe("request detail: other kinds and states", () => {
     expect(tekst(html)).toContain(fmt(t.detalj.prihvacen, { ime, vreme: clockTime(pre(minuta)) }));
   });
 
-  test("the cancel confirmation: the question, 'Da, otkaži' and 'Ne'; the opener is gone", () => {
+  test("the cancel confirmation: the question, 'Da, otkaži' and 'Ne, zadrži zahtev'; the opener is gone", () => {
     const html = prikazDetalja("rq_03", { pocetnaPotvrdaOtkaza: true });
     expect(tekst(html)).toContain("Otkazati ovaj zahtev?");
     expect(tekst(html)).toContain(t.detalj.otkaziOpis);
-    for (const odgovor of [dugme(html, "Da, otkaži"), dugme(html, "Ne")]) {
+    for (const odgovor of [dugme(html, "Da, otkaži"), dugme(html, t.detalj.otkaziNe)]) {
       expect(odgovor?.iskljuceno).toBe(false);
       expect(imaMin48(odgovor)).toBe(true);
     }

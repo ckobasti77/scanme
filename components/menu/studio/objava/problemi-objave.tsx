@@ -163,7 +163,7 @@ export function UpozorenjaObjave({
               <span className="text-sm">
                 {prevod
                   ? fmt(m.upozorenja.jezik[srPluralCategory(problem.broj!)], { jezik: nazivJezika(problem.jezik!), n: problem.broj! })
-                  : `${tekstProblema(problem.kod)}${problem.jezik ? ` (${problem.jezik.toUpperCase()})` : ""}`}
+                  : `${tekstProblema(problem.kod)}${problem.jezik ? ` (${nazivJezika(problem.jezik)})` : ""}`}
               </span>
               {prevod && onOtvoriPrevode ? (
                 <Dugme vrsta="sekundarno" velicina="kompaktna" ikonica={Languages} className="justify-self-start" onClick={onOtvoriPrevode}>

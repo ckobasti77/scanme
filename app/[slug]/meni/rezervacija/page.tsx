@@ -7,12 +7,11 @@
 
 import type { Metadata, Viewport } from "next";
 import { notFound, redirect } from "next/navigation";
-import { fmt } from "@/lib/i18n/format";
 import { menuGostSr } from "@/lib/i18n/sr/menu-gost";
-import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
 import { saJezikom } from "@/lib/menu/i18n-fallback";
 import { JAVNI_ROBOTS, REZERVACIJA_AKCIJE, RezervacijaStrana, analitikaZa, javniViewport } from "../_lib/prikaz";
 import { jedanParametar, ucitajJavno, ucitajUlazRezervacije, ulazJavno } from "../_lib/ucitaj";
+import { javniNaslov } from "@/lib/menu-naslovi";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +27,7 @@ export async function generateMetadata(props: PageProps<"/[slug]/meni/rezervacij
   const { ucitano } = await ucitaj(props);
   if (!ucitano) return { robots: JAVNI_ROBOTS };
   return {
-    title: fmt(menuJavniSr.meta.naslovStranice, { stranica: menuGostSr.rezervacija.naslov, lokal: ucitano.view.lokal.naziv }),
+    title: javniNaslov(ucitano.view.lokal.naziv, menuGostSr.rezervacija.naslov),
     robots: JAVNI_ROBOTS,
   };
 }

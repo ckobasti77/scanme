@@ -10,7 +10,7 @@ import { menuStudioPosebnoSr } from "./menu-studio-posebno";
 // Placeholders are filled via fmt().
 export const menuStudioSr = {
   meta: {
-    naslov: "Editor · ScanMe Menu",
+    naslov: "Editor",
   },
   stanja: {
     ucitava: "Učitava se meni…",
@@ -160,7 +160,7 @@ export const menuStudioSr = {
     pomoc: "Enter čuva, Esc vraća prethodnu cenu.",
   },
   brziUnos: {
-    dodajStavku: "Dodaj stavku u ovu kategoriju",
+    dodajStavku: "Dodaj artikal u ovu sekciju",
     noviArtikal: "Nov artikal u sekciji {sekcija}",
     naziv: "Naziv",
     cena: "Cena",
@@ -197,7 +197,7 @@ export const menuStudioSr = {
     previse: "Odjednom možete dodati najviše {n} artikala.",
     imaGresaka: "Proverite označene redove.",
     sekcijaGreska: "Izaberite sekciju.",
-    duplikat: "Isti naziv je već u redu {n}. Jedan proizvod je jedan artikal: obrišite ovaj red ili promenite naziv.",
+    duplikat: "Isti naziv je već u redu {n}. Jedan artikal se unosi samo jednom: obrišite ovaj red ili promenite naziv.",
     slicnoNaslov: "Neki artikli već postoje",
     slicnoOpis:
       "Za svaki od njih izaberite da li dodajete isti artikal (ista cena na svim stranicama) ili pravite nov.",

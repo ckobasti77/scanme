@@ -428,6 +428,7 @@ Prelom je širina prozora, ne vrsta uređaja. Bez vodoravnog skrola stranice na 
 - Svaki nov tekst ide kroz `lib/i18n`. Površine: `menu-zajednicko` (primitivi, stanja, izlog; K07), `menu-panel` (K08), `menu-studio` (K10), `menu-javni` (K13), `menu-gost` (K21, K25), `menu-konobar` (K22), `menu-lokal` (K20), `menu-analitika` (K30), `menu-domen` (zajedničke reči i kodovi grešaka).
 - Obraćanje je „Vi" u rečenicama, kao u postojećim Menu tekstovima (`menu-domen`, `menu-editor`, `ordering-panel`); dugmad su kratki glagoli („Objavi", „Pokušaj ponovo"). Admin (DASHBOARD-STANDARD §7) koristi „ti", jer je interni alat.
 - Bez tehničkog jezika; ista radnja ima isto ime kroz ceo tok („Objavi" → „Objavljeno"). Jedinica uz broj i ispravan padež (`srPluralCategory`).
+- Rečnik, zabranjene varijante, format cene i vremena, oblik praznih stanja i grešaka, potvrde destruktivnih radnji i naslovi stranica (`menuNaslov`, `javniNaslov` u `lib/menu-naslovi.ts`) su u `docs/menu/RECNIK.md` (K31); proverava ih `lib/menu/recnik.test.ts`.
 - Brojke u izlogu i mockupovima nisu podaci (master §20); izlog nosi oznaku „Izlog · izmišljeni podaci".
 
 ## 12. Izlog
