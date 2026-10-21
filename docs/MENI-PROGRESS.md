@@ -2260,3 +2260,30 @@ Procena, ne merenje: load test pre produkcije (K33/Jovan). Najveći trošak je p
 | `docs/menu/REVIZIJA.md` ima kontrolnu listu ZAKLJUČANO stavki, scenarije §21.1–§21.5 i listu nalaza sa ishodom | ispunjeno | REVIZIJA §8 (506 stavki), §9 (pet scenarija korak po korak), §10 (N1–N36, I1–I26) |
 | Nijedan kritičan nalaz nije ostao otvoren bez BLOKADE | ispunjeno | N1 i N2 ispravljeni i pokriveni testovima |
 | Provere prolaze; sekcija K34 je u progress-u | ispunjeno | gore |
+
+## K35 — Završni izveštaj i snimci   (2026-10-21 17:40)
+**Fajlovi:** novo `docs/MENI-REPORT.md` (odeljci 0–10), novo `docs/menu/PREDLOG-IZMENA-SPECIFIKACIJE.md`, ova sekcija. Kod nije menjan.
+
+**Šta je urađeno:** Napisan je završni izveštaj za Jovana: ukratko, kako se pregleda grana i izlog (šest dev ruta sa parametrima), urađeno po poglavljima mastera §2–§15, delimično i blokirano, 10 BLOKADA, 50 izbora koji traže stav vlasnika (P1–P15 i ODLUKE iz BLOCKED), redosled migracije, env-a i deploy-a, ručne provere, brojevi i zatečeni problemi. Predlog izmena mastera pokriva statuse §16 i §18, tehničke odluke iz §19 i 25 pravila koja je implementacija pokazala kao nedorečena, svako sa razlogom i izvorom. Dva Haiku radnika su prikupila sažetak koraka K01–K30 (`tmp/meni/k35/koraci.md`) i brojeve (`tmp/meni/k35/brojevi.md`); svaki broj iz izveštaja sam proverio u izvoru. Napravljena su 24 finalna snimka glavnih površina.
+
+**ODLUKE:**
+- Dev server nisam pokretao (auto-mode ga je odbio u K06, K07, K31, K33); snimci idu kroz statički paket stvarnih komponenti izloga (`tmp/meni/k35-pregled/`, kopija K34 build-a, `page.route`, bez servera).
+- Javni meni ne prati temu aplikacije (P13), pa „obe teme" za javni meni znači svetla i tamna paleta lokala (`design=dark`, Tok, 390 i 1440).
+- Mere malih meta: pravilo iz K33 (red javnog menija je meta preko `::after` cele stavke) je preuzeto; prvi prolaz bez njega je lažno prijavio nazive artikala kao male mete.
+- Runnerovi JSON izlazi testova posle K31 i K34 imaju po 1 pad: oba su zatečeni nestabilni `convex/adminMail.test.ts` (K23/7), a ponovljen prolaz je čist; zapisano u izveštaju (§4, §10).
+- Posle `npm run build` `next-env.d.ts` je vraćen na sadržaj iz HEAD-a (`git show HEAD:next-env.d.ts`), bez git komandi koje menjaju stanje.
+- Izveštaj nigde ne tvrdi saglasnost vlasnika; sve odluke su označene kao predlog runa.
+
+**Novi paketi:** nema (run ne uvodi pakete).
+**Testovi:** nema novih (K35 ne menja kod).
+**Snimci:** `output/playwright/meni/K35/` — 24 PNG + `metrike.json`: `editor-ponuda` (390, 1440 × svetla, tamna), `javni-{tok,kategorije,kompaktno}` (390, 1440), `javni-tok-tamna-paleta` (390, 1440), `konobar-telefon-red` (390) i `konobar-desktop-sala` (1440) × obe teme, `panel-pocetna` i `panel-analitika-premium` (390, 1440 × obe teme). Svih 24: bez vodoravnog skrola i prelivanja, 0 grešaka konzole, jedan vidljiv h1, nijedna slika bez `alt`; jedina mala meta je skriveni skip-link. Pogledao sam 12 snimaka (editor 1440 svetla i 390 tamna, javni Tok 390, Kategorije 1440, Kompaktno 390, tamna paleta 1440, konobar 390 tamna i 1440 svetla, Početna 1440 tamna i 390 svetla, Analitika 390 i 1440 svetla); izgledaju ispravno, ostalih 12 su samo izmereni.
+**Rezultat provere:** `typecheck.mjs` bez grešaka; `convex/tsconfig` bez grešaka; eslint 0 grešaka (2 stara upozorenja); ceo vitest 631 fajl / 14.202 testa prolaze, 2 preskočena, 0 padova; `harness:namespace` prolazi; `npm run build` prolazi.
+**BLOKADA:** nema nove; spisak postojećih je u `docs/MENI-REPORT.md` §4.
+**Za Jovana ujutru:** pročitaj `docs/MENI-REPORT.md` (§0, §4, §5, §6) i `docs/menu/PREDLOG-IZMENA-SPECIFIKACIJE.md`; pogledaj snimke u `output/playwright/meni/K35/`. Run nije video nijedan ekran iza prave prijave: prvi pravi pregled je na DEV-u po redosledu iz izveštaja §6.
+
+**Prihvatanje K35:**
+| Stavka | Stanje | Dokaz |
+|---|---|---|
+| `docs/MENI-REPORT.md` postoji i ima odeljke 0–10 | ispunjeno | naslovi `## 0.` … `## 10.` |
+| `docs/menu/PREDLOG-IZMENA-SPECIFIKACIJE.md` postoji | ispunjeno | §1 (§16), §2 (§18), §3 (§19), §4 (pravila) |
+| Sekcija K35 je u `docs/MENI-PROGRESS.md` | ispunjeno | ova sekcija |
