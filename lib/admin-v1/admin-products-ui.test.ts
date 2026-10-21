@@ -44,6 +44,9 @@ describe("ADMIN-13 products presentation contracts", () => {
     expect(source).toContain("submitLocked.current) return");
     expect(source).toContain("submitLocked.current = true");
     expect(source).toContain("submitLocked.current = false");
-    expect(source).toMatch(/const updateFilters[\s\S]*setSelection\(new Set\(\)\)[\s\S]*onInventoryFiltersChange/);
+    // ADMIN v2: the inventory filters are the sidebar's (URL), so there is no `updateFilters` handler any more.
+    // The selection is dropped in the render in which the filter key (or the venue) differs from the one it was made for.
+    expect(source).toContain("inventoryFilterKey(state)");
+    expect(source).toMatch(/seen\.filterKey !== filterKey[\s\S]*setSelection\(new Set\(\)\)/);
   });
 });

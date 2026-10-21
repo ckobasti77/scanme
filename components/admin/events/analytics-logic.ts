@@ -1,5 +1,12 @@
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
+import { depthOfInterest, passportFunnel } from "@/lib/admin-v2/analytics/depth";
+import { countOf } from "@/lib/admin-v2/analytics/format";
+import { funnelSteps } from "@/lib/admin-v2/analytics/funnel";
+import { analyticsInsights } from "@/lib/admin-v2/analytics/insights";
+import { packageRows } from "@/lib/admin-v2/analytics/stands";
+import type { EngagementData } from "@/lib/admin-v2/analytics/types";
+import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 
 // SAJAM SUPER Korak 4 — pure logic of `Događaji → Analitika`: the model and
@@ -120,10 +127,16 @@ function csvCell(cell: Cell): string {
   return /[",\r\n]|^\s|\s$/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-export function analyticsCsv(input: { eventTitle: string; data: EventAnalyticsData; audience: EventAudienceData | undefined }): string {
-  const { data, audience } = input;
+export function analyticsCsv(input: { eventTitle: string; data: EventAnalyticsData; audience: EventAudienceData | undefined; engagement?: EngagementData }): string {
+  const { data, audience, engagement } = input;
   const c = d.columns;
   const k = d.kpi;
+  const v = d.v2;
+  const tier = (value: string) => d.tiers[value as keyof typeof d.tiers] ?? value;
+  const byDay = new Map(engagement?.models.map((row) => [row.eventModelId as string, row.scansByDay]) ?? []);
+  const depth = depthOfInterest(data, audience, engagement);
+  const passport = passportFunnel(audience, engagement);
+  const insights = analyticsInsights({ data, audience, engagement }, { tier, and: v.insights.and, otherDays: v.insights.otherDays, scans: (count) => countOf(count, v.units.scans) });
   const lines: Cell[][] = [
     [`${d.title} · ${input.eventTitle}`],
     [new Date(data.at).toISOString()],
@@ -147,12 +160,12 @@ export function analyticsCsv(input: { eventTitle: string; data: EventAnalyticsDa
     ...data.hours.map((row) => [row.dateKey, `${String(row.hour).padStart(2, "0")}:00`, row.scans, row.uniquePerModel]),
     [],
     [d.modelsTitle],
-    [c.model, c.exhibitor, c.stand, c.tier, c.scans, c.unique, c.visitors, c.leads, c.conversion, c.votes, c.rating],
+    [c.model, c.exhibitor, c.stand, c.tier, c.scans, c.unique, c.visitors, c.leads, c.conversion, c.votes, c.rating, ...(engagement ? data.days.map((day) => day.label) : [])],
     ...analyticsModelRows(data, audience).map((row) => [
       `${row.brandName} ${row.name}`.trim(),
       row.exhibitorName,
       row.standCode,
-      d.tiers[row.tier as keyof typeof d.tiers] ?? row.tier,
+      tier(row.tier),
       row.scans.total,
       row.uniquePerModel.total,
       row.visitors,
@@ -160,6 +173,7 @@ export function analyticsCsv(input: { eventTitle: string; data: EventAnalyticsDa
       row.conversion,
       row.votes,
       row.rating?.average ?? null,
+      ...(engagement ? data.days.map((_, index) => byDay.get(row.eventModelId)?.[index] ?? null) : []),
     ]),
     [],
     [d.standsTitle],
@@ -175,6 +189,25 @@ export function analyticsCsv(input: { eventTitle: string; data: EventAnalyticsDa
       row.votes,
       row.rating?.average ?? null,
     ]),
+    [],
+    [v.funnel.title],
+    [v.funnel.columnStep, v.table.value, v.funnel.columnRate],
+    ...funnelSteps(data, audience, engagement).map((step) => [
+      v.funnel.steps[step.id],
+      step.value,
+      step.perVisitor !== null ? fmt(v.funnel.perVisitor, { value: step.perVisitor.toLocaleString("sr-RS", { maximumFractionDigits: 2 }) }) : step.rate,
+    ]),
+    [],
+    [v.packages.title],
+    [c.tier, v.packages.columnModels, c.scans, v.packages.perModel],
+    ...packageRows(data, engagement).map((row) => [tier(row.tier), row.models, row.scans, row.scansPerModel]),
+    ...(depth
+      ? [[], [v.depth.title], [v.depth.columnBucket, v.depth.columnVisitors, v.table.share], ...depth.buckets.map((bucket) => [v.depth.buckets[bucket.id], bucket.visitors, bucket.share])]
+      : []),
+    ...(passport
+      ? [[], [v.passport.title], [v.funnel.columnStep, v.table.value], [v.passport.steps.stampVisitors, passport.stampVisitors], [v.passport.steps.stamps, passport.stamps], [v.passport.steps.completed, passport.completed]]
+      : []),
+    ...(insights.length ? [[], [v.insights.title], ...insights.map((item) => [fmt(v.insights.items[item.id], item.values)])] : []),
   ];
   return `﻿${lines.map((row) => row.map(csvCell).join(",")).join("\r\n")}\r\n`;
 }

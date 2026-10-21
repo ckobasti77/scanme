@@ -1,0 +1,77 @@
+/* ScanMe Menu V1 (K25) — the entry card to reservations in the public menu.
+   Its own small file so a plain menu page does not carry the form's styles.
+   Venue tokens only (`--menu-*`), never a ScanMe colour; a target of 64 px;
+   the only motion is a border response, off with prefers-reduced-motion. */
+
+.ulaz {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 24px 20px 0;
+}
+
+/* Centred, like the footer it sits above and the splitter it can appear in. */
+.ulazLink {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 30rem;
+  min-height: 64px;
+  margin-inline: auto;
+  padding: 12px 16px;
+  border: 1px solid var(--menu-border);
+  border-radius: 16px;
+  background: var(--menu-surface);
+  color: var(--menu-title) !important;
+  text-decoration: none;
+}
+
+.ulazIkona {
+  flex: none;
+  box-sizing: content-box;
+  width: 22px;
+  height: 22px;
+  padding: 9px;
+  border: 1px solid var(--menu-input-border);
+  border-radius: 50%;
+  color: var(--menu-accent-text);
+}
+
+.ulazTekst {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ulazNaslov {
+  color: var(--menu-title);
+  font-family: var(--menu-heading-family);
+  font-size: 1.0625rem;
+  font-weight: var(--menu-heading-weight);
+  line-height: 1.25;
+}
+
+.ulazOpis {
+  color: var(--menu-body-muted);
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+.ulazStrelica {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--menu-body-muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ulazLink {
+    transition: border-color 120ms ease-out;
+  }
+}
+
+@media (hover: hover) {
+  .ulazLink:hover {
+    border-color: var(--menu-accent);
+  }
+}

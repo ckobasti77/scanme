@@ -25,6 +25,9 @@ const ACCOUNT_A = "9000000000101";
 const ACCOUNT_B = "9000000000202";
 const INBOX = "9000000002014";
 const SENT = "9000000002022";
+// The second TEST mailbox has its own folders: Zoho folder ids differ per mailbox.
+const INBOX_B = "9000000003014";
+const SENT_B = "9000000003022";
 export const PREVIEW_HTML_MESSAGE_ID = "1709887058769100001";
 export const PREVIEW_TEXT_MESSAGE_ID = "1709887058769100002";
 export const PREVIEW_INBOX_ID = INBOX;
@@ -39,6 +42,12 @@ export const previewFolders: AdminMailFolder[] = [
   { folderId: "9000000002099", name: "TEST Sajam 2026", type: "NONE", path: "/TEST Sajam 2026" },
   { folderId: "9000000002024", name: "Spam", type: "Spam", path: "/Spam" },
   { folderId: "9000000002026", name: "Trash", type: "Trash", path: "/Trash" },
+];
+
+export const previewFoldersSecond: AdminMailFolder[] = [
+  { folderId: INBOX_B, name: "Inbox", type: "Inbox", path: "/Inbox" },
+  { folderId: SENT_B, name: "Sent", type: "Sent", path: "/Sent" },
+  { folderId: "9000000003016", name: "Drafts", type: "Drafts", path: "/Drafts" },
 ];
 
 const HTML_BODY = `<meta http-equiv="refresh" content="0;url=https://example.invalid/preusmerenje">
@@ -98,7 +107,7 @@ const sent: AdminMailListItem[] = [
 ];
 
 const secondMailbox: AdminMailListItem[] = [
-  row(60, { subject: "TEST upit za probnu vožnju", fromName: "TEST Kupac", unread: true, receivedAt: BASE - 3 * HOUR }),
+  row(60, { folderId: INBOX_B, subject: "TEST upit za probnu vožnju", fromName: "TEST Kupac", unread: true, receivedAt: BASE - 3 * HOUR }),
 ];
 
 function detail(item: AdminMailListItem): AdminMailMessage {
@@ -168,10 +177,10 @@ export function previewMailStatus(state: MailPreviewState): AdminMailStatus {
 
 export function previewMailSource(state: MailPreviewState): MailSource {
   const rowsOf = (accountId: string, folderId: string) =>
-    accountId === ACCOUNT_B ? (folderId === INBOX ? secondMailbox : []) : folderId === INBOX ? inbox : folderId === SENT ? sent : [];
+    accountId === ACCOUNT_B ? (folderId === INBOX_B ? secondMailbox : []) : folderId === INBOX ? inbox : folderId === SENT ? sent : [];
   const everything = [...inbox, ...sent, ...secondMailbox];
   return {
-    listFolders: async () => previewFolders,
+    listFolders: async (account) => (account.accountId === ACCOUNT_B ? previewFoldersSecond : previewFolders),
     listMessages: async (account, args) => {
       if (state === "greska") throw new ConvexError({ code: "ZOHO_RATE_LIMITED", retryAfterSeconds: 30 });
       const query = args.search.toLocaleLowerCase("sr-Latn");
