@@ -1749,3 +1749,6 @@ Za Jovana: posle sesije proveriti da li PID 18620 i 18864 rade i po potrebi ih u
 - Bez modula zauzetosti sto je neutralan — ispunjeno: `lib/menu/occupancy.test.ts` (bez modula UVEK `neutral`), `sala.test.tsx` „neutral, never free…“ (osam ekrana bez „Slobodan“, oznake i kontrole), `convex/menuWaiterFloor.test.ts` (`occupancy` → `{ off: true }`, `setOccupancy` → `staff/occupancy_off` bez upisa, strukturni test da ništa zakazano ne piše zauzetost).
 - Zahtev preko praga je naglašen, a uz reduced motion bez pulsa — ispunjeno: `sala.test.tsx` „late waits…“ (čip sa `.kasni`; CSS uz reduced motion `animation: none; opacity: 1`), Playwright „Kasni: bez reduced motion prsten blago pulsira (10 s)“ i „uz reduced motion nema pulsa, prsten stoji“, snimak `trenutak-kasni-reduced-1440.png`.
 - Provere prolaze; sekcija K23 je u progress-u — ispunjeno (gore).
+
+## K24 - Plan: Rezervacije i sekcije panela   (2026-10-21 03:40)
+**Plan korak.** Plan je upisan u `docs/meni/planovi/K24.md`. Kod nije menjan.
