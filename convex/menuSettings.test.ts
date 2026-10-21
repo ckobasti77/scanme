@@ -7,7 +7,7 @@
 // lost Premium can only cut down or reorder, never add.
 
 import { convexTest } from "convex-test";
-import { beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
@@ -421,5 +421,195 @@ describe("tenant boundary", () => {
     );
     expect(await storedTranslations(t, w.a.menuServiceId)).toEqual(["en"]);
     expect(await storedTranslations(t, w.b.menuServiceId)).toBeUndefined();
+  });
+});
+
+// K23 — the waiter panel's timing (master §8.5, §10.4; plan K19-21): the late
+// threshold (whole minutes, 1–120) and the reminder (0 = off, else 1–60).
+// settings.edit: Owner, Manager and ScanMe admin; operational, never part of
+// the draft. Errors are ConvexError(code) with the code string as data.
+describe("setPanelTiming (K23)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function setTiming(
+    t: T,
+    userId: Id<"users"> | null,
+    menuServiceId: Id<"menuServices">,
+    lateThresholdMin: number,
+    reminderMin: number,
+  ) {
+    const args = { menuServiceId, lateThresholdMin, reminderMin };
+    return userId
+      ? as(t, userId).mutation(api.menuSettings.setPanelTiming, args)
+      : t.mutation(api.menuSettings.setPanelTiming, args);
+  }
+
+  /** The stored menuServices.settings.panel; undefined until a venue sets its own. */
+  async function storedPanel(t: T, menuServiceId: Id<"menuServices">) {
+    const service = await t.run(async (ctx) => ctx.db.get(menuServiceId));
+    return service?.settings?.panel;
+  }
+
+  test("the Owner sets it; it is stored on settings.panel and nothing else", async () => {
+    const t = newTest();
+    const w = await world(t);
+    const id = w.a.menuServiceId;
+    expect(await storedPanel(t, id)).toBeUndefined();
+
+    expect(await setTiming(t, w.ownerId, id, 20, 3)).toEqual({ ok: true });
+    expect(await storedPanel(t, id)).toEqual({ lateThresholdMin: 20, reminderMin: 3 });
+    const service = await t.run(async (ctx) => ctx.db.get(id));
+    expect(Object.keys(service?.settings ?? {})).toEqual(["panel"]);
+
+    // The last write wins.
+    await setTiming(t, w.ownerId, id, 45, 10);
+    expect(await storedPanel(t, id)).toEqual({ lateThresholdMin: 45, reminderMin: 10 });
+  });
+
+  test("the first write stores the values even when they equal the defaults (15 and 5)", async () => {
+    const t = newTest();
+    const w = await world(t);
+    expect(await setTiming(t, w.ownerId, w.a.menuServiceId, 15, 5)).toEqual({ ok: true });
+    expect(await storedPanel(t, w.a.menuServiceId)).toEqual({ lateThresholdMin: 15, reminderMin: 5 });
+  });
+
+  test("other settings keys are untouched, in both directions, and the draft revision never moves", async () => {
+    const t = newTest();
+    const w = await world(t);
+    const id = w.a.menuServiceId;
+    await setLanguages(t, w.ownerId, id, ["en"]);
+    await t.run(async (ctx) => {
+      const service = await ctx.db.get(id);
+      await ctx.db.patch(id, { settings: { ...service?.settings, allergensEnabled: true } });
+    });
+    const revision = await revisionOf(t, id);
+    expect(revision).toBe(1);
+
+    await setTiming(t, w.ownerId, id, 30, 0);
+    let service = await t.run(async (ctx) => ctx.db.get(id));
+    expect(service?.settings).toEqual({
+      languages: { source: "sr", translations: ["en"] },
+      allergensEnabled: true,
+      panel: { lateThresholdMin: 30, reminderMin: 0 },
+    });
+    expect(await revisionOf(t, id)).toBe(revision); // operational: not a draft change
+
+    // Saving languages afterwards keeps the panel timing.
+    await setLanguages(t, w.ownerId, id, ["de"]);
+    service = await t.run(async (ctx) => ctx.db.get(id));
+    expect(service?.settings?.panel).toEqual({ lateThresholdMin: 30, reminderMin: 0 });
+    expect(service?.settings?.languages).toEqual({ source: "sr", translations: ["de"] });
+  });
+
+  test("a Manager and a ScanMe admin may too; the last one wins", async () => {
+    const t = newTest();
+    const w = await world(t);
+    const id = w.a.menuServiceId;
+    await setTiming(t, w.managerId, id, 10, 2);
+    expect(await storedPanel(t, id)).toEqual({ lateThresholdMin: 10, reminderMin: 2 });
+    await setTiming(t, w.adminId, id, 60, 30);
+    expect(await storedPanel(t, id)).toEqual({ lateThresholdMin: 60, reminderMin: 30 });
+  });
+
+  test("an Urednik (editor) is forbidden; finance, view-only, outsiders and another account's owner get not_found", async () => {
+    const t = newTest();
+    const w = await world(t);
+    const id = w.a.menuServiceId;
+    await setTiming(t, w.ownerId, id, 20, 3);
+
+    await expect(setTiming(t, w.editorId, id, 30, 4)).rejects.toThrow(MENU_ERROR.forbidden);
+    for (const userId of [w.financeId, w.viewOnlyId, w.outsiderId, w.otherOwnerId]) {
+      await expect(setTiming(t, userId, id, 30, 4)).rejects.toThrow(MENU_ERROR.notFound);
+    }
+    expect(await storedPanel(t, id)).toEqual({ lateThresholdMin: 20, reminderMin: 3 });
+  });
+
+  test("a signed-out caller is unauthenticated and nothing is stored", async () => {
+    const t = newTest();
+    const w = await world(t);
+    await expect(setTiming(t, null, w.a.menuServiceId, 20, 3)).rejects.toThrow(MENU_ERROR.unauthenticated);
+    expect(await storedPanel(t, w.a.menuServiceId)).toBeUndefined();
+  });
+
+  test("tenant boundary: each venue has its own timing; another venue's owner gets not_found both ways", async () => {
+    const t = newTest();
+    const w = await world(t);
+    await setTiming(t, w.ownerId, w.a.menuServiceId, 20, 3);
+    await setTiming(t, w.otherOwnerId, w.b.menuServiceId, 90, 15);
+    expect(await storedPanel(t, w.a.menuServiceId)).toEqual({ lateThresholdMin: 20, reminderMin: 3 });
+    expect(await storedPanel(t, w.b.menuServiceId)).toEqual({ lateThresholdMin: 90, reminderMin: 15 });
+
+    await expect(setTiming(t, w.otherOwnerId, w.a.menuServiceId, 5, 1)).rejects.toThrow(MENU_ERROR.notFound);
+    await expect(setTiming(t, w.ownerId, w.b.menuServiceId, 5, 1)).rejects.toThrow(MENU_ERROR.notFound);
+    expect(await storedPanel(t, w.a.menuServiceId)).toEqual({ lateThresholdMin: 20, reminderMin: 3 });
+    expect(await storedPanel(t, w.b.menuServiceId)).toEqual({ lateThresholdMin: 90, reminderMin: 15 });
+  });
+
+  test("the late threshold: 1 and 120 are fine; 0, 121, -1 and 1.5 are menu/invalid_input", async () => {
+    const t = newTest();
+    const w = await world(t);
+    const id = w.a.menuServiceId;
+
+    for (const minutes of [1, 120]) {
+      expect(await setTiming(t, w.ownerId, id, minutes, 5), String(minutes)).toEqual({ ok: true });
+      expect((await storedPanel(t, id))?.lateThresholdMin).toBe(minutes);
+    }
+    for (const bad of [0, 121, -1, 1.5]) {
+      await expect(setTiming(t, w.ownerId, id, bad, 5), String(bad)).rejects.toThrow(MENU_ERROR.invalidInput);
+    }
+    // Nothing of the refused calls was stored.
+    expect(await storedPanel(t, id)).toEqual({ lateThresholdMin: 120, reminderMin: 5 });
+  });
+
+  test("the reminder: 0 (off) and 60 are fine; -1, 61 and 2.5 are menu/invalid_input", async () => {
+    const t = newTest();
+    const w = await world(t);
+    const id = w.a.menuServiceId;
+
+    for (const minutes of [0, 60]) {
+      expect(await setTiming(t, w.ownerId, id, 15, minutes), String(minutes)).toEqual({ ok: true });
+      expect((await storedPanel(t, id))?.reminderMin).toBe(minutes);
+    }
+    for (const bad of [-1, 61, 2.5]) {
+      await expect(setTiming(t, w.ownerId, id, 15, bad), String(bad)).rejects.toThrow(MENU_ERROR.invalidInput);
+    }
+    expect(await storedPanel(t, id)).toEqual({ lateThresholdMin: 15, reminderMin: 60 });
+  });
+
+  test("one bad field refuses the whole call: the valid field is not stored either", async () => {
+    const t = newTest();
+    const w = await world(t);
+    const id = w.a.menuServiceId;
+    await setTiming(t, w.ownerId, id, 20, 3);
+    await expect(setTiming(t, w.ownerId, id, 40, 99)).rejects.toThrow(MENU_ERROR.invalidInput);
+    await expect(setTiming(t, w.ownerId, id, 0, 4)).rejects.toThrow(MENU_ERROR.invalidInput);
+    expect(await storedPanel(t, id)).toEqual({ lateThresholdMin: 20, reminderMin: 3 });
+    // A bad value is refused before any stored value exists, too.
+    const fresh = await setTiming(t, w.otherOwnerId, w.b.menuServiceId, 20, 3);
+    expect(fresh).toEqual({ ok: true });
+    await expect(setTiming(t, w.otherOwnerId, w.b.menuServiceId, 20, 61)).rejects.toThrow(MENU_ERROR.invalidInput);
+  });
+
+  test("setting the same values again is ok and writes nothing; different values do write", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.UTC(2026, 9, 21, 10, 0, 0));
+    const t = newTest();
+    const w = await world(t);
+    const id = w.a.menuServiceId;
+
+    await setTiming(t, w.ownerId, id, 20, 3);
+    const first = await t.run(async (ctx) => ctx.db.get(id));
+    expect(first?.updatedAt).toBe(Date.UTC(2026, 9, 21, 10, 0, 0));
+
+    vi.setSystemTime(Date.UTC(2026, 9, 21, 10, 5, 0));
+    expect(await setTiming(t, w.ownerId, id, 20, 3)).toEqual({ ok: true });
+    expect(await t.run(async (ctx) => ctx.db.get(id))).toEqual(first); // not even updatedAt moved
+
+    expect(await setTiming(t, w.ownerId, id, 20, 4)).toEqual({ ok: true });
+    const changed = await t.run(async (ctx) => ctx.db.get(id));
+    expect(changed?.settings?.panel).toEqual({ lateThresholdMin: 20, reminderMin: 4 });
+    expect(changed?.updatedAt).toBe(Date.UTC(2026, 9, 21, 10, 5, 0));
   });
 });

@@ -78,6 +78,7 @@ import {
   menuMemberRoleValidator,
   menuMemberStatusValidator,
   menuModeValidator,
+  menuOccupancyStateValidator,
   menuPageNavigationValidator,
   menuPaymentPreferenceValidator,
   menuPositionKindValidator,
@@ -3750,6 +3751,24 @@ export default defineSchema({
   })
     .index("by_menuServiceId_and_kind", ["menuServiceId", "kind"])
     .index("by_kind_and_value", ["kind", "value"]),
+
+  // K23 — the occupancy of a position, an OPTIONAL module of the venue (master
+  // §9.4; plan K19-19): free, occupied, reserved or out of service, set BY HAND
+  // in the waiter panel (`menuWaiter.setOccupancy`). No row = neutral (a dash,
+  // never "free"); clearing the state deletes the row. Nothing scheduled ever
+  // writes this table (a structural test guards it); K25 may set "occupied"
+  // when staff mark a reservation as arrived, and only with the module on.
+  // Changes are recorded on the row (who and when), not in the audit (K19-16).
+  menuPositionOccupancy: defineTable({
+    menuServiceId: v.id("menuServices"),
+    positionId: v.id("menuPositions"),
+    state: menuOccupancyStateValidator,
+    updatedAt: v.number(),
+    updatedByStaffId: v.optional(v.id("menuStaff")),
+    updatedByUserId: v.optional(v.id("users")),
+  })
+    .index("by_menuServiceId", ["menuServiceId"])
+    .index("by_positionId", ["positionId"]),
 
   // Explicit Menu roles (K01 §4.2). Account roles are DERIVED from
   // accountMemberships / businessMemberships; a row here grants an explicit

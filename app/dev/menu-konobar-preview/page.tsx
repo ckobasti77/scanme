@@ -1,8 +1,8 @@
-// Dev-only izlog of the ScanMe Menu waiter panel (K07, K22). The PIN sign-in,
-// the work queue and the request detail are the REAL screens over the invented
-// "Demo restoran" and an in-memory store (no Convex); the floor (K23) and
-// reservations (K25) still show an honest "this screen is built by step K.."
-// state. Unavailable in production, never indexed.
+// Dev-only izlog of the ScanMe Menu waiter panel (K07, K22, K23). The PIN
+// sign-in, the work queue, the request detail, the floor and the table detail
+// are the REAL screens over the invented "Demo restoran" and an in-memory
+// store (no Convex); reservations (K25) still show an honest "this screen is
+// built by step K.." state. Unavailable in production, never indexed.
 //
 //   /dev/menu-konobar-preview                   → Radni red (K22)
 //   ?ekran=pin|red|detalj|sala-raspored|sala-tabela|sto|rezervacije
@@ -12,6 +12,12 @@
 //   ?uloga=osoblje|menadzer                     → a PIN waiter, or the Manager with the account
 //   ?zahtev=rq_01 (with ekran=detalj)           → which request is open (default the order at Sto 7)
 //   ?potvrda=otkazi (with ekran=detalj)         → the cancel confirmation is open
+//   ?ekran=sala-raspored|sala-tabela            → the floor as a plan or as a table (K23)
+//   ?ekran=sto&sto=Sto 12                       → the table detail (default Sto 3: three parallel states)
+//   ?zauzetost=1                                → the venue uses the optional occupancy module
+//   ?zona=Terasa                                → the waiter's own zone (a filter; "Bez zone" stays visible)
+//   ?kasni=1                                    → a 5-minute threshold: several waits are late
+//   ?zvuk=iskljucen                             → the device sound starts off
 //   ?tema=svetla|tamna                          → forces the app theme while open
 
 import type { Metadata } from "next";
@@ -35,7 +41,8 @@ export default async function MenuKonobarPreviewPage({ searchParams }: PageProps
   if (process.env.NODE_ENV === "production") notFound();
 
   const params = parseKonobarPreview(await searchParams);
-  const pravi = KONOBAR_EKRAN_KORAK[params.ekran].korak === "K22";
+  const korak = KONOBAR_EKRAN_KORAK[params.ekran].korak;
+  const pravi = korak === "K22" || korak === "K23";
 
   return (
     <>

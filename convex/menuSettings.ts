@@ -8,6 +8,7 @@ import { MENU_MAX_LANGUAGES } from "../lib/menu/capabilities";
 import { MENU_ERROR } from "../lib/menu/errors/core";
 import { MENU_PLAN_ERROR } from "../lib/menu/errors/plan";
 import { MENU_SOURCE_LANGUAGE, checkLanguageChange } from "../lib/menu/languages";
+import { isValidLateThreshold, isValidReminder } from "../lib/menu/thresholds";
 
 // =============================================================================
 // ScanMe Menu V1 — Settings of a Menu service (K03; master §7.7, §13.9).
@@ -79,6 +80,34 @@ export const setLanguages = mutation({
       updatedAt: Date.now(),
     });
     await touchDraft(ctx, access.menuService._id, access.user._id);
+    return { ok: true as const };
+  },
+});
+
+/**
+ * K23 — the waiter panel's timing (master §8.5 "Lokal može podesiti vreme
+ * podsetnika", §10.4 "Tek nakon podešenog praga"; plan K19-21): the late
+ * threshold (1–120 min) and the reminder (0 = off, 1–60 min). Operational,
+ * applies at once, never part of the draft. The UI comes in K28 (Podešavanja).
+ */
+export const setPanelTiming = mutation({
+  args: { menuServiceId: v.id("menuServices"), lateThresholdMin: v.number(), reminderMin: v.number() },
+  handler: async (ctx, args) => {
+    const access = await requireMenuAccessToRow(ctx, args.menuServiceId, "settings.edit");
+    if (!isValidLateThreshold(args.lateThresholdMin) || !isValidReminder(args.reminderMin)) {
+      throw new ConvexError(MENU_ERROR.invalidInput);
+    }
+    const current = access.menuService.settings?.panel;
+    if (current && current.lateThresholdMin === args.lateThresholdMin && current.reminderMin === args.reminderMin) {
+      return { ok: true as const };
+    }
+    await ctx.db.patch(access.menuService._id, {
+      settings: {
+        ...access.menuService.settings,
+        panel: { lateThresholdMin: args.lateThresholdMin, reminderMin: args.reminderMin },
+      },
+      updatedAt: Date.now(),
+    });
     return { ok: true as const };
   },
 });

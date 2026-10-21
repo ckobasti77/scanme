@@ -9134,6 +9134,7 @@ export interface MenuKonobarDict {
     odjava: string;
     odjavljuje: string;
     izlaz: string;
+    tema: string;
     aktivni: MenuStudioMnozina;
     aktivniKratko: string;
     bezAktivnih: string;
@@ -9209,7 +9210,89 @@ export interface MenuKonobarDict {
     offline: string;
     ucitava: string;
   };
-  sala: { naslov: string; uskoroNaslov: string; uskoroOpis: string; naRed: string };
+  // K23 — the floor (Raspored / Tabela), the table detail, zones, sound, connection.
+  sala: {
+    naslov: string;
+    prikaz: string;
+    raspored: string;
+    tabela: string;
+    legenda: string;
+    neutralno: string;
+    neutralnoCitac: string;
+    legendaNeutralno: string;
+    legendaKasni: string;
+    legendaZauzetost: string;
+    legendaPrihvaceno: string;
+    zonaPodnaslov: string;
+    kolone: {
+      sto: string;
+      call: string;
+      order: string;
+      bill: string;
+      reservation: string;
+      konobar: string;
+      status: string;
+    };
+    vrste: { call: string; order: string; bill: string; reservation: string };
+    sedista: MenuStudioMnozina;
+    bezZone: string;
+    pretraga: string;
+    pretragaOznaka: string;
+    brojMesta: MenuStudioMnozina;
+    praznoPretraga: { naslov: string; opis: string };
+    ocistiPretragu: string;
+    prazno: { naslov: string; opis: string };
+    praznoZona: { naslov: string; opis: string };
+    mestoCitac: string;
+    stanjeCitac: string;
+    znackaCitac: string;
+    jos: string;
+    preuzeoCitac: string;
+    pomeriRaspored: string;
+    naRed: string;
+  };
+  sto: {
+    nazadRed: string;
+    nazadSala: string;
+    nazadRedCitac: string;
+    nazadSalaCitac: string;
+    nazadNaStoCitac: string;
+    vrsta: { table: string; room: string; other: string };
+    kartica: string;
+    bezKartice: string;
+    karticaUcitava: string;
+    aktivni: string;
+    nemaAktivnih: { table: string; room: string; other: string };
+    status: string;
+    statusOpis: string;
+    statusTrenutno: string;
+    statusPromenio: string;
+    neutralno: string;
+    neutralnoOpis: string;
+    ukloniOznaku: string;
+    postavljeno: string;
+    uklonjeno: string;
+    nestao: { naslov: string; opis: string };
+  };
+  zauzetost: { free: string; occupied: string; reserved: string; out_of_service: string };
+  zona: {
+    oznaka: string;
+    sve: string;
+    meniCitac: string;
+    moja: string;
+    bezZoneUvek: string;
+    raspodela: string;
+    raspodelaOpis: string;
+    raspodelaOsoba: string;
+    raspodelaPrazno: string;
+    raspodelaGotovo: string;
+    promenjena: string;
+    vanZone: MenuStudioMnozina;
+    vanZoneKasni: string;
+    prikaziSve: string;
+  };
+  zvuk: { ukljucen: string; iskljucen: string; oznaka: string; podsetnik: string };
+  veza: { vracena: string; pokusajPonovo: string };
   greska: { nepoznata: string; mreza: string };
 }
 

@@ -10,7 +10,7 @@ import {
 } from "./_generated/server";
 import { getMenuAccess } from "./lib/menuAccess";
 import { writeMenuAudit } from "./lib/menuDraft";
-import { menuRequestStatusValidator } from "./lib/menuDomainValidators";
+import { menuOccupancyStateValidator, menuRequestStatusValidator } from "./lib/menuDomainValidators";
 import { activeStaffByLookup, pinLookupOf, pinPepper, verifyStaffPin } from "./lib/menuPin";
 import { applyRequestAction } from "./lib/menuRequests";
 import {
@@ -25,14 +25,22 @@ import {
 } from "./lib/menuStaffAccess";
 import { rateLimiter } from "./lib/rateLimits";
 import { REQUEST_ERROR, type RequestErrorCode } from "../lib/menu/errors/requests";
+import { MENU_ERROR, type MenuErrorCode } from "../lib/menu/errors/core";
 import { STAFF_ERROR, type StaffErrorCode } from "../lib/menu/errors/waiter";
+import type { FloorLayout, FloorPositionKind } from "../lib/menu/floor-layout";
 import {
   MENU_MAX_ACTIVE_REQUESTS,
+  MENU_MAX_CARDS_ON_POSITION,
   MENU_MAX_CART_LINES,
+  MENU_MAX_QR_LINKS_ON_POSITION,
   MENU_MAX_OTHERS_ON_POSITION,
+  MENU_MAX_POSITIONS,
   MENU_MAX_RECENT_CANCELLED,
   MENU_MAX_STAFF,
+  MENU_MAX_ZONES,
 } from "../lib/menu/limits";
+import type { OccupancyState } from "../lib/menu/occupancy";
+import { roleCan } from "../lib/menu/permissions";
 import {
   PIN_ATTEMPT_RETENTION_MS,
   PIN_DEVICE_MAX_FAILURES,
@@ -52,6 +60,7 @@ import type {
   MenuRequestStatus,
   RequestAction,
 } from "../lib/menu/request-status";
+import { panelTimingOf, type PanelTiming } from "../lib/menu/thresholds";
 import { isMenuToken, newMenuToken, staffDeviceKeyHashFor, staffSessionTokenHash } from "../lib/menu/tokens";
 
 // =============================================================================
@@ -78,6 +87,12 @@ import { isMenuToken, newMenuToken, staffDeviceKeyHashFor, staffSessionTokenHash
 //              (convex/lib/menuRequests.ts applyRequestAction)
 //   expiry     a session lasts 12 h: runAt(expireSession) and a cron backstop
 //              (sweepExpiredSessions), which also forgets stale PIN counters.
+//   floor      (K23) floor (static: zones, positions, staff zones, timing,
+//              the occupancy switch), occupancy (only with the module),
+//              positionDetail (the cards of the open table), setOccupancy
+//              (by hand; null = neutral), setMyZone, setStaffZone (audited).
+//              Zones are a filter, never routing; nothing scheduled writes
+//              occupancy and nothing frees a table on its own.
 //
 // No query reads the clock; timers are computed on the device from createdAt.
 // No response carries a PIN, a hash, a token hash or a guest device pseudonym.
@@ -357,6 +372,10 @@ export const me = query({
 export type WaiterRequestRow = {
   id: Id<"menuRequests">;
   kind: MenuRequestKind;
+  /** K23: the position (the floor and the table detail group requests by it). */
+  positionId: Id<"menuPositions">;
+  /** K23: the zone recorded on the request (the floor prefers the position's current zone). */
+  zoneId: Id<"menuZones"> | null;
   status: MenuRequestStatus;
   channel: MenuRequestChannel;
   positionLabel: string;
@@ -428,6 +447,8 @@ function toRow(request: Doc<"menuRequests">, names: NameBook, waiter: MenuWaiter
   return {
     id: request._id,
     kind: request.kind,
+    positionId: request.positionId,
+    zoneId: request.zoneId ?? null,
     status: request.status,
     channel: request.channel,
     positionLabel: request.positionLabel,
@@ -650,6 +671,307 @@ export const complete = mutation({
 export const cancel = mutation({
   args: { ...actionArgs, expectedStatus: v.optional(menuRequestStatusValidator) },
   handler: async (ctx, args) => await act(ctx, args, "cancel", args.expectedStatus),
+});
+
+// -----------------------------------------------------------------------------
+// K23 — the floor: zones, positions, occupancy, own and assigned zones
+// (master §9.3, §9.4, §10.2–§10.5; plan K19 §4.4, K19-17…K19-21)
+// -----------------------------------------------------------------------------
+
+export type WaiterFloorPosition = {
+  id: Id<"menuPositions">;
+  kind: FloorPositionKind;
+  label: string;
+  seats: number | null;
+  /** null = "Bez zone" (everyone's). */
+  zoneId: Id<"menuZones"> | null;
+  /** The stored schematic layout (the panel places the rest like "Lokal i QR" does). */
+  layout: FloorLayout | null;
+  order: number;
+};
+
+export type WaiterFloor = {
+  zones: { id: Id<"menuZones">; name: string; order: number }[];
+  positions: WaiterFloorPosition[];
+  /** Active staff and their own active zone (the manager re-assigns them; names only). */
+  staff: { id: Id<"menuStaff">; name: string; panelRole: "staff" | "manager"; activeZoneId: Id<"menuZones"> | null }[];
+  me: {
+    /** The staff member on this device; null for the Owner's or a Manager's account. */
+    staffId: Id<"menuStaff"> | null;
+    /** The own active zone (a filter); null = every zone. Accounts keep theirs on the device. */
+    activeZoneId: Id<"menuZones"> | null;
+    /** May re-assign the zones of everyone (Owner, Manager, admin, a panel manager). */
+    canAssignZones: boolean;
+  };
+  /** The venue's late threshold and reminder (defaults when unset). */
+  timing: PanelTiming;
+  /** The optional occupancy module (master §9.4): off = every table is neutral. */
+  occupancyEnabled: boolean;
+};
+
+function canAssignZones(waiter: MenuWaiter): boolean {
+  const { actor } = waiter;
+  return actor.kind === "staff" ? actor.staff.panelRole === "manager" : roleCan(actor.access.actor, "waiter.assignZones");
+}
+
+/**
+ * The static part of the floor: ONE subscription per device (plan K19-17).
+ * It changes when the venue changes zones, positions, staff or settings,
+ * never with a guest's scan or request. Bounded: ≤ 30 zones, ≤ 500
+ * positions, ≤ 100 staff.
+ */
+export const floor = query({
+  args: staffArgs,
+  handler: async (ctx, args): Promise<WaiterFloor | null> => {
+    const waiter = await loadMenuStaff(ctx, args, null);
+    if (!waiter) return null;
+    const menuServiceId = waiter.menuService._id;
+    const zones = await ctx.db
+      .query("menuZones")
+      .withIndex("by_menuServiceId_and_active_and_order", (q) => q.eq("menuServiceId", menuServiceId).eq("active", true))
+      .take(MENU_MAX_ZONES);
+    const positions = await ctx.db
+      .query("menuPositions")
+      .withIndex("by_menuServiceId_and_active_and_order", (q) => q.eq("menuServiceId", menuServiceId).eq("active", true))
+      .take(MENU_MAX_POSITIONS);
+    const staff = await ctx.db
+      .query("menuStaff")
+      .withIndex("by_menuServiceId_and_active", (q) => q.eq("menuServiceId", menuServiceId).eq("active", true))
+      .take(MENU_MAX_STAFF);
+    const zoneIds = new Set(zones.map((zone) => zone._id));
+    const liveZone = (id: Id<"menuZones"> | undefined) => (id && zoneIds.has(id) ? id : null);
+    const me = waiter.actor.kind === "staff" ? waiter.actor.staff : null;
+    return {
+      zones: zones.map((zone) => ({ id: zone._id, name: zone.name, order: zone.order })),
+      positions: positions.map((position) => ({
+        id: position._id,
+        kind: position.kind,
+        label: position.label,
+        seats: position.seats ?? null,
+        zoneId: liveZone(position.zoneId),
+        layout: position.layout ?? null,
+        order: position.order,
+      })),
+      staff: staff.map((member) => ({
+        id: member._id,
+        name: member.displayName,
+        panelRole: member.panelRole,
+        activeZoneId: liveZone(member.activeZoneId),
+      })),
+      me: {
+        staffId: me ? me._id : null,
+        activeZoneId: me ? liveZone(me.activeZoneId) : null,
+        canAssignZones: canAssignZones(waiter),
+      },
+      timing: panelTimingOf(waiter.menuService.settings?.panel),
+      occupancyEnabled: waiter.menuService.features.occupancy === true,
+    };
+  },
+});
+
+export type WaiterOccupancy =
+  | { off: true }
+  | {
+      off: false;
+      states: { positionId: Id<"menuPositions">; state: OccupancyState; updatedAt: number; updatedBy: string | null }[];
+    };
+
+/**
+ * The occupancy of the venue's positions, only when the module is on (plan
+ * K19-19): `{ off: true }` otherwise, and the panel shows every table as
+ * neutral. A position without a row is neutral too.
+ */
+export const occupancy = query({
+  args: staffArgs,
+  handler: async (ctx, args): Promise<WaiterOccupancy | null> => {
+    const waiter = await loadMenuStaff(ctx, args, null);
+    if (!waiter) return null;
+    if (waiter.menuService.features.occupancy !== true) return { off: true };
+    const menuServiceId = waiter.menuService._id;
+    const rows = await ctx.db
+      .query("menuPositionOccupancy")
+      .withIndex("by_menuServiceId", (q) => q.eq("menuServiceId", menuServiceId))
+      .take(MENU_MAX_POSITIONS);
+    const staffNames = new Map<Id<"menuStaff">, string | null>();
+    const userNames = new Map<Id<"users">, string | null>();
+    const states: Extract<WaiterOccupancy, { off: false }>["states"] = [];
+    for (const row of rows) {
+      let updatedBy: string | null = null;
+      if (row.updatedByStaffId) {
+        const id = row.updatedByStaffId;
+        if (!staffNames.has(id)) {
+          const member = await ctx.db.get(id);
+          staffNames.set(id, member && member.menuServiceId === menuServiceId ? member.displayName : null);
+        }
+        updatedBy = staffNames.get(id) ?? null;
+      } else if (row.updatedByUserId) {
+        const id = row.updatedByUserId;
+        if (!userNames.has(id)) {
+          const user = await ctx.db.get(id);
+          userNames.set(id, user ? userNameForOthers(user) : null);
+        }
+        updatedBy = userNames.get(id) ?? null;
+      }
+      states.push({ positionId: row.positionId, state: row.state, updatedAt: row.updatedAt, updatedBy });
+    }
+    return { off: false, states };
+  },
+});
+
+export type WaiterPositionDetail = {
+  /** The active QR cards standing on this position ("Kartica 12-B"), by label. */
+  cards: { label: string }[];
+};
+
+/**
+ * What the table detail adds to the floor: the card(s) on the table. A
+ * temporary subscription while one table is open (cards change with every
+ * scan, so the static floor never reads them).
+ */
+export const positionDetail = query({
+  args: { ...staffArgs, positionId: v.id("menuPositions") },
+  handler: async (ctx, args): Promise<WaiterPositionDetail | null> => {
+    const waiter = await loadMenuStaff(ctx, args, null);
+    if (!waiter) return null;
+    const position = await ctx.db.get(args.positionId);
+    if (!position || position.menuServiceId !== waiter.menuService._id || !position.active) return null;
+    const links = await ctx.db
+      .query("menuQrLinks")
+      .withIndex("by_positionId", (q) => q.eq("positionId", position._id))
+      .take(MENU_MAX_QR_LINKS_ON_POSITION);
+    const cards: WaiterPositionDetail["cards"] = [];
+    for (const link of links) {
+      if (cards.length >= MENU_MAX_CARDS_ON_POSITION) break;
+      if (!link.active || link.menuServiceId !== waiter.menuService._id) continue;
+      const card = await ctx.db.get(link.cardId);
+      if (!card || card.businessId !== waiter.business._id || card.status !== "active") continue;
+      cards.push({ label: card.label });
+    }
+    return { cards };
+  },
+});
+
+export type WaiterFloorOutcome = { ok: true; changed: boolean } | { ok: false; code: StaffErrorCode | MenuErrorCode };
+
+/** Who acts (a mutation clock: an expired session is refused) and one token of the action bucket. */
+async function floorActor(
+  ctx: MutationCtx,
+  args: { slug: string; panelCode: string; sessionToken?: string },
+): Promise<{ waiter: MenuWaiter; now: number } | { refused: WaiterFloorOutcome }> {
+  const now = Date.now();
+  const waiter = await loadMenuStaff(ctx, args, now);
+  if (!waiter) return { refused: { ok: false, code: STAFF_ERROR.signedOut } };
+  const bucket = await rateLimiter.limit(ctx, "menuStaffAction", {
+    key: waiter.actor.kind === "staff" ? `session:${waiter.actor.session._id}` : waiterActorRef(waiter.actor),
+  });
+  if (!bucket.ok) return { refused: { ok: false, code: STAFF_ERROR.rateLimited } };
+  return { waiter, now };
+}
+
+/** An active zone of this venue, or null for "every zone"; undefined = not this venue's (refused). */
+async function zoneArg(
+  ctx: MutationCtx,
+  menuServiceId: Id<"menuServices">,
+  zoneId: Id<"menuZones"> | null,
+): Promise<Id<"menuZones"> | null | undefined> {
+  if (zoneId === null) return null;
+  const zone = await ctx.db.get(zoneId);
+  return zone && zone.menuServiceId === menuServiceId && zone.active ? zone._id : undefined;
+}
+
+/**
+ * Status stola, set by hand (master §9.4): free, occupied, reserved, out of
+ * service, or `null` back to neutral (the row is deleted). Refused when the
+ * module is off. Recorded on the row (who and when), not audited (K19-16).
+ */
+export const setOccupancy = mutation({
+  args: { ...staffArgs, positionId: v.id("menuPositions"), state: v.union(menuOccupancyStateValidator, v.null()) },
+  handler: async (ctx, args): Promise<WaiterFloorOutcome> => {
+    const start = await floorActor(ctx, args);
+    if ("refused" in start) return start.refused;
+    const { waiter, now } = start;
+    if (waiter.menuService.features.occupancy !== true) return { ok: false, code: STAFF_ERROR.occupancyOff };
+    const menuServiceId = waiter.menuService._id;
+    const position = await ctx.db.get(args.positionId);
+    if (!position || position.menuServiceId !== menuServiceId || !position.active) return { ok: false, code: MENU_ERROR.notFound };
+    const existing = await ctx.db
+      .query("menuPositionOccupancy")
+      .withIndex("by_positionId", (q) => q.eq("positionId", position._id))
+      .unique();
+    if (args.state === null) {
+      if (!existing) return { ok: true, changed: false };
+      await ctx.db.delete(existing._id);
+      return { ok: true, changed: true };
+    }
+    if (existing && existing.state === args.state) return { ok: true, changed: false };
+    const who =
+      waiter.actor.kind === "staff"
+        ? { updatedByStaffId: waiter.actor.staff._id, updatedByUserId: undefined }
+        : { updatedByUserId: waiter.actor.access.user._id, updatedByStaffId: undefined };
+    if (existing) {
+      await ctx.db.patch(existing._id, { state: args.state, updatedAt: now, ...who });
+    } else {
+      await ctx.db.insert("menuPositionOccupancy", { menuServiceId, positionId: position._id, state: args.state, updatedAt: now, ...who });
+    }
+    return { ok: true, changed: true };
+  },
+});
+
+/**
+ * The waiter's OWN active zone (master §9.3: "Konobar može promeniti sopstvenu
+ * aktivnu zonu"): a filter of the queue, the floor, the sound and the
+ * reminder, never routing. `null` = every zone. Positions without a zone stay
+ * visible to everyone. An Owner's or Manager's account keeps its filter on
+ * the device (it has no staff row), so it is refused here.
+ */
+export const setMyZone = mutation({
+  args: { ...staffArgs, zoneId: v.union(v.id("menuZones"), v.null()) },
+  handler: async (ctx, args): Promise<WaiterFloorOutcome> => {
+    const start = await floorActor(ctx, args);
+    if ("refused" in start) return start.refused;
+    const { waiter, now } = start;
+    if (waiter.actor.kind !== "staff") return { ok: false, code: MENU_ERROR.forbidden };
+    const zoneId = await zoneArg(ctx, waiter.menuService._id, args.zoneId);
+    if (zoneId === undefined) return { ok: false, code: MENU_ERROR.notFound };
+    const member = waiter.actor.staff;
+    if ((member.activeZoneId ?? null) === zoneId) return { ok: true, changed: false };
+    await ctx.db.patch(member._id, { activeZoneId: zoneId ?? undefined, updatedAt: now });
+    return { ok: true, changed: true };
+  },
+});
+
+/**
+ * Re-assign another staff member's active zone (master §9.3: "menadžer
+ * raspodelu svih konobara"; no automatic proposal). The Owner, a Manager, a
+ * ScanMe admin, or a staff member whose panel role is `manager`. Audited.
+ */
+export const setStaffZone = mutation({
+  args: { ...staffArgs, staffId: v.id("menuStaff"), zoneId: v.union(v.id("menuZones"), v.null()) },
+  handler: async (ctx, args): Promise<WaiterFloorOutcome> => {
+    const start = await floorActor(ctx, args);
+    if ("refused" in start) return start.refused;
+    const { waiter, now } = start;
+    if (!canAssignZones(waiter)) return { ok: false, code: MENU_ERROR.forbidden };
+    const menuServiceId = waiter.menuService._id;
+    const member = await ctx.db.get(args.staffId);
+    if (!member || member.menuServiceId !== menuServiceId || !member.active) return { ok: false, code: MENU_ERROR.notFound };
+    const zoneId = await zoneArg(ctx, menuServiceId, args.zoneId);
+    if (zoneId === undefined) return { ok: false, code: MENU_ERROR.notFound };
+    if ((member.activeZoneId ?? null) === zoneId) return { ok: true, changed: false };
+    await ctx.db.patch(member._id, { activeZoneId: zoneId ?? undefined, updatedAt: now });
+    const { actor } = waiter;
+    await writeMenuAudit(ctx, {
+      menuServiceId,
+      ...(actor.kind === "staff"
+        ? { actorKind: "staff" as const, actorRef: actor.staff._id }
+        : { actorKind: actor.access.actor === "admin" ? ("admin" as const) : ("user" as const), actorUserId: actor.access.user._id }),
+      action: "staff.zone_assigned",
+      entityType: "staff",
+      entityKey: member._id,
+      details: { zoneId: zoneId ?? null },
+    });
+    return { ok: true, changed: true };
+  },
 });
 
 // -----------------------------------------------------------------------------

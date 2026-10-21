@@ -911,6 +911,9 @@ describe("the queue", () => {
     expect(queue?.requests[0]).toEqual({
       id: r1,
       kind: "call",
+      // K23: the floor groups requests by position and zone.
+      positionId: table.positionId,
+      zoneId: table.zoneId,
       status: "new",
       channel: "standard",
       positionLabel: "Sto 12",

@@ -107,6 +107,16 @@ export const menuBooleanFeatureValidator = v.union(
   v.literal("occupancy"),
 );
 
+// K23 — menuServices.settings.panel (defined before the settings validator that
+// uses it): the venue's timing of the waiter panel. The late threshold turns a
+// timer red (1–120 min, default 15); the reminder
+// repeats a short sound for a request still `Novi` (0 = off, else 1–60 min,
+// default 5). Written by menuSettings.setPanelTiming; read by the waiter panel.
+export const menuPanelTimingValidator = v.object({
+  lateThresholdMin: v.number(),
+  reminderMin: v.number(),
+});
+
 // menuServices.settings — grows one optional key per step that needs it
 // (working hours and reservations K25, panel thresholds K23/K28).
 export const menuServiceSettingsValidator = v.object({
@@ -123,6 +133,9 @@ export const menuServiceSettingsValidator = v.object({
   // or false = off: no allergen UI in the public menu and no new records
   // (existing records are kept, never deleted). Content: goes through Objavi.
   allergensEnabled: v.optional(v.boolean()),
+  // K23 — the waiter panel timing (late threshold, reminder); operational, never
+  // part of the draft. Absent = the defaults (15 and 5 minutes).
+  panel: v.optional(menuPanelTimingValidator),
 });
 
 export const menuRoomServiceMarkupScopeValidator = v.union(
@@ -405,3 +418,18 @@ export const menuPinAttemptScopeValidator = v.union(v.literal("device"), v.liter
 
 // Server-side secrets of a Menu service. V1: the waiter-panel code only.
 export const menuSecretKindValidator = v.literal("panel_code");
+
+// -----------------------------------------------------------------------------
+// K23 — the floor of the waiter panel: occupancy and panel thresholds (master
+// §8.5, §9.4, §10.4; plan docs/meni/planovi/K19.md §2.4, K19-19, K19-21)
+// -----------------------------------------------------------------------------
+
+// The four states staff set BY HAND when the venue uses the optional occupancy
+// module. There is no "neutral" value: a position without a row is neutral (a
+// dash), and nothing ever writes a row on its own (K19-19).
+export const menuOccupancyStateValidator = v.union(
+  v.literal("free"),
+  v.literal("occupied"),
+  v.literal("reserved"),
+  v.literal("out_of_service"),
+);

@@ -72,6 +72,10 @@ export const MENU_AUDIT_ACTIONS = [
   "staff.login",
   /** A staff member signed out of the waiter panel. */
   "staff.logout",
+  // K23 — zones are a filter, not routing (master §9.3). A waiter changing their
+  // OWN active zone is not audited; re-assigning someone else is.
+  /** The Owner, a Manager or a panel manager set another staff member's active zone. */
+  "staff.zone_assigned",
 ] as const;
 
 export type MenuAuditAction = (typeof MENU_AUDIT_ACTIONS)[number];

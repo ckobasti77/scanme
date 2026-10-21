@@ -8,6 +8,10 @@
 // `me`, the work queue (`activeRequests`), and the detail only while one is
 // open. A sign-in that ended (12 h, logout elsewhere, PIN reset, a new panel
 // link) makes `me` null and the PIN screen comes back.
+//
+// K23 adds, still per venue (plan K19-17): the static floor (`floor`), the
+// occupancy only when the venue uses that module, and the cards of the open
+// table only while a table is open (`positionDetail`).
 
 import { useConvexConnectionState, useMutation, useQuery } from "convex/react";
 import { useState } from "react";
@@ -16,7 +20,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type { StaffSessionBody } from "@/lib/menu/http/staff-session";
 import type { MenuRequestStatus } from "@/lib/menu/request-status";
 import { useVeza } from "../gost/use-veza";
-import type { KonobarIshod, KonobarRadnje, PinIshod } from "./model";
+import type { KonobarIshod, KonobarRadnje, KonobarSalaIshod, PinIshod } from "./model";
 import { KonobarPanel } from "./panel";
 import { PinEkran } from "./pin/pin-ekran";
 
@@ -38,6 +42,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
   const [token, setToken] = useState<string | null>(pocetniToken);
   const [nalogom, setNalogom] = useState(false);
   const [izabranId, setIzabranId] = useState<string | null>(null);
+  const [mestoId, setMestoId] = useState<string | null>(null);
   const [odjavljuje, setOdjavljuje] = useState(false);
   const [bioPrijavljen, setBioPrijavljen] = useState(pocetniToken !== null);
 
@@ -50,12 +55,21 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
     api.menuWaiter.requestDetail,
     prijavljen && prijava && izabranId ? { ...prijava, requestId: izabranId as Id<"menuRequests"> } : "skip",
   );
+  const sala = useQuery(api.menuWaiter.floor, prijavljen && prijava ? prijava : "skip");
+  const zauzetost = useQuery(api.menuWaiter.occupancy, prijavljen && prijava && sala?.occupancyEnabled ? prijava : "skip");
+  const detaljMesta = useQuery(
+    api.menuWaiter.positionDetail,
+    prijavljen && prijava && mestoId ? { ...prijava, positionId: mestoId as Id<"menuPositions"> } : "skip",
+  );
 
   const preuzmi = useMutation(api.menuWaiter.accept);
   const zavrsi = useMutation(api.menuWaiter.complete);
   const otkazi = useMutation(api.menuWaiter.cancel);
   const loginNalogom = useMutation(api.menuWaiter.loginWithAccount);
   const odjaviSesiju = useMutation(api.menuWaiter.logout);
+  const zauzmi = useMutation(api.menuWaiter.setOccupancy);
+  const mojaZona = useMutation(api.menuWaiter.setMyZone);
+  const zonaOsoblja = useMutation(api.menuWaiter.setStaffZone);
 
   const naMrezi = useVeza();
   const konekcija = useConvexConnectionState();
@@ -78,6 +92,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
     if (telo.ok) {
       setNalogom(false);
       setIzabranId(null);
+      setMestoId(null);
       setToken(telo.sessionToken);
       setBioPrijavljen(true);
       return { ok: true };
@@ -112,6 +127,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
     if (nalogom && token === null) {
       setNalogom(false);
       setIzabranId(null);
+      setMestoId(null);
       return;
     }
     setOdjavljuje(true);
@@ -127,6 +143,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
     setOdjavljuje(false);
     setToken(null);
     setIzabranId(null);
+    setMestoId(null);
     setBioPrijavljen(false);
   }
 
@@ -137,6 +154,16 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
     otkazi: async (id, ocekivaniStatus: MenuRequestStatus) =>
       (await otkazi({ ...prijavaArgs, requestId: id as Id<"menuRequests">, expectedStatus: ocekivaniStatus })) as KonobarIshod,
     odjava,
+    postaviZauzetost: async (positionId, stanje) =>
+      (await zauzmi({ ...prijavaArgs, positionId: positionId as Id<"menuPositions">, state: stanje })) as KonobarSalaIshod,
+    postaviMojuZonu: async (zoneId) =>
+      (await mojaZona({ ...prijavaArgs, zoneId: zoneId as Id<"menuZones"> | null })) as KonobarSalaIshod,
+    postaviZonuOsoblja: async (staffId, zoneId) =>
+      (await zonaOsoblja({
+        ...prijavaArgs,
+        staffId: staffId as Id<"menuStaff">,
+        zoneId: zoneId as Id<"menuZones"> | null,
+      })) as KonobarSalaIshod,
   };
 
   if (!prijavljen || !me) {
@@ -173,6 +200,11 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
       veza={veza}
       odjavljuje={odjavljuje}
       pocetnoMs={pocetnoMs}
+      sala={sala ?? undefined}
+      zauzetost={sala && !sala.occupancyEnabled ? { off: true } : (zauzetost ?? undefined)}
+      izabranoMestoId={mestoId}
+      onIzaberiMesto={setMestoId}
+      detaljMesta={detaljMesta}
     />
   );
 }

@@ -144,7 +144,27 @@ describe("/dev/menu-konobar-preview", () => {
       uloga: "osoblje",
       zahtev: null,
       potvrdaOtkaza: false,
+      // K23: the floor's parameters, all off by default.
+      zauzetost: false,
+      zona: null,
+      kasni: false,
+      zvukIskljucen: false,
+      sto: null,
     });
+  });
+
+  test("K23: occupancy, zone, late threshold, sound and the open table; anything else gives the default", () => {
+    const p = parseKonobarPreview({ ekran: "sto", zauzetost: "1", zona: "Terasa", kasni: "1", zvuk: "iskljucen", sto: "Sto 12" });
+    expect(p).toMatchObject({ ekran: "sto", zauzetost: true, zona: "Terasa", kasni: true, zvukIskljucen: true, sto: "Sto 12" });
+    expect(parseKonobarPreview({ zona: "Glavna sala" }).zona).toBe("Glavna sala");
+    expect(parseKonobarPreview({ zauzetost: "da", kasni: "0", zvuk: "ukljucen" })).toMatchObject({
+      zauzetost: false,
+      kasni: false,
+      zvukIskljucen: false,
+    });
+    expect(parseKonobarPreview({ zona: "<script>" }).zona).toBeNull();
+    expect(parseKonobarPreview({ sto: "x".repeat(41) }).sto).toBeNull();
+    expect(parseKonobarPreview({ zona: ["VIP", "Terasa"] }).zona).toBe("VIP");
   });
 
   test("K22: states, role, request and the cancel confirmation; unknown values give the default", () => {

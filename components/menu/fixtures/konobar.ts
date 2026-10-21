@@ -5,14 +5,28 @@
 // a call at Sto 3 waiting 08:12, a bill at Sto 5 03:10, an order at Sto 7
 // 06:10, a late call at Sto 1 (17 min) and requests Milan or a colleague took.
 // Fictional only (the repo is public).
+//
+// K23: the floor of the same venue (fixtureSale): the zones and the per-zone
+// layout of "Lokal i QR" (fixtureLokalPodaci, so the plan is the one the
+// owner arranged), the team with their own zones, the cards on each table,
+// the timing (15 / 5 min) and the occupancy of K07 — off unless asked.
+// Parallel states on one table come from the K07 requests: Sto 3 (a waiting
+// call + an accepted order), Sto 5 (a bill + a call), Sto 7 (an order + a
+// bill); Sto 1 waits 17 minutes, past the threshold.
 
 import type {
   KonobarDetalj,
+  KonobarDetaljMesta,
   KonobarKorisnik,
   KonobarOtkazan,
+  KonobarSala,
   KonobarZahtev,
+  KonobarZauzetost,
 } from "@/components/menu/konobar/model";
+import { normalizeArticleName } from "@/lib/menu/text";
+import { DEFAULT_PANEL_TIMING } from "@/lib/menu/thresholds";
 import { IZLOG_SADA, fixtureVenue } from "./lokal";
+import { fixtureLokalPodaci } from "./lokal-qr";
 import { fixtureRequests, fixtureTeam } from "./operativa";
 import type { IzlogRequest } from "./tipovi";
 
@@ -47,6 +61,8 @@ export function fixtureKonobar(opcije: { stanje?: "prazno" | "mnogo" | null; ulo
   const uZahtev = (izvor: IzlogRequest): KonobarZahtev => ({
     id: izvor.id,
     kind: izvor.kind,
+    positionId: izvor.positionKey,
+    zoneId: izvor.zoneKey,
     status: izvor.status,
     channel: izvor.channel,
     positionLabel: izvor.positionLabel,
@@ -144,4 +160,89 @@ export function fixtureKonobar(opcije: { stanje?: "prazno" | "mnogo" | null; ulo
     detalji,
     skraceno: opcije.stanje === "mnogo",
   };
+}
+
+// -----------------------------------------------------------------------------
+// K23 — the floor
+// -----------------------------------------------------------------------------
+
+export type SalaFixture = {
+  sala: KonobarSala;
+  /** The occupancy as the panel reads it (off unless the module is switched on). */
+  zauzetost: KonobarZauzetost;
+  /** The active QR cards on each position (by position id). */
+  kartice: Record<string, KonobarDetaljMesta>;
+};
+
+/** The zone whose name matches `naziv` (case and diacritics ignored), or null. */
+export function zonaPoNazivu(sala: Pick<KonobarSala, "zones">, naziv: string | null | undefined): string | null {
+  if (!naziv) return null;
+  const trazeno = normalizeArticleName(naziv);
+  return sala.zones.find((zona) => normalizeArticleName(zona.name) === trazeno)?.id ?? null;
+}
+
+/** The position whose label matches `naziv` ("Sto 12", "sto 12"), or null. */
+export function mestoPoNazivu(sala: Pick<KonobarSala, "positions">, naziv: string | null | undefined): string | null {
+  if (!naziv) return null;
+  const trazeno = normalizeArticleName(naziv);
+  return sala.positions.find((mesto) => normalizeArticleName(mesto.label) === trazeno)?.id ?? null;
+}
+
+export function fixtureSale(
+  opcije: { zauzetost?: boolean; kasniMin?: number | null; uloga?: "osoblje" | "menadzer"; zona?: string | null } = {},
+): SalaFixture {
+  const venue = fixtureVenue("restaurant");
+  const lokal = fixtureLokalPodaci("restoran");
+  const tim = fixtureTeam();
+  const ja = tim.staff[0];
+  const nalogom = opcije.uloga === "menadzer";
+  const zones = lokal.zones.map((zona) => ({ id: zona.id, name: zona.name, order: zona.order }));
+  const mojaZona = zonaPoNazivu({ zones }, opcije.zona);
+  const sala: KonobarSala = {
+    zones,
+    positions: lokal.positions.map((mesto) => ({
+      id: mesto.id,
+      kind: mesto.kind,
+      label: mesto.label,
+      seats: mesto.seats,
+      zoneId: mesto.zoneId,
+      layout: mesto.layout,
+      order: mesto.order,
+    })),
+    staff: tim.staff
+      .filter((clan) => clan.active)
+      .map((clan) => ({
+        id: clan.key,
+        name: clan.displayName,
+        panelRole: clan.panelRole,
+        activeZoneId: clan.key === ja.key ? mojaZona : clan.activeZoneKey,
+      })),
+    me: {
+      staffId: nalogom ? null : ja.key,
+      activeZoneId: nalogom ? null : mojaZona,
+      // Milan is a plain waiter; the Manager's account re-assigns zones.
+      canAssignZones: nalogom,
+    },
+    timing: { ...DEFAULT_PANEL_TIMING, ...(opcije.kasniMin ? { lateThresholdMin: opcije.kasniMin } : {}) },
+    occupancyEnabled: opcije.zauzetost === true,
+  };
+  const zauzetost: KonobarZauzetost =
+    opcije.zauzetost === true && venue.occupancy
+      ? {
+          off: false,
+          states: Object.entries(venue.occupancy).map(([positionId, state], indeks) => ({
+            positionId,
+            state,
+            updatedAt: IZLOG_SADA - (20 + indeks * 7) * 60_000,
+            updatedBy: tim.staff[indeks % 3].displayName,
+          })),
+        }
+      : { off: true };
+  const kartice: Record<string, KonobarDetaljMesta> = {};
+  for (const kartica of lokal.cards) {
+    const mesto = kartica.link?.positionId;
+    if (!mesto || !kartica.link?.active || kartica.status !== "active" || !kartica.opensMenu) continue;
+    (kartice[mesto] ??= { cards: [] }).cards.push({ label: kartica.label });
+  }
+  return { sala, zauzetost, kartice };
 }

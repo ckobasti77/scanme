@@ -11,6 +11,7 @@ import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
 import { primaryAction, type QueueAction } from "@/lib/menu/waiter-queue";
 import { cn } from "@/lib/utils";
 import { Dugme } from "../../zajednicko/dugme";
+import stil from "../konobar.module.css";
 import type { KonobarZahtev } from "../model";
 import { VremePar } from "../vreme";
 import { StatusZahteva, VrstaIkonica, mestoTekst, vrstaNaslov } from "../vrsta";
@@ -29,6 +30,7 @@ export function KarticaZahteva({
   onOtvori,
   onRadnja,
   radnjeIskljucene,
+  podsetnik = false,
 }: {
   zahtev: KonobarZahtev;
   sadaMs: number;
@@ -38,6 +40,8 @@ export function KarticaZahteva({
   onRadnja(radnja: QueueAction): void;
   /** Offline: actions wait for the connection (the reason is in the strip above the queue). */
   radnjeIskljucene: boolean;
+  /** K23: the reminder of this request is flashing now (master §8.5). */
+  podsetnik?: boolean;
 }) {
   const radnja = primaryAction(zahtev);
   const naslov = vrstaNaslov(zahtev);
@@ -48,10 +52,12 @@ export function KarticaZahteva({
       data-zahtev={zahtev.id}
       data-status={zahtev.status}
       data-svez={svez || undefined}
+      data-podsetnik={podsetnik || undefined}
       className={cn(
         "relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] p-4 shadow-[var(--mp-senka-xs)] sm:gap-4",
         zahtev.status === "accepted" && zahtev.acceptedBy?.isMe ? "[--border:var(--mp-mastilo)]" : null,
         svez ? "[--border:var(--mp-info)] ring-2 ring-[var(--mp-info-ivica)]" : null,
+        podsetnik ? stil.podsetnik : null,
       )}
     >
       <span className="self-start">

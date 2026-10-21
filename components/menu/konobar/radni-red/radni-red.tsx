@@ -47,6 +47,8 @@ export type RadniRedProps = {
   pocetniFilter?: QueueFilter;
   /** A strip above the queue (offline, an action error). */
   traka?: ReactNode;
+  /** K23: requests whose reminder is flashing now. */
+  podsetnik?: ReadonlySet<string>;
 };
 
 export function aktivniTekst(broj: number): string {
@@ -65,6 +67,7 @@ export function RadniRed({
   uskoro,
   pocetniFilter = "sve",
   traka,
+  podsetnik,
 }: RadniRedProps) {
   const [filter, setFilter] = useState<QueueFilter>(pocetniFilter);
   const sortirani = red ? sortQueue(red.zahtevi) : [];
@@ -174,6 +177,7 @@ export function RadniRed({
                         onOtvori={() => onOtvori(zahtev.id)}
                         onRadnja={(radnja) => onRadnja(zahtev, radnja)}
                         radnjeIskljucene={radnjeIskljucene}
+                        podsetnik={podsetnik?.has(zahtev.id) ?? false}
                       />
                     </li>
                   ))}

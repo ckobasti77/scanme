@@ -5,10 +5,12 @@
 // device ("U smeni", until when the sign-in holds), the number of active
 // requests, the clock, the app theme switch (this local one hides the
 // floating global one, so nothing covers the bottom navigation) and the
-// person menu with "Odjavi se". K23 adds the sound switch and the zone.
+// person menu with "Odjavi se". K23 adds the sound switch (a device
+// setting, master §8.5: it switches the sound off completely) and the zone
+// control (only when the venue has zones).
 
-import { LogOut, UserRound, WifiOff } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { LogOut, UserRound, Volume2, VolumeX, WifiOff } from "lucide-react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { fmt, srPluralCategory } from "@/lib/i18n/format";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
@@ -17,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { Dugme } from "../zajednicko/dugme";
 import type { KonobarKorisnik } from "./model";
 
-const t = menuKonobarSr.zaglavlje;
+const t = { ...menuKonobarSr.zaglavlje, zvuk: menuKonobarSr.zvuk };
 
 export function Zaglavlje({
   lokal,
@@ -27,6 +29,8 @@ export function Zaglavlje({
   onOdjava,
   odjavljuje = false,
   offline = false,
+  zvuk,
+  zona,
 }: {
   lokal: string;
   korisnik: KonobarKorisnik;
@@ -37,6 +41,10 @@ export function Zaglavlje({
   odjavljuje?: boolean;
   /** No connection: a persistent chip, so the reason never scrolls away. */
   offline?: boolean;
+  /** K23: the sound of this device (on/off). */
+  zvuk?: { ukljucen: boolean; onPrebaci(): void };
+  /** K23: the zone control (only when the venue has zones). */
+  zona?: ReactNode;
 }) {
   const [otvoren, setOtvoren] = useState(false);
   const meniId = useId();
@@ -67,7 +75,7 @@ export function Zaglavlje({
 
   return (
     <header className="sticky top-0 z-30 border-b bg-[var(--mp-povrsina)] [--border:var(--mp-ivica)]">
-      <div className="mx-auto flex min-h-16 max-w-[110rem] items-center gap-3 px-4 lg:px-6">
+      <div className="mx-auto flex min-h-16 max-w-[110rem] items-center gap-2 px-4 sm:gap-3 lg:px-6">
         <div className="grid min-w-0 flex-1 leading-tight">
           <p className="truncate text-[1.0625rem] font-bold text-[var(--mp-tekst)]">{lokal}</p>
           <p className="truncate text-sm text-[var(--mp-tekst-sporedni)]">{t.panel}</p>
@@ -102,7 +110,36 @@ export function Zaglavlje({
           {clockTime(sadaMs)}
         </p>
 
-        <ThemeToggle placement="local" className="rounded-full [--button-radius:999px]" />
+        {zvuk ? (
+          <button
+            type="button"
+            aria-pressed={zvuk.ukljucen}
+            aria-label={t.zvuk.oznaka}
+            title={zvuk.ukljucen ? t.zvuk.ukljucen : t.zvuk.iskljucen}
+            onClick={zvuk.onPrebaci}
+            data-zvuk={zvuk.ukljucen ? "ukljucen" : "iskljucen"}
+            className={cn(
+              "inline-flex min-h-12 min-w-12 items-center justify-center gap-2 rounded-full border px-3 text-base font-semibold [--button-radius:999px]",
+              zvuk.ukljucen
+                ? "[--border:var(--mp-ivica-kontrole)] text-[var(--mp-tekst)] hover:bg-[var(--mp-povrsina-utisana)]"
+                : "[--border:var(--mp-upozorenje-ivica)] bg-[var(--mp-upozorenje-meko)] text-[var(--mp-tekst)]",
+            )}
+          >
+            {zvuk.ukljucen ? (
+              <Volume2 aria-hidden="true" strokeWidth={2} className="size-5 shrink-0" />
+            ) : (
+              <VolumeX aria-hidden="true" strokeWidth={2} className="size-5 shrink-0 text-[var(--mp-upozorenje)]" />
+            )}
+            <span aria-hidden="true" className="hidden whitespace-nowrap xl:inline">
+              {zvuk.ukljucen ? t.zvuk.ukljucen : t.zvuk.iskljucen}
+            </span>
+          </button>
+        ) : null}
+
+        {zona}
+
+        {/* On a narrow phone the theme switch moves into the person menu, so the header keeps the venue readable. */}
+        <ThemeToggle placement="local" className="hidden rounded-full [--button-radius:999px] min-[480px]:inline-flex" />
 
         <div ref={okvir} className="relative">
           <button
@@ -131,6 +168,10 @@ export function Zaglavlje({
                       ? `${t.uSmeni} · ${fmt(t.vaziDo, { vreme: clockTime(korisnik.expiresAt) })}`
                       : t.uSmeni}
                 </p>
+              </div>
+              <div className="flex items-center justify-between gap-3 min-[480px]:hidden">
+                <span className="text-[0.9375rem] text-[var(--mp-tekst-sporedni)]">{t.tema}</span>
+                <ThemeToggle placement="local" className="rounded-full [--button-radius:999px]" />
               </div>
               <Dugme vrsta="sekundarno" ikonica={LogOut} ucitava={odjavljuje} onClick={onOdjava} className="w-full">
                 {korisnik.kind === "account" ? t.izlaz : odjavljuje ? t.odjavljuje : t.odjava}

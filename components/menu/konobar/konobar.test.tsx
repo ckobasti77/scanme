@@ -92,7 +92,17 @@ const FX = fixtureKonobar();
 const zahtevPo = (id: string) => FX.zahtevi.find((r) => r.id === id)!;
 const NISTA = () => undefined;
 const ishod = (status: "accepted" | "done" | "cancelled") => async () => ({ ok: true as const, status, changed: true });
-const RADNJE: KonobarRadnje = { preuzmi: ishod("accepted"), zavrsi: ishod("done"), otkazi: ishod("cancelled"), odjava: NISTA };
+const salaIshod = async () => ({ ok: true as const, changed: true });
+const RADNJE: KonobarRadnje = {
+  preuzmi: ishod("accepted"),
+  zavrsi: ishod("done"),
+  otkazi: ishod("cancelled"),
+  odjava: NISTA,
+  // K23: the floor's actions (the floor itself is covered in sala.test.tsx).
+  postaviZauzetost: salaIshod,
+  postaviMojuZonu: salaIshod,
+  postaviZonuOsoblja: salaIshod,
+};
 
 const crveniRed = (fx: KonobarFixture = FX, preko: Partial<KonobarRed> = {}): KonobarRed => ({ zahtevi: fx.zahtevi, skraceno: false, otkazani: fx.otkazani, ...preko });
 
@@ -364,11 +374,14 @@ describe("work queue", () => {
     expect(brojevi(5)).toContain("5 aktivnih zahteva");
   });
 
-  test("the floor placeholder is an honest state, never a fake floor", () => {
-    expect(html).toContain('data-sala="uskoro"');
-    expect(naslovi(html, 3)).toContain(t.sala.uskoroNaslov);
+  // K23 replaced the K22 placeholder ("Prikaz sale je u pripremi") with the real floor (sala.test.tsx);
+  // without the floor's data yet, the section is an honest loading state, never a fake floor.
+  test("the floor is the Sala section; until its data arrives it is a loading state, never a fake floor", () => {
+    const sala = izdvoji(html, /(<section aria-labelledby="sala-naslov"[\s\S]*?<\/section>)/);
+    expect(sala).toContain('data-sala="raspored"');
     expect(naslovi(html, 2)).toContain(t.sala.naslov);
-    expect(tekst(html)).toContain(t.sala.uskoroOpis);
+    expect(sala).toContain('data-stanje="ucitavanje"');
+    expect(sala).not.toContain("data-mesto");
     const bocni = (h: string) => izdvoji(h, /<div class="([^"]*)" data-bocni-pano/).split(" ");
     expect(bocni(html)).toContain("block");
     expect(bocni(panel({ pocetniPrikaz: "sala" }))).toContain("hidden");

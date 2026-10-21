@@ -151,6 +151,7 @@ export const KONOBAR_EKRAN_KORAK: IzlogScreens<KonobarEkran> = {
   "sala-raspored": { korak: "K23" },
   "sala-tabela": { korak: "K23" },
   sto: { korak: "K23" },
+  // reservations remain K25
   rezervacije: { korak: "K25" },
 };
 
@@ -168,6 +169,13 @@ export const KONOBAR_ULOGE = ["osoblje", "menadzer"] as const;
 export type KonobarUloga = (typeof KONOBAR_ULOGE)[number];
 
 const KONOBAR_ZAHTEV = /^rq_[a-z0-9]{2,4}$/;
+/** K23: a zone or a table named in the query (`zona=Terasa`, `sto=Sto 12`): letters, digits, spaces, dashes. */
+const KONOBAR_NAZIV = /^[\p{L}\p{N} .-]{1,40}$/u;
+
+function naziv(value: string | string[] | undefined): string | null {
+  const first = firstParam(value)?.trim();
+  return first && KONOBAR_NAZIV.test(first) ? first : null;
+}
 
 export type KonobarPreviewParams = {
   tema: IzlogTema | null;
@@ -181,6 +189,16 @@ export type KonobarPreviewParams = {
   zahtev: string | null;
   /** `potvrda=otkazi`: the cancel confirmation of the detail is open. */
   potvrdaOtkaza: boolean;
+  /** K23 `zauzetost=1`: the venue uses the optional occupancy module (off by default: tables are neutral). */
+  zauzetost: boolean;
+  /** K23 `zona=<naziv>`: the waiter's own zone (default: every zone). */
+  zona: string | null;
+  /** K23 `kasni=1`: a threshold of 5 minutes, so several waits are past it. */
+  kasni: boolean;
+  /** K23 `zvuk=iskljucen`: the device's sound starts switched off. */
+  zvukIskljucen: boolean;
+  /** K23 `sto=<naziv>` (with ekran=sto): which table is open (default Sto 3, three parallel states). */
+  sto: string | null;
 };
 
 export function parseKonobarPreview(params: IzlogSearchParams): KonobarPreviewParams {
@@ -194,6 +212,11 @@ export function parseKonobarPreview(params: IzlogSearchParams): KonobarPreviewPa
     uloga: pickParam(params.uloga, KONOBAR_ULOGE, "osoblje"),
     zahtev: zahtev !== undefined && KONOBAR_ZAHTEV.test(zahtev) ? zahtev : null,
     potvrdaOtkaza: firstParam(params.potvrda) === "otkazi",
+    zauzetost: firstParam(params.zauzetost) === "1",
+    zona: naziv(params.zona),
+    kasni: firstParam(params.kasni) === "1",
+    zvukIskljucen: firstParam(params.zvuk) === "iskljucen",
+    sto: naziv(params.sto),
   };
 }
 

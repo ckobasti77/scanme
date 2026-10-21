@@ -29,6 +29,8 @@ export const STAFF_ERROR = {
   signedOut: "staff/signed_out",
   /** The request changed while the waiter was deciding; nothing was written. */
   statusChanged: "staff/status_changed",
+  /** K23 — the venue does not use the optional occupancy module: tables stay neutral. */
+  occupancyOff: "staff/occupancy_off",
 } as const;
 
 export type StaffErrorCode = (typeof STAFF_ERROR)[keyof typeof STAFF_ERROR];

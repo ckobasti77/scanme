@@ -617,6 +617,14 @@ export const archivePosition = mutation({
     if (blocked) throw new ConvexError(FLOOR_ERROR.positionHasQr);
 
     await ctx.db.patch(position._id, { active: false, updatedAt: Date.now() });
+    // K23: an archived position leaves the floor, and its manual occupancy mark
+    // (menuPositionOccupancy) goes with it, so the venue's bounded occupancy
+    // read only ever holds positions that exist.
+    const occupancy = await ctx.db
+      .query("menuPositionOccupancy")
+      .withIndex("by_positionId", (q) => q.eq("positionId", position._id))
+      .unique();
+    if (occupancy) await ctx.db.delete(occupancy._id);
     await writeMenuAudit(ctx, {
       menuServiceId: position.menuServiceId,
       actorKind: auditActorKind(access.actor),

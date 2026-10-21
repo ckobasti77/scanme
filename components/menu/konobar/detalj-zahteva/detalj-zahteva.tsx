@@ -45,6 +45,8 @@ export type DetaljZahtevaProps = {
   onOtvoriDrugi(id: string): void;
   /** Izlog: the cancel confirmation is open. */
   pocetnaPotvrda?: boolean;
+  /** K23: where the back button returns when the request was opened from a table (default: the queue). */
+  nazadNa?: { oznaka: string; citac: string };
 };
 
 function iznos(rsd: number) {
@@ -85,6 +87,7 @@ export function DetaljZahteva({
   onOtkazi,
   onOtvoriDrugi,
   pocetnaPotvrda = false,
+  nazadNa,
 }: DetaljZahtevaProps) {
   const [potvrda, setPotvrda] = useState(pocetnaPotvrda);
   const naslovRef = useRef<HTMLHeadingElement>(null);
@@ -108,11 +111,11 @@ export function DetaljZahteva({
     <button
       type="button"
       onClick={onNazad}
-      aria-label={t.nazadCitac}
+      aria-label={nazadNa?.citac ?? t.nazadCitac}
       className="-ml-2 inline-flex min-h-12 items-center gap-1 rounded-[var(--mp-radius-dugme)] px-2 text-[1.0625rem] font-bold text-[var(--mp-tekst)] hover:bg-[var(--mp-povrsina-utisana)]"
     >
       <ChevronLeft aria-hidden="true" strokeWidth={2.25} className="size-6" />
-      {t.nazad}
+      {nazadNa?.oznaka ?? t.nazad}
     </button>
   );
 

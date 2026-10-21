@@ -81,6 +81,10 @@ export const MENU_MAX_RECENT_CANCELLED = 20;
 export const MENU_MAX_OTHERS_ON_POSITION = 20;
 /** K22 — live staff sessions one sweep (panel code change, PIN reset) ends in one transaction. */
 export const MENU_MAX_STAFF_SESSIONS_ENDED = 500;
+/** K23 — QR cards one position's detail reads (a table normally has one or two). */
+export const MENU_MAX_CARDS_ON_POSITION = 10;
+/** K23 — QR links of one position read to find them (old, inactive links are skipped, not counted). */
+export const MENU_MAX_QR_LINKS_ON_POSITION = 100;
 
 /** Text lengths, in characters after whitespace cleaning. */
 export const MENU_TEXT = {

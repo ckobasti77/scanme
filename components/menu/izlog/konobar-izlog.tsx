@@ -7,20 +7,33 @@
 // Otkaži, "already taken") and the wrong-PIN rules of lib/menu/pin-policy.ts
 // (five misses lock the device for 15 minutes). No Convex, no network. The
 // clock starts at 18:27 (IZLOG_SADA) and then runs, so timers tick.
+//
+// K23: the floor of the same venue (fixtureSale) — Raspored / Tabela, the
+// table detail, the own zone and the manager's re-assignment, the occupancy
+// module (off unless `zauzetost=1`; with it, states are set by hand exactly
+// as menuWaiter.setOccupancy does: refused when off, null = neutral), the
+// venue's threshold (`kasni=1` = 5 min) and the device sound.
 
 import { useMemo, useState } from "react";
 import {
   KONOBAR_IZLOG_MENADZER,
   KONOBAR_IZLOG_PIN,
   fixtureKonobar,
+  fixtureSale,
+  mestoPoNazivu,
+  zonaPoNazivu,
 } from "@/components/menu/fixtures/konobar";
 import { IZLOG_SADA } from "@/components/menu/fixtures/lokal";
+import { useVeza } from "@/components/menu/gost/use-veza";
 import type {
   KonobarDetalj,
   KonobarIshod,
   KonobarKorisnik,
   KonobarRadnje,
+  KonobarSala,
+  KonobarSalaIshod,
   KonobarZahtev,
+  KonobarZauzetost,
   PinIshod,
   PinStanje,
 } from "@/components/menu/konobar/model";
@@ -79,9 +92,20 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
     params.ekran === "detalj" ? (params.zahtev && fx.detalji[params.zahtev] ? params.zahtev : "rq_03") : null,
   );
   const [brojac, setBrojac] = useState<PinCounter | null>(pin.brojac);
+  const pocetnaSala = useMemo(
+    () => fixtureSale({ zauzetost: params.zauzetost, kasniMin: params.kasni ? 5 : null, uloga: params.uloga, zona: params.zona }),
+    [params.zauzetost, params.kasni, params.uloga, params.zona],
+  );
+  const [sala, setSala] = useState<KonobarSala>(pocetnaSala.sala);
+  const [zauzetost, setZauzetost] = useState<KonobarZauzetost>(pocetnaSala.zauzetost);
+  const [mestoId, setMestoId] = useState<string | null>(() =>
+    params.ekran === "sto" ? (mestoPoNazivu(pocetnaSala.sala, params.sto ?? "Sto 3") ?? mestoPoNazivu(pocetnaSala.sala, "Sto 3")) : null,
+  );
   // The izlog clock: 18:27 when the izlog opened, then real time.
   const [pomak] = useState(() => IZLOG_SADA - Date.now());
   const ime = korisnik.displayName;
+  // `veza=offline` forces it; otherwise the browser's own state (so a lost connection and its recovery can be tried).
+  const naMrezi = useVeza(params.offline);
 
   function primeni(id: string, akcija: RequestAction, ocekivani?: MenuRequestStatus): KonobarIshod {
     const zahtev = detalji[id]?.request;
@@ -113,7 +137,46 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
     return { ok: true, status: ishod.to, changed: true };
   }
 
+  /** menuWaiter.setOccupancy in memory: refused when the module is off; null = neutral. */
+  function zauzmi(positionId: string, stanje: Parameters<KonobarRadnje["postaviZauzetost"]>[1]): KonobarSalaIshod {
+    if (!sala.occupancyEnabled || zauzetost.off) return { ok: false, code: "staff/occupancy_off" };
+    if (!sala.positions.some((mesto) => mesto.id === positionId)) return { ok: false, code: "menu/not_found" };
+    const pre = zauzetost.states.find((red) => red.positionId === positionId);
+    if ((pre?.state ?? null) === stanje) return { ok: true, changed: false };
+    const ostali = zauzetost.states.filter((red) => red.positionId !== positionId);
+    setZauzetost({
+      off: false,
+      states: stanje === null ? ostali : [...ostali, { positionId, state: stanje, updatedAt: Date.now() + pomak, updatedBy: ime }],
+    });
+    return { ok: true, changed: true };
+  }
+
+  /** menuWaiter.setMyZone / setStaffZone in memory. */
+  function zona(staffId: string | null, zoneId: string | null): KonobarSalaIshod {
+    if (!staffId) return { ok: false, code: "menu/forbidden" };
+    if (zoneId !== null && !sala.zones.some((z) => z.id === zoneId)) return { ok: false, code: "menu/not_found" };
+    setSala((staro) => ({
+      ...staro,
+      staff: staro.staff.map((clan) => (clan.id === staffId ? { ...clan, activeZoneId: zoneId } : clan)),
+      me: staro.me.staffId === staffId ? { ...staro.me, activeZoneId: zoneId } : staro.me,
+    }));
+    return { ok: true, changed: true };
+  }
+
   const radnje: KonobarRadnje = {
+    postaviZauzetost: async (positionId, stanje) => {
+      await cekaj(ODGOVOR_MS);
+      return zauzmi(positionId, stanje);
+    },
+    postaviMojuZonu: async (zoneId) => {
+      await cekaj(ODGOVOR_MS);
+      return zona(sala.me.staffId, zoneId);
+    },
+    postaviZonuOsoblja: async (staffId, zoneId) => {
+      await cekaj(ODGOVOR_MS);
+      if (!sala.me.canAssignZones) return { ok: false, code: "menu/forbidden" };
+      return zona(staffId, zoneId);
+    },
     preuzmi: async (id) => {
       await cekaj(ODGOVOR_MS);
       return primeni(id, "accept");
@@ -128,6 +191,7 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
     },
     odjava: () => {
       setIzabranId(null);
+      setMestoId(null);
       setPrijavljen(false);
     },
   };
@@ -175,7 +239,7 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
       : izabran
         ? {
             ...izabran,
-            others: zahtevi.filter((red) => red.positionLabel === izabran.request.positionLabel && red.id !== izabranId),
+            others: zahtevi.filter((red) => red.positionId === izabran.request.positionId && red.id !== izabranId),
           }
         : null;
 
@@ -188,11 +252,20 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
       detalj={detalj}
       onIzaberi={setIzabranId}
       radnje={radnje}
-      veza={params.offline ? "offline" : "online"}
+      veza={naMrezi ? "online" : "offline"}
       poslednjaVezaMs={params.offline ? IZLOG_SADA - 2 * 60_000 : null}
       pocetnoMs={IZLOG_SADA}
       izlogOd={IZLOG_SADA}
       pocetnaPotvrdaOtkaza={params.potvrdaOtkaza}
+      pocetniPrikaz={params.ekran === "sala-raspored" || params.ekran === "sala-tabela" || params.ekran === "sto" ? "sala" : "red"}
+      pocetniPrikazSale={params.ekran === "sala-tabela" ? "tabela" : "raspored"}
+      sala={sala}
+      zauzetost={zauzetost}
+      izabranoMestoId={mestoId}
+      onIzaberiMesto={setMestoId}
+      detaljMesta={mestoId ? (pocetnaSala.kartice[mestoId] ?? { cards: [] }) : undefined}
+      zvukIzlog={{ pocetno: !params.zvukIskljucen }}
+      pocetnaZona={sala.me.staffId ? undefined : zonaPoNazivu(pocetnaSala.sala, params.zona)}
     />
   );
 }

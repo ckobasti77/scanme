@@ -276,7 +276,9 @@ export type MenuOwnedTable =
   | "menuStaff"
   | "menuStaffSessions"
   | "menuPinAttempts"
-  | "menuSecrets";
+  | "menuSecrets"
+  // K23
+  | "menuPositionOccupancy";
 
 export async function loadOwned<T extends MenuOwnedTable>(
   ctx: DatabaseCtx,

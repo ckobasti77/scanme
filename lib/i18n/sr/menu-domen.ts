@@ -124,6 +124,7 @@ export const menuDomenSr = {
     "staff/inactive": "Ovaj član osoblja je deaktiviran.",
     "staff/signed_out": "Prijava na ovom uređaju je istekla. Prijavite se ponovo.",
     "staff/status_changed": "Zahtev se u međuvremenu promenio. Ništa nije izmenjeno.",
+    "staff/occupancy_off": "Lokal ne vodi status stolova. Uključuje ga vlasnik ili menadžer u delu Funkcionalnosti.",
   },
   allergens: {
     gluten: "Žitarice koje sadrže gluten",
