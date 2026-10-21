@@ -362,7 +362,7 @@ export function RezervacijaForma({
             {greskaRed(idPolja("gosti-greska"), gostiGreska)}
           </div>
 
-          <p className={styles.pomoc}>{t.kontaktOpis[kontakt]}</p>
+          <p className={`${styles.pomoc} ${styles.pomocUzPolje}`}>{t.kontaktOpis[kontakt]}</p>
           {needsEmail(kontakt) ? (
             <div className={styles.polje}>
               <label htmlFor={idPolja("email")} className={styles.oznaka}>

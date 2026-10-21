@@ -275,7 +275,7 @@ export function DetaljZahteva({
         {aktivan ? (
           <div
             data-radnje-detalja
-            className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-10 -mx-5 -mb-5 grid gap-3 rounded-b-[var(--mp-radius-kartica)] border-t bg-[var(--mp-povrsina)] px-5 pb-5 pt-4 shadow-[0_-8px_24px_rgb(0_0_0/0.06)] [--border:var(--mp-ivica)] lg:bottom-[-1.25rem]"
+            className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-10 -mx-5 -mb-5 grid gap-2 rounded-b-[var(--mp-radius-kartica)] border-t bg-[var(--mp-povrsina)] px-5 pb-3 pt-3 shadow-[0_-8px_24px_rgb(0_0_0/0.06)] [--border:var(--mp-ivica)] lg:bottom-[-1.25rem]"
           >
             {razlogIskljucenja ? (
               <p id="detalj-razlog" className="text-[0.9375rem] text-[var(--mp-tekst-sporedni)]">
@@ -283,7 +283,7 @@ export function DetaljZahteva({
               </p>
             ) : null}
             {/* Both actions of a new request sit side by side, so the sticky bar stays low. */}
-            <div className={cn("grid gap-3", zahtev.status === "new" ? "grid-cols-2" : "grid-cols-1")}>
+            <div className={cn("grid gap-2", zahtev.status === "new" ? "grid-cols-2" : "grid-cols-1")}>
               {zahtev.status === "new" ? (
                 <Dugme
                   vrsta="akcent"

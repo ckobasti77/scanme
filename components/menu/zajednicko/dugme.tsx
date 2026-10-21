@@ -19,7 +19,8 @@ export const dugmeKlase = cva(
     "whitespace-nowrap rounded-[var(--mp-radius-dugme)] [--button-radius:var(--mp-radius-dugme)] border font-semibold leading-none",
     "transition-[background-color,border-color,color,transform] duration-[var(--mp-trajanje-1)] ease-[var(--mp-kriva-ulaz)]",
     "active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
-    "disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed",
+    // Disabled is a muted surface with secondary text (readable, 4.5:1 in both themes), not an opacity fade.
+    "disabled:cursor-not-allowed disabled:text-[var(--mp-tekst-sporedni)] aria-disabled:cursor-not-allowed",
     "[&_svg]:pointer-events-none [&_svg]:size-5 [&_svg]:shrink-0",
   ].join(" "),
   {
@@ -27,15 +28,15 @@ export const dugmeKlase = cva(
       vrsta: {
         /** The one main action of a screen (Objavi, Preuzmi). */
         primarno:
-          "[--border:transparent] bg-[var(--mp-mastilo)] text-[var(--mp-na-mastilu)] hover:bg-[color-mix(in_oklab,var(--mp-mastilo)_84%,var(--mp-okvir))]",
+          "[--border:transparent] bg-[var(--mp-mastilo)] text-[var(--mp-na-mastilu)] hover:bg-[color-mix(in_oklab,var(--mp-mastilo)_84%,var(--mp-okvir))] disabled:[--border:var(--mp-ivica)] disabled:bg-[var(--mp-povrsina-utisana)]",
         /** ScanMe green fill with ink text; used sparingly (Dodaj). */
         akcent:
-          "[--border:color-mix(in_oklab,var(--mp-akcent)_70%,var(--mp-mastilo))] bg-[var(--mp-akcent)] text-[var(--mp-na-akcentu)] hover:bg-[color-mix(in_oklab,var(--mp-akcent)_86%,white)]",
+          "[--border:color-mix(in_oklab,var(--mp-akcent)_70%,var(--mp-mastilo))] bg-[var(--mp-akcent)] text-[var(--mp-na-akcentu)] hover:bg-[color-mix(in_oklab,var(--mp-akcent)_86%,white)] disabled:[--border:var(--mp-ivica)] disabled:bg-[var(--mp-povrsina-utisana)]",
         sekundarno:
-          "[--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] text-[var(--mp-tekst)] hover:bg-[var(--mp-povrsina-utisana)]",
+          "[--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] text-[var(--mp-tekst)] hover:bg-[var(--mp-povrsina-utisana)] disabled:[--border:var(--mp-ivica)] disabled:bg-[var(--mp-povrsina-utisana)]",
         tiho: "[--border:transparent] bg-transparent text-[var(--mp-tekst)] hover:bg-[var(--mp-povrsina-utisana)]",
         opasno:
-          "[--border:transparent] bg-[var(--mp-opasnost)] text-[var(--mp-na-opasnosti)] hover:bg-[color-mix(in_oklab,var(--mp-opasnost)_86%,var(--mp-mastilo))]",
+          "[--border:transparent] bg-[var(--mp-opasnost)] text-[var(--mp-na-opasnosti)] hover:bg-[color-mix(in_oklab,var(--mp-opasnost)_86%,var(--mp-mastilo))] disabled:[--border:var(--mp-ivica)] disabled:bg-[var(--mp-povrsina-utisana)]",
       },
       velicina: {
         standardna: "px-5 text-[0.9375rem]",

@@ -7,7 +7,7 @@
 // JavaScript too. A wrong link shows nothing about any reservation.
 
 import Link from "next/link";
-import { CalendarClock, ChevronLeft, CircleAlert, CircleCheck } from "lucide-react";
+import { CalendarClock, ChevronLeft, CircleAlert, CircleSlash } from "lucide-react";
 import type { ReservationLinkView } from "@/convex/menuReservations";
 import { fmt } from "@/lib/i18n/format";
 import { menuGostSr } from "@/lib/i18n/sr/menu-gost";
@@ -62,7 +62,7 @@ export function LinkOtkazivanja({ pogled, sadaMs, potvrda, otkazano, neuspelo, o
 
       {otkazano && otkazana ? (
         <p className={styles.uspeh} role="status" data-otkazano="">
-          <CircleCheck aria-hidden="true" className={styles.ikonica} />
+          <CircleSlash aria-hidden="true" className={styles.ikonica} />
           {t.link.otkazano}
         </p>
       ) : null}

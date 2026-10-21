@@ -94,7 +94,7 @@ export function CenaPolje({
   };
 
   return (
-    <div className="flex shrink-0 items-center gap-1.5">
+    <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
       <span className="relative inline-flex items-center">
         <input
           id={id}
@@ -128,23 +128,23 @@ export function CenaPolje({
             setUredjuje(false);
           }}
           className={cn(
-            "h-[var(--mp-meta)] w-[6.5rem] rounded-[var(--mp-radius-kontrola)] border bg-transparent pl-3 pr-11 text-right text-[0.9375rem] font-semibold tabular-nums text-[var(--mp-tekst)]",
+            "h-[var(--mp-meta)] w-[5.75rem] whitespace-nowrap rounded-[var(--mp-radius-kontrola)] border bg-transparent pl-2 pr-9 text-right sm:w-[6.5rem] sm:pl-3 sm:pr-11 text-[0.9375rem] font-semibold tabular-nums text-[var(--mp-tekst)]",
             okvir
               ? "[--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] focus:[--border:var(--mp-mastilo)]"
               : "[--border:transparent] hover:[--border:var(--mp-ivica-kontrole)] focus:[--border:var(--mp-mastilo)] focus:bg-[var(--mp-povrsina)]",
-            "placeholder:text-[var(--mp-tekst-sporedni)] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:[--border:transparent]",
+            "placeholder:text-[var(--mp-tekst-sporedni)] disabled:cursor-not-allowed disabled:text-[var(--mp-tekst-sporedni)] disabled:hover:[--border:transparent]",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mp-fokus)]",
             problem && "[--border:var(--mp-opasnost)] hover:[--border:var(--mp-opasnost)]",
           )}
         />
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute right-3 text-xs font-medium text-[var(--mp-tekst-sporedni)]"
+          className="pointer-events-none absolute right-2.5 whitespace-nowrap text-xs sm:right-3 font-medium text-[var(--mp-tekst-sporedni)]"
         >
           {t.red.rsd}
         </span>
       </span>
-      <span className="grid size-5 place-items-center" data-cena-stanje={cuvaSe ? "cuva-se" : problem ? "problem" : sacuvano ? "sacuvano" : "mirno"}>
+      <span className="grid size-4 place-items-center sm:size-5" data-cena-stanje={cuvaSe ? "cuva-se" : problem ? "problem" : sacuvano ? "sacuvano" : "mirno"}>
         {cuvaSe ? (
           <>
             <LoaderCircle aria-hidden="true" strokeWidth={2} className="size-4 animate-spin text-[var(--mp-tekst-sporedni)] motion-reduce:animate-none" />

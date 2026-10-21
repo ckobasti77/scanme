@@ -6,7 +6,7 @@
 // that kind are open when more than one. Past the venue's threshold the badge
 // turns the danger colour, gains the late icon and pulses gently (the ring of
 // konobar.module.css; static with reduced motion). Several badges of one
-// table sit side by side, never collapsed into one "main" state. When every
+// table stand one above the other, never collapsed into one "main" state. When every
 // request of that kind is already taken (`Prihvaćen`), the badge has a dashed
 // frame: it still waits, but someone has it.
 //
@@ -38,7 +38,6 @@ export function ZnackaStanja({
   stanje,
   sadaMs,
   saVremenom = true,
-  vremeKlasa,
   className,
 }: {
   vrsta: TableKind;
@@ -46,8 +45,6 @@ export function ZnackaStanja({
   sadaMs: number;
   /** false on a tile too narrow for the time: only the icon (the time is in the table's name and detail). */
   saVremenom?: boolean;
-  /** Classes of the time part (a container query hides it on a tile too narrow for it). */
-  vremeKlasa?: string;
   className?: string;
 }) {
   const prag = usePragKasnjenja();
@@ -74,7 +71,7 @@ export function ZnackaStanja({
         <Ikonica strokeWidth={2.25} className={cn("size-3", v.boja)} />
       </span>
       {saVremenom ? (
-        <span className={cn("inline-flex items-center gap-1 pr-1", vremeKlasa)}>
+        <span className="inline-flex items-center gap-1 pr-1">
           {kasni ? <ClockAlert strokeWidth={2.25} className="size-3.5 shrink-0" /> : null}
           {formatElapsed(elapsedSeconds(stanje.oldestAt, sadaMs))}
         </span>

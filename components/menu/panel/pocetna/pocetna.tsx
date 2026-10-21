@@ -64,6 +64,8 @@ function MeniBlok({ meni, nowMs, editorHref, className }: { meni: HomeSummary["m
                 : null
             }
             neobjavljeneIzmene={meni.stanje === "dirty" ? "ima" : 0}
+            // In this narrow card the two lines never share a row: the seam is a full-width divider between them.
+            className="gap-y-2 sm:[&_[data-sav]]:max-w-none sm:[&_[data-sav]]:basis-full"
           />
           {meni.objavljeno === null ? (
             <p className="max-w-[60ch] text-[0.9375rem] leading-relaxed text-[var(--mp-tekst-sporedni)]">{t.meni.nikad}</p>

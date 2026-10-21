@@ -110,7 +110,7 @@ export function RsUpozorenjeDijalog({
                 }
               >
                 <dt className="text-sm text-[var(--mp-tekst-sporedni)]">{red.oznaka}</dt>
-                <dd className={red.jako ? "font-semibold tabular-nums" : "tabular-nums"}>{red.vrednost}</dd>
+                <dd className={red.jako ? "shrink-0 whitespace-nowrap font-semibold tabular-nums" : "shrink-0 whitespace-nowrap tabular-nums"}>{red.vrednost}</dd>
               </div>
             ))}
           </dl>

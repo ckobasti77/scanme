@@ -193,7 +193,7 @@ function pingPrikaz({
         aria-disabled={radi || !stanje.moze || undefined}
         aria-describedby={stanje.moze ? undefined : razlogId}
         onClick={radi || !stanje.moze ? undefined : () => onPosalji(red.id)}
-        className="aria-disabled:opacity-50"
+        className="aria-disabled:bg-[var(--mp-povrsina-utisana)] aria-disabled:text-[var(--mp-tekst-sporedni)] aria-disabled:[--border:var(--mp-ivica)]"
       >
         {radi ? (
           <>
@@ -261,12 +261,12 @@ function ZahtevKartica({
       data-status={red.status}
       data-kasni={red.kasni || undefined}
       className={cn(
-        "grid gap-3 rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] p-4 shadow-[var(--mp-senka-xs)] sm:p-5",
+        "@container grid gap-3 rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] p-4 shadow-[var(--mp-senka-xs)] sm:p-5",
         red.kasni ? "[--border:var(--mp-opasnost-ivica)]" : "[--border:var(--mp-ivica)]",
       )}
     >
-      {/* One dense row on a wide screen (an overview of many requests), stacked on a phone. */}
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-x-6">
+      {/* One dense row when the CARD is wide (it is narrow beside the side column at 1024), stacked otherwise. */}
+      <div className="grid gap-3 @xl:grid-cols-[minmax(0,1fr)_auto] @xl:items-center @xl:gap-x-6">
         <div className="flex min-w-0 items-start gap-3">
           <VrstaIkona vrsta={red.kind} />
           <div className="grid min-w-0 flex-1 gap-1">
@@ -286,7 +286,7 @@ function ZahtevKartica({
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+        <div className="flex flex-wrap items-center gap-2 @xl:justify-end">
           <Dugme
             vrsta="tiho"
             velicina="kompaktna"

@@ -264,7 +264,7 @@ describe("Raspored markup", () => {
     expect(html).toContain("O menja oblik");
     expect(html).toContain("U otvara mesto");
     expect(html).toContain("Esc poništava izbor");
-    const pomocId = /<div id="([^"]+)"[^>]*><p>Tab dolazi/.exec(html)?.[1];
+    const pomocId = /<div id="([^"]+)"[^>]*><p[^>]*>Tab dolazi/.exec(html)?.[1];
     expect(pomocId).toBeTruthy();
     expect(broji(html, `aria-describedby="${pomocId}"`)).toBe(3);
   });

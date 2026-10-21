@@ -242,7 +242,7 @@ export function GostPanel({
             {t.traka.bezVeze}
           </p>
         ) : null}
-        <div aria-live="polite" aria-atomic="true">
+        <div className={styles.zivo} aria-live="polite" aria-atomic="true">
           {poruka}
         </div>
         <div className={styles.radnje} role="group" aria-label={t.traka.oblast}>

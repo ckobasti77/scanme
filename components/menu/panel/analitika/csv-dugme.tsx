@@ -61,18 +61,18 @@ export function CsvDugme({
   const id = useId();
   if (plan !== "premium") {
     return (
-      <div data-csv="zakljucano" className="grid justify-items-start gap-1 sm:justify-items-end">
+      <div data-csv="zakljucano" className="grid justify-items-start gap-1 lg:justify-items-end">
         <Dugme vrsta="sekundarno" ikonica={Lock} disabled aria-describedby={`${id}-razlog`}>
           {t.dugme}
         </Dugme>
-        <p id={`${id}-razlog`} className="max-w-[32ch] text-sm leading-snug text-[var(--mp-tekst-sporedni)] sm:text-right">
+        <p id={`${id}-razlog`} className="max-w-[32ch] text-sm leading-snug text-[var(--mp-tekst-sporedni)] lg:text-right">
           {t.zakljucano}
         </p>
       </div>
     );
   }
   return (
-    <div data-csv="dostupno" className="grid justify-items-start gap-1 sm:justify-items-end">
+    <div data-csv="dostupno" className="grid justify-items-start gap-1 lg:justify-items-end">
       <Dugme
         vrsta="sekundarno"
         ikonica={Download}
@@ -86,7 +86,7 @@ export function CsvDugme({
       >
         {t.dugme}
       </Dugme>
-      <p id={`${id}-opis`} className="max-w-[40ch] text-sm leading-snug text-[var(--mp-tekst-sporedni)] sm:text-right">
+      <p id={`${id}-opis`} className="max-w-[40ch] text-sm leading-snug text-[var(--mp-tekst-sporedni)] lg:text-right">
         {t.opis}
       </p>
     </div>

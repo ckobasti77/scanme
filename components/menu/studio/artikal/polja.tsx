@@ -27,7 +27,7 @@ import { porukaGreske } from "../red-artikla/red-artikla";
 const t = menuStudioSr.artikal;
 
 export const POLJE_KLASA =
-  "w-full min-w-0 rounded-[var(--mp-radius-kontrola)] border [--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] px-3 text-[0.9375rem] text-[var(--mp-tekst)] placeholder:text-[var(--mp-tekst-sporedni)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mp-fokus)] aria-[invalid=true]:[--border:var(--mp-opasnost)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full min-w-0 rounded-[var(--mp-radius-kontrola)] border [--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] px-3 text-[0.9375rem] text-[var(--mp-tekst)] placeholder:text-[var(--mp-tekst-sporedni)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mp-fokus)] aria-[invalid=true]:[--border:var(--mp-opasnost)] disabled:cursor-not-allowed disabled:bg-[var(--mp-povrsina-utisana)] disabled:text-[var(--mp-tekst-sporedni)]";
 
 export const OZNAKA_KLASA = "text-sm font-semibold text-[var(--mp-tekst)]";
 
@@ -354,8 +354,8 @@ export function IzborSegment<T extends string>({
               key={stavka.vrednost}
               className={cn(
                 "relative inline-flex min-h-[var(--mp-meta)] min-w-0 flex-1 cursor-pointer items-center justify-center rounded-[var(--mp-radius-dugme)] px-3 py-1.5 text-center text-sm font-semibold leading-tight",
-                "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--mp-fokus)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-55",
-                aktivno ? "bg-[var(--mp-mastilo)] text-[var(--mp-na-mastilu)]" : "text-[var(--mp-tekst)] hover:bg-[var(--mp-povrsina)]",
+                "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--mp-fokus)] has-[:disabled]:cursor-not-allowed",
+                aktivno ? "bg-[var(--mp-mastilo)] text-[var(--mp-na-mastilu)]" : "text-[var(--mp-tekst)] hover:bg-[var(--mp-povrsina)] has-[:disabled]:text-[var(--mp-tekst-sporedni)]",
               )}
             >
               <input

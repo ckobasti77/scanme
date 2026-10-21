@@ -136,7 +136,7 @@ const tastatura = (html: string) => dugmad(izdvoji(html, new RegExp(`<div role="
 
 function kutije(html: string): { ukupno: number; puno: number } {
   const polja = izdvoji(html, /<div[^>]*\sdata-pin-polja[^>]*>([\s\S]*?)<\/div>/);
-  const sve = [...polja.matchAll(/<span\b([^>]*)class="grid h-16/g)];
+  const sve = [...polja.matchAll(/<span\b([^>]*)class="grid h-14/g)];
   return { ukupno: sve.length, puno: sve.filter((m) => m[1].includes("data-puno")).length };
 }
 

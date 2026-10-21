@@ -6,10 +6,11 @@
 // exactly as the owner arranged it in K20), and on every table ALL its
 // parallel states as badges standing on its top edge — call, order, bill
 // and, from K25, the bound reservation (CalendarClock, its time, then "kasni"
-// after the venue's hold). The badge of the longest wait carries its time
-// (`08:12`), so a time always belongs to its kind; the others show their time
-// too when the table is wide enough. A badge whose requests are all taken has
-// a dashed frame. Late badges pulse gently; a reminder flashes the table.
+// after the venue's hold). The badges are a column above the table (the oldest
+// on top), each with its own time (`08:12`), so a time always belongs to its
+// kind and badges never touch each other or the neighbouring table. A badge
+// whose requests are all taken has a dashed frame. Late badges pulse gently;
+// a reminder flashes the table.
 // Choosing a table turns the ONE side pane (or, on a phone, the screen) into
 // the table detail; the plan itself never changes.
 //
@@ -45,12 +46,10 @@ const t = menuKonobarSr.sala;
 /** The plan never zooms in beyond half of the editor's grid. */
 const NAJMANJE_KOLONA = 12;
 
-/** The width a tile needs before the OTHER badges (not the oldest) also show their time. */
-const VREME_OSTALIH: Record<number, string> = {
-  2: "hidden @[8rem]/sto:inline-flex",
-  3: "hidden @[12rem]/sto:inline-flex",
-  4: "hidden @[16rem]/sto:inline-flex",
-};
+/** Height of a badge column (rem): n badges of 1.25, 1 px apart, plus the clearance of a chosen table's ring. */
+const visinaZnacaka = (n: number) => n * 1.25 + (n - 1) * 0.0625 + 0.75;
+/** A plan cell is never smaller than this (rem) at the narrowest plan: what a table's rows above it already give. */
+const NAJMANJA_CELIJA = 2.5;
 
 const zaokruzi = (broj: number) => Math.round(broj * 1000) / 1000;
 const procenat = (broj: number) => `${zaokruzi(broj)}%`;
@@ -111,6 +110,8 @@ function StoNaRasporedu({
     (a, b) => (mesto.summary.kinds[a]?.oldestAt ?? 0) - (mesto.summary.kinds[b]?.oldestAt ?? 0),
   );
   const zauzetost = mesto.occupancy !== "neutral" ? mesto.occupancy : null;
+  const kratko = skratiOznaku(mesto.label);
+  const oznaka = /\d/.test(kratko) ? kratko : mesto.label;
   const stil0: CSSProperties = {
     left: procenat((layout.x / kolona) * 100),
     top: procenat((layout.y / redova) * 100),
@@ -142,19 +143,20 @@ function StoNaRasporedu({
         podsetnik && stil.podsetnik,
       )}
     >
-      <span className="block max-w-full truncate px-0.5 text-[0.8125rem] font-bold leading-tight @[5rem]/sto:text-sm">
-        {/* A narrow tile shows the number ("12"); the full name is its accessible name. */}
-        <span aria-hidden="true" className="@[4.5rem]/sto:hidden">
-          {skratiOznaku(mesto.label)}
-        </span>
-        <span aria-hidden="true" className="hidden @[4.5rem]/sto:inline">
-          {mesto.label}
-        </span>
+      <span aria-hidden="true" className="block max-w-full truncate px-0.5 text-[0.8125rem] font-bold leading-tight @[5rem]/sto:text-sm">
+        {/* Every numbered table shows its number ("12") at any size; the full name is its accessible name. */}
+        {oznaka}
       </span>
       {vrste.length > 0 || mesto.rezervacija ? (
-        // The badges stand ON the table's top edge, above its name, never over it.
-        <span className="pointer-events-none absolute left-1/2 top-0 z-10 flex -translate-x-1/2 -translate-y-[calc(100%-0.375rem)] items-center gap-1">
-          {vrste.map((vrsta, indeks) => {
+        // The badges stand in a column right above the table's top edge (clear of its ring), never over it.
+        <span
+          data-znacke
+          className={cn(
+            "pointer-events-none absolute bottom-full left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-px",
+            izabrano ? "mb-2.5" : "mb-1",
+          )}
+        >
+          {vrste.map((vrsta) => {
             const stanje = mesto.summary.kinds[vrsta];
             return stanje ? (
               <ZnackaStanja
@@ -162,12 +164,12 @@ function StoNaRasporedu({
                 vrsta={vrsta}
                 stanje={stanje}
                 sadaMs={sadaMs}
-                vremeKlasa={indeks === 0 ? undefined : VREME_OSTALIH[vrste.length]}
+                className="h-5"
               />
             ) : null;
           })}
-          {/* K25: the bound reservation stands beside the requests, with its own time and hold. */}
-          {mesto.rezervacija ? <ZnackaRezervacije rezervacija={mesto.rezervacija} sadaMs={sadaMs} /> : null}
+          {/* K25: the bound reservation stands in the same column, with its own time and hold. */}
+          {mesto.rezervacija ? <ZnackaRezervacije rezervacija={mesto.rezervacija} sadaMs={sadaMs} className="h-5" /> : null}
         </span>
       ) : null}
       {zauzetost ? <ZauzetostOznaka stanje={zauzetost} samoIkonica className="absolute -bottom-2.5 -right-2.5" /> : null}
@@ -176,6 +178,21 @@ function StoNaRasporedu({
       ) : null}
     </button>
   );
+}
+
+/** The room above the top row for the tallest badge column that rises over the frame (never less than 1.75 rem). */
+function gornjiRazmak(
+  pozicije: readonly { id: string }[],
+  layouts: ReadonlyMap<string, FloorLayout>,
+  brojZnacaka: ReadonlyMap<string, number>,
+): number {
+  let razmak = 1.75;
+  for (const { id } of pozicije) {
+    const layout = layouts.get(id);
+    const n = brojZnacaka.get(id) ?? 0;
+    if (layout && n > 0) razmak = Math.max(razmak, visinaZnacaka(n) - layout.y * NAJMANJA_CELIJA);
+  }
+  return Math.round(razmak * 1000) / 1000;
 }
 
 export function RasporedSale({
@@ -195,7 +212,7 @@ export function RasporedSale({
   podsetnik: ReadonlySet<string>;
   onIzaberi(id: string): void;
 }) {
-  const { povrsi, kolona } = useMemo(() => {
+  const { povrsi, kolona, brojZnacaka } = useMemo(() => {
     const { zones, positions } = zaRaspored(sala, mesta);
     const poId = new Map(mesta.map((mesto) => [mesto.id, mesto]));
     const sve = povrsiRasporeda(zones, positions)
@@ -216,7 +233,8 @@ export function RasporedSale({
     // One scale for every zone: the columns the venue uses, plus one free column.
     let desno = 0;
     for (const { layouts } of sve) for (const layout of layouts.values()) desno = Math.max(desno, layout.x + layout.w);
-    return { povrsi: sve, kolona: Math.min(FLOOR_COLUMNS, Math.max(NAJMANJE_KOLONA, desno + 1)) };
+    const brojZnacaka = new Map(mesta.map((mesto) => [mesto.id, activeKinds(mesto.summary).length + (mesto.rezervacija ? 1 : 0)]));
+    return { povrsi: sve, kolona: Math.min(FLOOR_COLUMNS, Math.max(NAJMANJE_KOLONA, desno + 1)), brojZnacaka };
   }, [sala, mesta]);
 
   return (
@@ -241,7 +259,10 @@ export function RasporedSale({
                 </span>
               </h3>
             ) : null}
-            <div className="-mx-1 overflow-x-auto px-3 pb-3 pt-7 md:overflow-visible">
+            <div
+              className="-mx-1 overflow-x-auto px-3 pb-3 pt-[var(--sala-gore)] md:overflow-visible"
+              style={{ "--sala-gore": `${gornjiRazmak(povrs.pozicije, layouts, brojZnacaka)}rem` } as CSSProperties}
+            >
               <div
                 className="relative min-w-[34rem] md:min-w-0"
                 style={{ aspectRatio: `${kolona} / ${redova}` }}

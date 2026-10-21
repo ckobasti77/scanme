@@ -49,7 +49,7 @@ export type StraniceRadnje = {
 type Potvrda = { vrsta: "obrisi" | "arhiviraj"; stranica: StudioStranica } | null;
 
 const stavkaKlase =
-  "flex min-h-[var(--mp-meta)] w-full min-w-0 items-center gap-3 rounded-[var(--mp-radius-kontrola)] px-3 text-left text-[0.9375rem] font-medium [--button-radius:var(--mp-radius-kontrola)] transition-colors duration-[var(--mp-trajanje-1)] motion-reduce:transition-none";
+  "flex min-h-[var(--mp-meta)] w-full min-w-0 items-center gap-2 rounded-[var(--mp-radius-kontrola)] px-3 text-left text-[0.9375rem] font-medium [--button-radius:var(--mp-radius-kontrola)] transition-colors duration-[var(--mp-trajanje-1)] motion-reduce:transition-none";
 
 export function StraniceKolona({
   stranice,

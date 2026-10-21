@@ -18,7 +18,7 @@ const t = menuStudioSr;
 export type RasporedVrsta = "premesti" | "dodaj" | "ukloni";
 
 const poljeKlase =
-  "h-[var(--mp-meta)] w-full rounded-[var(--mp-radius-kontrola)] border [--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] px-3 text-[0.9375rem] text-[var(--mp-tekst)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mp-fokus)] disabled:opacity-55";
+  "h-[var(--mp-meta)] w-full rounded-[var(--mp-radius-kontrola)] border [--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] px-3 text-[0.9375rem] text-[var(--mp-tekst)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mp-fokus)] disabled:bg-[var(--mp-povrsina-utisana)] disabled:text-[var(--mp-tekst-sporedni)]";
 
 export function RasporedDijalog({
   vrsta,

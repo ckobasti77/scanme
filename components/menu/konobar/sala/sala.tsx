@@ -125,7 +125,7 @@ export function Sala({
                 aria-pressed={izabran}
                 onClick={() => onPrikaz(kljuc)}
                 className={cn(
-                  "inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-base font-semibold [--button-radius:999px] transition-colors duration-[var(--mp-trajanje-1)]",
+                  "inline-flex min-h-12 items-center gap-2 rounded-full px-4 text-base font-semibold [--button-radius:999px] transition-colors duration-[var(--mp-trajanje-1)]",
                   izabran
                     ? "bg-[var(--mp-mastilo)] text-[var(--mp-na-mastilu)] shadow-[var(--mp-senka-xs)]"
                     : "text-[var(--mp-tekst)] hover:bg-[var(--mp-povrsina)]",

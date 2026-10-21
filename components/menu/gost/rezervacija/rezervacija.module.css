@@ -104,6 +104,11 @@
   font-size: 0.875rem;
 }
 
+/* A help line that introduces the next field: it sits close to it (8 px), not midway between two fields. */
+.pomocUzPolje {
+  margin-bottom: -10px;
+}
+
 .obavestenje {
   margin: 0;
   padding: 10px 12px;

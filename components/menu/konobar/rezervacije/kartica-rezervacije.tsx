@@ -67,7 +67,7 @@ export function KarticaRezervacije({
       data-status={red.status}
       data-rez-kasni={kasni || undefined}
       className={cn(
-        "relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] p-4 shadow-[var(--mp-senka-xs)] sm:gap-4",
+        "@container/kartica relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] p-4 shadow-[var(--mp-senka-xs)] sm:gap-4",
         kasni ? "[--border:var(--mp-opasnost-ivica)]" : null,
       )}
     >
@@ -81,11 +81,13 @@ export function KarticaRezervacije({
             onClick={onOtvori}
             aria-label={fmt(t.otvoriCitac, { ime: red.guestName, termin })}
             data-razvucen
-            className="-mx-1 inline-flex max-w-full scroll-mb-28 scroll-mt-24 items-center gap-1 rounded-[var(--mp-radius-unutra)] px-1 text-left text-[1.125rem] font-bold leading-snug text-[var(--mp-tekst)] after:absolute after:inset-0 after:rounded-[var(--mp-radius-kartica)] after:content-[''] hover:underline hover:underline-offset-4"
+            className="-mx-1 -my-[calc((var(--mp-meta)-1.5469rem)/2)] inline-flex min-h-[var(--mp-meta)] max-w-full scroll-mb-28 scroll-mt-24 items-center gap-1 rounded-[var(--mp-radius-unutra)] px-1 text-left text-[1.125rem] font-bold leading-snug text-[var(--mp-tekst)] after:absolute after:inset-0 after:rounded-[var(--mp-radius-kartica)] after:content-[''] hover:underline hover:underline-offset-4"
           >
-            <span className="min-w-0">{tvrsta.reservation}</span>
-            <ChevronRight aria-hidden="true" strokeWidth={2} className="hidden size-4 shrink-0 text-[var(--mp-tekst-sporedni)] sm:block" />
-          </button>
+            <span className="min-w-0">
+              {tvrsta.reservation}
+              <ChevronRight aria-hidden="true" strokeWidth={2} className="ml-1 hidden size-4 text-[var(--mp-tekst-sporedni)] sm:inline-block sm:align-[-0.15em]" />
+            </span>
+            </button>
         </h3>
         <p className="break-words text-base font-semibold leading-snug text-[var(--mp-tekst)]">{red.guestName}</p>
         <p className="text-[1.0625rem] font-bold leading-tight tabular-nums text-[var(--mp-tekst)]">
@@ -119,7 +121,7 @@ export function KarticaRezervacije({
         disabled={radnjeIskljucene}
         onClick={radnja === "stigli" ? onStigli : onOtvori}
         aria-label={fmt(t.radnjaCitac, { radnja: kratkaRadnja, ime: red.guestName, termin })}
-        className="relative z-10 min-h-12 min-w-[6.5rem] px-4 text-base sm:min-w-[8.5rem]"
+        className="relative z-10 min-h-12 min-w-[6.5rem] px-4 text-base @[30rem]/kartica:min-w-[8.5rem]"
       >
         {kratkaRadnja}
       </Dugme>

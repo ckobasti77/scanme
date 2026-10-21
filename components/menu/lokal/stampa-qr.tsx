@@ -62,7 +62,7 @@ export function StampaQr({
         className={cn(
           MENU_TOKENI_KLASA,
           // Full screen instead of the small centred dialog of the base component.
-          "inset-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 content-start gap-0 overflow-y-auto rounded-none border-0 p-0",
+          "inset-0 h-dvh w-screen max-w-none outline-none translate-x-0 translate-y-0 content-start gap-0 overflow-y-auto rounded-none border-0 p-0",
           "bg-[var(--mp-okvir)] text-[var(--mp-tekst)] sm:w-screen motion-reduce:animate-none",
         )}
       >

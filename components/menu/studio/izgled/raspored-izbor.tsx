@@ -163,7 +163,7 @@ export function RasporedIzbor({
           onIzbor={(vrednost) => onVarijanta(vrednost === "osnovna" ? null : vrednost)}
           razlog={t.varijante.zakljucano}
           onemoguceno={onemoguceno}
-          kolone="grid-cols-1 @md:grid-cols-2"
+          kolone="grid-cols-1 @md:grid-cols-2 @md:items-start"
         />
       ) : null}
     </div>

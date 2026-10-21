@@ -237,7 +237,7 @@ export function RadnoVreme({
                   key={nazivDana}
                   disabled={disabled}
                   data-dan={dan}
-                  className="grid min-w-0 gap-3 border-t py-4 [--border:var(--mp-ivica)] first:border-t-0 first:pt-0 last:pb-0 md:grid-cols-[8rem_10rem_minmax(0,1fr)] md:gap-x-6"
+                  className="grid min-w-0 gap-3 border-t py-4 [--border:var(--mp-ivica)] first:border-t-0 first:pt-0 last:pb-0 md:grid-cols-[8rem_10rem_minmax(0,1fr)] md:items-start md:gap-x-6"
                 >
                   <legend className="sr-only">{nazivDana}</legend>
                   <span aria-hidden="true" className="flex min-h-[var(--mp-meta)] items-center font-semibold text-[var(--mp-tekst)]">
@@ -322,6 +322,7 @@ export function RadnoVreme({
                           vrsta="tiho"
                           velicina="kompaktna"
                           ikonica={Plus}
+                          className="-ml-4"
                           disabled={disabled || naMaksimumu}
                           aria-describedby={naMaksimumu ? maksimumId : undefined}
                           onClick={() => dodaj(dan)}

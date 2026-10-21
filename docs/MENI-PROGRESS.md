@@ -2177,3 +2177,6 @@ Procena, ne merenje: load test pre produkcije (K33/Jovan). Najveći trošak je p
 | Nove Menu komponente nemaju inline korisnički tekst | ispunjeno | pretraga dijakritika u `components/menu` i `components/ordering` (bez testova, fixtures, izloga, komentara): 2 pogotka, oba nisu tekst za korisnika; izlaz gore |
 | Test proverava naslove stranica | ispunjeno | `lib/menu-naslovi.test.ts` (uz `recnik.test.ts` 39/39) |
 | Provere prolaze; sekcija K31 je u progress-u | ispunjeno | typecheck bez grešaka, eslint 0 grešaka, vitest 600 fajlova (13.763 testa), `harness:namespace` prošao, build prošao; ponovljeno posle poslednje izmene dokumenata |
+
+## K32 - Prolaz: telefon, tablet i tamna tema   (2026-10-21 12:35)
+**Runner:** agent nije dopisao sekciju (verovatno je isteklo vreme). Provere prolaze; pogledaj `git show` ovog commita i `.nocni-run/meni/logs/K32_*`.

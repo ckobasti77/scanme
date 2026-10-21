@@ -8,11 +8,17 @@
 
 /* The bar is fixed; this keeps the end of the menu (and the footer) above it. */
 .razmak {
-  height: 10.5rem;
+  height: 9.5rem;
 }
 
 :global(html):has([data-traka-gosta]) {
-  --gost-traka: 9rem;
+  --gost-traka: 7.5rem;
+}
+
+@media (min-width: 768px) {
+  :global(html):has([data-traka-gosta]) {
+    --gost-traka: 9rem;
+  }
 }
 
 .traka {
@@ -23,7 +29,7 @@
   z-index: 3;
   display: grid;
   gap: 8px;
-  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--menu-input-border);
   border-radius: 18px 18px 0 0;
   background: var(--menu-surface);
@@ -49,7 +55,16 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 32px;
+  /* The "Moji zahtevi" link keeps its 44 px target; the row borrows 6 px of the bar's top padding. */
+  margin-top: -6px;
+}
+
+/* The live region is empty most of the time: it must not add a second gap to the bar's height. */
+.zivo:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
 }
 
 .mesto {
@@ -122,8 +137,8 @@
   justify-content: center;
   gap: 2px;
   min-width: 0;
-  min-height: 56px;
-  padding: 6px 4px;
+  min-height: 52px;
+  padding: 4px;
   border: 1px solid var(--menu-input-border);
   border-radius: 12px;
   background: var(--menu-page);
@@ -155,6 +170,13 @@
   border-style: solid;
   color: var(--menu-title);
   cursor: progress;
+}
+
+@media (max-width: 479px) {
+  .radnja .ikonicaVelika {
+    width: 20px;
+    height: 20px;
+  }
 }
 
 @media (min-width: 480px) {
@@ -334,7 +356,8 @@
 }
 
 /* The title takes the focus when a sheet opens (a reading position, not a control): no ring flashes. */
-.listNaslov:focus {
+.list .listNaslov:focus,
+.list .listNaslov:focus-visible {
   outline: none;
 }
 

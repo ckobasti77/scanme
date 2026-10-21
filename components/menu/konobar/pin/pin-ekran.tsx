@@ -52,7 +52,7 @@ function Poruka({ ton, ikonica: Ikonica, children, uloga }: { ton: "opasnost" | 
     info: "[--border:var(--mp-info-ivica)] bg-[var(--mp-info-meko)] [&>svg]:text-[var(--mp-info)]",
   }[ton];
   return (
-    <div role={uloga} className={cn("flex items-start gap-3 rounded-[var(--mp-radius-kontrola)] border px-4 py-3 text-base leading-snug text-[var(--mp-tekst)]", boje)}>
+    <div role={uloga} className={cn("flex items-start gap-3 rounded-[var(--mp-radius-kontrola)] border px-4 py-2 text-base leading-snug text-[var(--mp-tekst)]", boje)}>
       <Ikonica aria-hidden="true" strokeWidth={2} className="mt-0.5 size-5 shrink-0" />
       <div className="grid min-w-0 gap-1">{children}</div>
     </div>
@@ -134,19 +134,19 @@ export function PinEkran({
   }, []);
 
   const taster =
-    "grid min-h-16 place-items-center rounded-[var(--mp-radius-dugme)] [--button-radius:var(--mp-radius-dugme)] border text-[1.625rem] font-bold tabular-nums text-[var(--mp-tekst)] [--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] transition-[background-color,transform] duration-[var(--mp-trajanje-1)] hover:bg-[var(--mp-povrsina-utisana)] active:scale-[0.97] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-45";
+    "grid min-h-14 place-items-center rounded-[var(--mp-radius-dugme)] [--button-radius:var(--mp-radius-dugme)] border text-[1.625rem] font-bold tabular-nums text-[var(--mp-tekst)] [--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] transition-[background-color,transform] duration-[var(--mp-trajanje-1)] hover:bg-[var(--mp-povrsina-utisana)] active:scale-[0.97] motion-reduce:active:scale-100 [@media(min-height:900px)]:min-h-16 disabled:cursor-not-allowed disabled:[--border:var(--mp-ivica)] disabled:bg-[var(--mp-povrsina-utisana)] disabled:text-[var(--mp-tekst-sporedni)] disabled:hover:bg-[var(--mp-povrsina-utisana)]";
 
   return (
-    <MenuPovrsina as="main" povrsina="konobar" className="grid min-h-[100dvh] justify-items-center px-4 pb-24 pt-6 sm:place-items-center sm:pb-10">
-      <div className="grid w-full max-w-[24rem] content-start gap-6">
+    <MenuPovrsina as="main" povrsina="konobar" className="grid min-h-[100dvh] justify-items-center px-4 pb-4 pt-4 sm:place-items-center sm:py-6">
+      <div className="grid w-full max-w-[24rem] content-start gap-3 [@media(min-height:900px)]:gap-5">
         <div className="flex items-center justify-between gap-3">
           <BrandLogo width="6.25rem" />
           {/* The local switch hides the floating global one, which would cover the keypad on a phone. */}
           <ThemeToggle placement="local" className="rounded-full [--button-radius:999px]" />
         </div>
 
-        <div className="flex items-center gap-4 rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina-utisana)] px-4 py-4">
-          <span className="grid size-14 shrink-0 place-items-center rounded-full bg-[var(--mp-povrsina)]">
+        <div className="flex items-center gap-4 rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina-utisana)] px-4 py-2.5">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--mp-povrsina)]">
             <Store aria-hidden="true" strokeWidth={1.75} className="size-6 text-[var(--mp-tekst)]" />
           </span>
           <div className="grid min-w-0 gap-0.5">
@@ -155,7 +155,7 @@ export function PinEkran({
           </div>
         </div>
 
-        <div className="grid gap-1.5 text-center">
+        <div className="grid gap-1 text-center">
           <h1 className="text-2xl font-bold leading-tight tracking-[-0.01em] text-[var(--mp-tekst)]">{t.naslov}</h1>
           {dostupan ? <p className="text-base text-[var(--mp-tekst-sporedni)]">{t.uputstvo}</p> : null}
         </div>
@@ -172,7 +172,7 @@ export function PinEkran({
                       key={indeks}
                       data-puno={puno || undefined}
                       className={cn(
-                        "grid h-16 place-items-center rounded-[var(--mp-radius-dugme)] border-2 bg-[var(--mp-povrsina)]",
+                        "grid h-14 place-items-center rounded-[var(--mp-radius-dugme)] border-2 [@media(min-height:900px)]:h-16 bg-[var(--mp-povrsina)]",
                         tekuce ? "[--border:var(--mp-mastilo)]" : "[--border:var(--mp-ivica-kontrole)]",
                       )}
                     >
@@ -192,7 +192,7 @@ export function PinEkran({
             </div>
 
             {/* A reserved slot: messages come and go without moving the keypad. */}
-            <div className="min-h-[3.5rem]" data-pin-poruka>
+            <div className="min-h-[2.75rem]" data-pin-poruka>
               {stanje.kind === "pogresan" ? (
                 <Poruka ton="opasnost" ikonica={OctagonAlert} uloga="alert">
                   <p className="font-semibold">
@@ -219,7 +219,7 @@ export function PinEkran({
               ) : null}
             </div>
 
-            <div role="group" aria-label={t.tastatura} className="grid grid-cols-3 gap-3">
+            <div role="group" aria-label={t.tastatura} className="grid grid-cols-3 gap-2.5">
               {TASTERI.map((cifra) => (
                 <button key={cifra} type="button" className={taster} disabled={tasteriIskljuceni} onClick={() => dodaj(cifra)}>
                   {cifra}

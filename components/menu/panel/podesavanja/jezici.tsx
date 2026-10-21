@@ -165,7 +165,7 @@ export function Jezici({ prevodi, maxJezika, plan, moze, razlog, onSacuvaj, nivo
                   aria-disabled={zakljucano || undefined}
                   aria-describedby={zakljucano ? premiumId : opisaniRazlogom}
                   onClick={zakljucano ? undefined : dodaj}
-                  className={cn(zakljucano && "opacity-60")}
+                  className={cn(zakljucano && "aria-disabled:bg-[var(--mp-povrsina-utisana)] aria-disabled:text-[var(--mp-tekst-sporedni)] aria-disabled:[--border:var(--mp-ivica)]")}
                 >
                   {t.dodaj}
                 </Dugme>

@@ -117,7 +117,7 @@ export function RedKartice({
 
       {greska ? <PorukaGreske>{greska}</PorukaGreske> : null}
 
-      <div ref={akcijeRef} className="flex flex-wrap items-center gap-2">
+      <div ref={akcijeRef} className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] items-center gap-2">
         {samoCitanje || drugoOdrediste ? null : (
           <Dugme
             vrsta="sekundarno"

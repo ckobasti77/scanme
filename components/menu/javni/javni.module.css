@@ -593,6 +593,12 @@
   background: var(--menu-accent);
 }
 
+/* The title takes the focus when a category opens (a reading position, not a control): no ring flashes. */
+.kategorijaNaslov:focus,
+.kategorijaNaslov:focus-visible {
+  outline: none;
+}
+
 .kategorijaNazad {
   display: inline-flex;
   align-items: center;
@@ -1066,6 +1072,8 @@
   width: 100%;
   height: auto;
   aspect-ratio: 16 / 10;
+  /* On short wide screens the hero must not take half of the sheet: it is cropped, not squeezed. */
+  max-height: 36dvh;
   object-fit: cover;
 }
 
@@ -1198,6 +1206,13 @@
   .indeks {
     display: block;
     padding: 4px 0 8px;
+  }
+
+  /* The sticky bar is as wide as the text column and shares its edges, not edge to edge. */
+  .kompaktnoTraka {
+    max-width: 38rem;
+    margin-inline: auto;
+    padding-inline: 22px;
   }
 
   .kSekcijaNaslov {
@@ -1369,13 +1384,15 @@
 
 .koren[data-layout="categories"] .alati,
 .koren[data-layout="categories"] .alergeniTraka,
-.koren[data-layout="categories"] .rezultati {
+.koren[data-layout="categories"] .rezultati,
+.koren[data-layout="categories"] .valutaNapomena {
   max-width: 72rem;
 }
 
 .koren[data-layout="compact"] .alati,
 .koren[data-layout="compact"] .alergeniTraka,
-.koren[data-layout="compact"] .rezultati {
+.koren[data-layout="compact"] .rezultati,
+.koren[data-layout="compact"] .valutaNapomena {
   max-width: 38rem;
 }
 
@@ -1704,13 +1721,35 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 16px;
   }
+
+  /* The tools, the allergen strip, the results line and the rate note share the content edge of
+     the sections and the category grid (32 px); Kompaktno has its own column padding (22 px). */
+  .alati,
+  .alergeniTraka,
+  .rezultati,
+  .valutaNapomena {
+    padding-inline: 32px;
+  }
+
+  .koren[data-layout="compact"] .alati,
+  .koren[data-layout="compact"] .alergeniTraka,
+  .koren[data-layout="compact"] .rezultati,
+  .koren[data-layout="compact"] .valutaNapomena {
+    padding-inline: 22px;
+  }
+
+  /* Kompaktno centres its title and tabs: a lone allergen button sits on the same axis. */
+  .koren[data-layout="compact"] .alatiRed {
+    justify-content: center;
+  }
 }
 
 @media (min-width: 1024px) {
   /* Tok: the tools line up with the reading column beside the index rail. */
   .koren[data-layout="flow"] .alati,
   .koren[data-layout="flow"] .alergeniTraka,
-  .koren[data-layout="flow"] .rezultati {
+  .koren[data-layout="flow"] .rezultati,
+  .koren[data-layout="flow"] .valutaNapomena {
     max-width: calc(14rem + 3.5rem + 40rem);
     padding-left: calc(14rem + 3.5rem);
     padding-right: 0;
@@ -1814,6 +1853,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .koren[data-varijanta="dve-kolone"] .kompaktnoTraka {
+    max-width: 66rem;
+  }
+
   /* Kompaktno · dve kolone: a long wine list in two text columns. */
   .koren[data-varijanta="dve-kolone"] [data-kompaktno] {
     max-width: 66rem;
@@ -1835,4 +1878,60 @@
   .koren[data-varijanta="dve-kolone"] .kLista > li {
     break-inside: avoid;
   }
+}
+
+/* =========================================================================
+   K32 — the narrow guest pages (reservation form, confirmation, cancel link,
+   "Moji zahtevi", Room service notice). Their content is a 40 rem column: the
+   header takes the same column and edge, and the footer rests at the bottom of
+   a short page instead of floating in the middle of it.
+   ========================================================================= */
+
+.koren:has(
+    [data-rezervacija],
+    [data-rezervacija-poslato],
+    [data-rezervacija-eksterni],
+    [data-rezervacija-link],
+    [data-moji-zahtevi],
+    [data-stanje="rs-nedostupan"]
+  ) {
+  display: flex;
+  flex-direction: column;
+}
+
+.koren:has(
+    [data-rezervacija],
+    [data-rezervacija-poslato],
+    [data-rezervacija-eksterni],
+    [data-rezervacija-link],
+    [data-moji-zahtevi],
+    [data-stanje="rs-nedostupan"]
+  )
+  > * {
+  width: 100%;
+}
+
+.koren:has(
+    [data-rezervacija],
+    [data-rezervacija-poslato],
+    [data-rezervacija-eksterni],
+    [data-rezervacija-link],
+    [data-moji-zahtevi],
+    [data-stanje="rs-nedostupan"]
+  )
+  > main {
+  flex: 1 0 auto;
+}
+
+.koren:has(
+    [data-rezervacija],
+    [data-rezervacija-poslato],
+    [data-rezervacija-eksterni],
+    [data-rezervacija-link],
+    [data-moji-zahtevi],
+    [data-stanje="rs-nedostupan"]
+  )
+  .zaglavlje {
+  max-width: 40rem;
+  padding-inline: 16px;
 }

@@ -78,16 +78,16 @@ export function Zaglavlje({
       <div className="mx-auto flex min-h-16 max-w-[110rem] items-center gap-2 px-4 sm:gap-3 lg:px-6">
         <div className="grid min-w-0 flex-1 leading-tight">
           <p className="truncate text-[1.0625rem] font-bold text-[var(--mp-tekst)]">{lokal}</p>
-          <p className="truncate text-sm text-[var(--mp-tekst-sporedni)]">{t.panel}</p>
+          {offline ? (
+            // The state stands under the name at every width (icon + colour + word), so it never squeezes the name and never loses its word.
+            <p className="mt-0.5 inline-flex min-h-8 w-fit max-w-full items-center gap-1.5 rounded-full border px-2.5 text-sm font-bold text-[var(--mp-tekst)] [--border:var(--mp-upozorenje-ivica)] bg-[var(--mp-upozorenje-meko)]">
+              <WifiOff aria-hidden="true" strokeWidth={2} className="size-4 shrink-0 text-[var(--mp-upozorenje)]" />
+              <span className="truncate">{t.bezVeze}</span>
+            </p>
+          ) : (
+            <p className="truncate text-sm text-[var(--mp-tekst-sporedni)]">{t.panel}</p>
+          )}
         </div>
-
-        {offline ? (
-          <p className="inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3 text-sm font-bold text-[var(--mp-tekst)] [--border:var(--mp-upozorenje-ivica)] bg-[var(--mp-upozorenje-meko)]">
-            <WifiOff aria-hidden="true" strokeWidth={2} className="size-4 text-[var(--mp-upozorenje)]" />
-            <span className="hidden min-[420px]:inline">{t.bezVeze}</span>
-            <span className="sr-only min-[420px]:hidden">{t.bezVeze}</span>
-          </p>
-        ) : null}
 
         {aktivniTekst !== null ? (
           <p

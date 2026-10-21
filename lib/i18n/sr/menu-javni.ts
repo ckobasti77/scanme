@@ -171,6 +171,6 @@ export const menuJavniSr = {
     eurOznaka: "EUR",
     eur: "RSD + EUR",
     eurCitac: "otprilike",
-    napomena: "Cene u evrima su približne, po srednjem kursu NBS od {datum}. Važeća cena je u dinarima.",
+    napomena: "Cene u evrima su približne, po srednjem kursu NBS od {datum} Važeća cena je u dinarima.",
   },
 } satisfies MenuJavniDict;

@@ -87,7 +87,8 @@ function FunkcijaKartica({
         aria-describedby={moze ? undefined : nemaPravaId}
         onChange={(event) => void prebaci(event.target.checked)}
       />
-      <div className="grid gap-2 pl-[3.75rem]">
+      {/* Idle, the live region takes no room (it keeps its place in the page; the text appears while saving). */}
+      <div className="grid gap-2 pl-[3.75rem] has-[[data-cuvanje=mirno]]:gap-0 [&>[data-cuvanje=mirno]]:min-h-0">
         <CuvanjeStatus faza={faza} cuva={t.cuva} sacuvano={t.sacuvano} />
         {faza === "greska" && kod !== null ? <PorukaGreske>{porukaKoda(kod, t.greska)}</PorukaGreske> : null}
       </div>

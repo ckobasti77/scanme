@@ -227,7 +227,7 @@ export function AlergeniIOznake({
                 key={kod}
                 className={cn(
                   "relative inline-flex min-h-[var(--mp-meta)] cursor-pointer items-center rounded-[var(--mp-radius-dugme)] border px-4 text-sm font-semibold",
-                  "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--mp-fokus)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60",
+                  "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--mp-fokus)] has-[:disabled]:cursor-not-allowed has-[:disabled]:text-[var(--mp-tekst-sporedni)]",
                   izabrana ? "[--border:var(--mp-mastilo)] bg-[var(--mp-akcent-meko)]" : "[--border:var(--mp-ivica-kontrole)] hover:bg-[var(--mp-povrsina-utisana)]",
                 )}
               >

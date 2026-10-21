@@ -76,7 +76,7 @@ export function VremePar({
           aria-hidden="true"
           className={cn(
             "inline-flex w-fit flex-wrap items-center gap-x-1.5 text-[0.9375rem] font-semibold",
-            kasni ? cn(KASNI_CIP, "-mx-2 px-2 py-0.5") : null,
+            kasni ? cn(KASNI_CIP, "-mx-2 mt-1 px-2 py-0.5") : null,
           )}
         >
           <span className="inline-flex items-center gap-1 whitespace-nowrap">

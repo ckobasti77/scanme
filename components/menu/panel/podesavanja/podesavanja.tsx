@@ -36,6 +36,15 @@ export const PODESAVANJA_REDOSLED: readonly PodesavanjaKljuc[] = [
 
 const sidroId = (kljuc: PodesavanjaKljuc) => `podesavanja-${kljuc}`;
 
+// The index has no scroll tracking (it stays a plain anchor list): the block last chosen in it (the
+// :target of the address) is marked, and before any choice the first one.
+const AKTIVNA_STAVKA = "border-color:var(--mp-mastilo);background:var(--mp-povrsina-utisana);color:var(--mp-tekst)";
+const AKTIVNA_CSS =
+  PODESAVANJA_REDOSLED.map(
+    (kljuc) => `[data-podesavanja]:has(#${sidroId(kljuc)}:target) a[href="#${sidroId(kljuc)}"]`,
+  ).join(",") +
+  `,[data-podesavanja]:not(:has(:target)) li:first-child a{${AKTIVNA_STAVKA}}`;
+
 const FOKUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mp-fokus)]";
 
 export function Podesavanja({ blokovi }: { blokovi: Record<PodesavanjaKljuc, ReactNode> }) {
@@ -46,6 +55,7 @@ export function Podesavanja({ blokovi }: { blokovi: Record<PodesavanjaKljuc, Rea
     >
       <ZaglavljeSaStatusom className="xl:col-span-2" naslov={menuPanelSr.sekcije.podesavanja} opis={t.opis} />
 
+      <style>{AKTIVNA_CSS}</style>
       <nav aria-label={t.sidro} className="hidden xl:sticky xl:top-6 xl:block">
         <ul className="m-0 grid list-none gap-0.5 border-l p-0 [--border:var(--mp-ivica)]">
           {PODESAVANJA_REDOSLED.map((kljuc) => (

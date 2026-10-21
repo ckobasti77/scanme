@@ -783,7 +783,7 @@ export function StudioEditor({
         className={cn(
           "grid items-start gap-5",
           !izgledTab && sirina === "desktop" && "grid-cols-[17rem_minmax(0,1fr)_24rem] gap-6",
-          !izgledTab && sirina === "siroko" && "grid-cols-[16rem_minmax(0,1fr)]",
+          !izgledTab && sirina === "siroko" && "grid-cols-[17rem_minmax(0,1fr)]",
           izgledTab && sirina === "desktop" && "grid-cols-[minmax(0,35rem)_minmax(0,1fr)] gap-6",
           izgledTab && sirina === "siroko" && "grid-cols-[minmax(0,1fr)_21rem]",
         )}

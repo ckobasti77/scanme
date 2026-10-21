@@ -35,7 +35,7 @@ export function Segment<T extends string>({
   return (
     <fieldset className={cn("grid min-w-0 gap-1.5", className)}>
       <legend className={cn("mb-1.5 text-sm font-semibold text-[var(--mp-tekst)]", skrivenaOznaka && "sr-only")}>{oznaka}</legend>
-      <div className="flex min-w-0 flex-wrap gap-1 rounded-[var(--mp-radius-dugme)] border [--border:var(--mp-ivica)] bg-[var(--mp-povrsina-utisana)] p-[3px]">
+      <div className="grid min-w-0 grid-cols-2 gap-1 rounded-[var(--mp-radius-kontrola)] border sm:flex sm:flex-wrap sm:rounded-[var(--mp-radius-dugme)] [--border:var(--mp-ivica)] bg-[var(--mp-povrsina-utisana)] p-[3px]">
         {opcije.map((opcija) => {
           const aktivno = opcija.vrednost === izabrano;
           return (

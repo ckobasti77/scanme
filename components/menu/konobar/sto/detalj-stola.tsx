@@ -105,10 +105,12 @@ function ZahtevNaMestu({
             onClick={onOtvori}
             aria-label={fmt(red.otvori, { vrsta: naslov, mesto: mestoLabel })}
             data-razvucen
-            className="-mx-1 inline-flex max-w-full items-center rounded-[var(--mp-radius-unutra)] px-1 text-left text-[1.125rem] font-bold leading-snug text-[var(--mp-tekst)] after:absolute after:inset-0 after:rounded-[var(--mp-radius-kartica)] after:content-[''] hover:underline hover:underline-offset-4"
+            className="-mx-1 -my-[calc((var(--mp-meta)-1.5469rem)/2)] inline-flex min-h-[var(--mp-meta)] max-w-full items-center rounded-[var(--mp-radius-unutra)] px-1 text-left text-[1.125rem] font-bold leading-snug text-[var(--mp-tekst)] after:absolute after:inset-0 after:rounded-[var(--mp-radius-kartica)] after:content-[''] hover:underline hover:underline-offset-4"
           >
-            <span className="min-w-0">{naslov}</span>
-            <ChevronRight aria-hidden="true" strokeWidth={2} className="hidden size-4 shrink-0 text-[var(--mp-tekst-sporedni)] sm:block" />
+            <span className="min-w-0">
+              {naslov}
+              <ChevronRight aria-hidden="true" strokeWidth={2} className="ml-1 hidden size-4 text-[var(--mp-tekst-sporedni)] sm:inline-block sm:align-[-0.15em]" />
+            </span>
           </button>
         </h3>
         <VremePar od={zahtev.createdAt} sadaMs={sadaMs} slozeno />

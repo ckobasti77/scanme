@@ -220,6 +220,7 @@ export function StudioZaglavlje({
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2">
+          {verzije}
           {prikaziPregled ? (
             <Dugme vrsta="sekundarno" ikonica={Eye} onClick={onPregled} data-pregled-dugme="">
               {t.zaglavlje.pregled}
@@ -244,7 +245,6 @@ export function StudioZaglavlje({
           }
         />
         {nacrtIz}
-        {verzije}
         <PrisustvoZaglavlje osobe={prisutni} className="ml-auto" />
       </div>
       {!povezano ? <OfflineTraka /> : null}

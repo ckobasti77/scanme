@@ -134,7 +134,7 @@ function StanjeVrste({
           className={cn(
             "inline-flex w-fit flex-wrap items-center gap-x-1.5 text-[0.9375rem] font-semibold",
             kasni
-              ? cn(KASNI_CIP, "py-0.5", lista ? "-mx-1.5 px-1.5" : "-mx-2 px-2")
+              ? cn(KASNI_CIP, "mt-1 py-0.5", lista ? "-mx-1.5 px-1.5" : "-mx-2 px-2")
               : "text-[var(--mp-tekst-sporedni)]",
           )}
         >
@@ -440,7 +440,7 @@ export function TabelaSale({
   return (
     <>
       <div className="hidden overflow-x-auto rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] [--border:var(--mp-ivica)] md:block lg:hidden xl:block">
-        <table className="w-max min-w-full border-collapse text-left tabular-nums">
+        <table className="w-full border-collapse text-left tabular-nums">
           <caption className="sr-only">{tk.tabela}</caption>
           <thead>
             <tr className="border-b bg-[var(--mp-povrsina-utisana)]">

@@ -68,12 +68,13 @@ function Uzorak({ klase, okrugao = false, children }: { klase: string; okrugao?:
 
 function PomocRasporeda({ id }: { id: string }) {
   return (
-    <Kartica ton="utisana" data-raspored-pomoc="" className="grid gap-3">
+    <Kartica ton="utisana" data-raspored-pomoc="" className="grid gap-2.5 sm:gap-3">
       <div id={id} className="grid gap-1.5 text-sm leading-relaxed text-[var(--mp-tekst)]">
-        <p>{t.pomoc.tastatura}</p>
+        {/* A phone has no keyboard: the keys are written from 640 px (the text stays in the description of every place either way). */}
+        <p className="hidden sm:block">{t.pomoc.tastatura}</p>
         <p>{t.pomoc.pokazivac}</p>
       </div>
-      <ul aria-label={t.legenda.naslov} className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-[var(--mp-tekst)]">
+      <ul aria-label={t.legenda.naslov} className="flex flex-wrap gap-x-4 gap-y-1.5 text-[0.8125rem] text-[var(--mp-tekst)] sm:gap-x-5 sm:gap-y-2 sm:text-sm">
         <li className="flex items-center gap-2">
           <Uzorak klase={KLASE_VRSTE.table} />
           {t.legenda.sto}

@@ -206,7 +206,7 @@ export function DodajGrupuDijalog({
                   key={grupa.id}
                   className={cn(
                     "flex cursor-pointer items-start gap-3 rounded-[var(--mp-radius-kontrola)] border px-3 py-3",
-                    "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--mp-fokus)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60",
+                    "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--mp-fokus)] has-[:disabled]:cursor-not-allowed has-[:disabled]:text-[var(--mp-tekst-sporedni)]",
                     izabrana === grupa.id ? "[--border:var(--mp-mastilo)] bg-[var(--mp-akcent-meko)]" : "[--border:var(--mp-ivica-kontrole)]",
                   )}
                 >

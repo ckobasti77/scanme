@@ -21,7 +21,7 @@ const t = menuLokalSr;
 
 /** Text field, select and number field of the panel (the same recipe as the editor's fields). */
 export const POLJE_KLASA =
-  "h-[var(--mp-meta)] w-full min-w-0 rounded-[var(--mp-radius-kontrola)] border [--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] px-3 text-base text-[var(--mp-tekst)] placeholder:text-[var(--mp-tekst-sporedni)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mp-fokus)] aria-[invalid=true]:[--border:var(--mp-opasnost)] disabled:cursor-not-allowed disabled:opacity-60 sm:text-[0.9375rem]";
+  "h-[var(--mp-meta)] w-full min-w-0 rounded-[var(--mp-radius-kontrola)] border [--border:var(--mp-ivica-kontrole)] bg-[var(--mp-povrsina)] px-3 text-base text-[var(--mp-tekst)] placeholder:text-[var(--mp-tekst-sporedni)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--mp-fokus)] aria-[invalid=true]:[--border:var(--mp-opasnost)] disabled:cursor-not-allowed disabled:bg-[var(--mp-povrsina-utisana)] disabled:text-[var(--mp-tekst-sporedni)] sm:text-[0.9375rem]";
 
 export const OZNAKA_KLASA = "text-sm font-semibold text-[var(--mp-tekst)]";
 

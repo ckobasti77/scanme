@@ -186,7 +186,8 @@ export function RezimDijalogTelo({
           {poruka}
         </p>
       ) : null}
-      <DialogFooter>
+      {/* A bar of its own: on a short screen the body scrolls under it and the buttons stay in reach. */}
+      <DialogFooter className="sticky bottom-0 z-10 -mx-6 border-t border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-6 py-4">
         <Button
           type="button"
           variant="outline"
@@ -283,7 +284,7 @@ export function RezimKartica({
 
   return (
     <section
-      className={`${CARD_CLASS} ${pocetniModal === "rezim" ? HIGHLIGHT_CLASS : ""}`}
+      className={`${CARD_CLASS} ${pocetniModal === "rezim" && !open ? HIGHLIGHT_CLASS : ""}`}
       aria-labelledby={headingId}
     >
       {header}
@@ -311,7 +312,7 @@ export function RezimKartica({
               <label
                 key={mode}
                 className={
-                  "flex min-h-11 w-full items-center gap-2 border px-3 py-2 text-sm " +
+                  "flex min-h-11 w-full flex-wrap items-center gap-x-2 gap-y-1 border px-3 py-2 text-sm " +
                   (unavailable
                     ? "cursor-not-allowed border-border text-muted-foreground"
                     : "cursor-pointer border-border has-[:checked]:border-primary has-[:checked]:bg-primary/10")
@@ -334,7 +335,7 @@ export function RezimKartica({
                 {unavailable && reason ? (
                   <span
                     id={reasonId}
-                    className="ml-auto border border-border px-2 text-xs"
+                    className="ml-auto shrink-0 whitespace-nowrap border border-border px-2 text-xs"
                   >
                     {reason}
                   </span>
@@ -382,7 +383,7 @@ export function RezimKartica({
       >
         <DialogContent
           showCloseButton={false}
-          className="admin-v1 max-h-[calc(100dvh-2rem)] overflow-y-auto border-[var(--admin-border)] bg-[var(--admin-surface-strong)] text-[var(--admin-text)]"
+          className="admin-v1 max-h-[calc(100dvh-2rem)] overflow-y-auto border-[var(--admin-border)] bg-[var(--admin-surface-strong)] pb-0 text-[var(--admin-text)]"
         >
           <DialogHeader className="pr-12">
             <DialogTitle>{dict.rezimDijalogNaslov}</DialogTitle>

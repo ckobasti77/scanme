@@ -61,7 +61,8 @@ export function Fioka({
         {...(opis ? {} : { "aria-describedby": undefined })}
         className={cn(
           MENU_TOKENI_KLASA,
-          "gap-0 [--border:var(--mp-ivica)] bg-[var(--mp-povrsina)] p-0 text-[var(--mp-tekst)] shadow-[var(--mp-senka-md)]",
+          // Radix focuses the (tabindex -1) container on open; it is not a control, so no ring around the whole drawer.
+          "gap-0 outline-none [--border:var(--mp-ivica)] bg-[var(--mp-povrsina)] p-0 text-[var(--mp-tekst)] shadow-[var(--mp-senka-md)]",
           "data-[state=closed]:duration-[var(--mp-trajanje-2)] data-[state=open]:duration-[var(--mp-trajanje-3)] motion-reduce:animate-none",
           strana === "dole"
             ? "max-h-[85dvh] rounded-t-[var(--mp-radius-okvir)]"

@@ -59,7 +59,7 @@ export function PodaciLokala({ naziv, javniLink }: { naziv: string; javniLink: s
               <Dugme vrsta="sekundarno" velicina="kompaktna" ikonica={Copy} onClick={kopiraj}>
                 {t.kopiraj}
               </Dugme>
-              <div role="status" aria-live="polite" className="min-h-6 text-sm">
+              <div role="status" aria-live="polite" className={kopiranje === "mirno" ? "-mt-2 text-sm" : "min-h-6 text-sm"}>
                 {kopiranje === "kopirano" ? (
                   <span className="inline-flex items-start gap-1.5 font-medium text-[var(--mp-tekst)]">
                     <CircleCheck aria-hidden="true" strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-[var(--mp-uspeh)]" />

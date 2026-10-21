@@ -88,10 +88,10 @@ function Izbor<T extends string>({
               className={cn(
                 "relative inline-flex min-h-[var(--mp-meta)] min-w-[5.5rem] flex-1 basis-0 cursor-pointer items-center justify-center gap-2 rounded-[var(--mp-radius-dugme)] px-3 py-1.5 text-center text-sm font-semibold leading-tight",
                 "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--mp-fokus)]",
-                "has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60",
+                "has-[:disabled]:cursor-not-allowed",
                 aktivno
                   ? "bg-[var(--mp-mastilo)] text-[var(--mp-na-mastilu)]"
-                  : "text-[var(--mp-tekst)] hover:bg-[var(--mp-povrsina)] has-[:disabled]:hover:bg-transparent",
+                  : "text-[var(--mp-tekst)] hover:bg-[var(--mp-povrsina)] has-[:disabled]:text-[var(--mp-tekst-sporedni)] has-[:disabled]:hover:bg-transparent",
               )}
             >
               <input
