@@ -111,6 +111,12 @@ export const PANEL_ULOGA_AKTER = {
 export const PANEL_REZERVACIJE = ["forma", "eksterni", "iskljuceno"] as const;
 export type PanelRezervacije = (typeof PANEL_REZERVACIJE)[number];
 
+/** K27: the content state of Početna and Operativa (`stanje=paznja|mirno`); absent = something needs attention. */
+export const PANEL_SADRZAJ_STANJA = ["paznja", "mirno"] as const;
+export type PanelSadrzajStanje = (typeof PANEL_SADRZAJ_STANJA)[number];
+/** K27: a request of the izlog fixtures (`zahtev=rq_05` opens its read-only detail in Operativa). */
+const PANEL_ZAHTEV = /^rq_[a-z0-9]{2,4}$/;
+
 /** K26: the venue mailbox in the izlog (`posta=…`): connected, not connected, the feature switched off, an expired connection. */
 export const IZLOG_POSTA = ["povezana", "nije", "nedostupna", "greska"] as const;
 export type IzlogPosta = (typeof IZLOG_POSTA)[number];
@@ -144,6 +150,17 @@ export type PanelPreviewParams = {
   /** K26 `sablon=prihvatanje|odbijanje|predlog`: the template open first; `sabloni=1` shows custom templates and a signature. */
   sablon: Exclude<IzlogOdgovor, "druga"> | null;
   sabloniPrilagodjeni: boolean;
+  /**
+   * K27 `stanje=paznja|mirno` (Početna, Operativa): a venue where something needs attention
+   * (default) or a quiet one with nothing waiting. The whole-screen values of `stanje` win.
+   */
+  sadrzaj: PanelSadrzajStanje;
+  /** K27 `ping=poslat` (Operativa): a reminder was just sent for the late, accepted order. */
+  pingPoslat: boolean;
+  /** K27 `zahtev=rq_05` (Operativa): the read-only detail of that request is open. */
+  zahtev: string | null;
+  /** K27 `filteri=1` (Operativa): the filter drawer is open (telephone) / filters are shown chosen. */
+  filteriOtvoreni: boolean;
 };
 
 export function parsePanelPreview(params: IzlogSearchParams): PanelPreviewParams {
@@ -160,6 +177,13 @@ export function parsePanelPreview(params: IzlogSearchParams): PanelPreviewParams
     povratak: pickOptional(params.povratak, ["povezano", "greska"] as const),
     sablon: pickOptional(params.sablon, ["prihvatanje", "odbijanje", "predlog"] as const),
     sabloniPrilagodjeni: firstParam(params.sabloni) === "1",
+    sadrzaj: pickParam(params.stanje, PANEL_SADRZAJ_STANJA, "paznja"),
+    pingPoslat: firstParam(params.ping) === "poslat",
+    zahtev: (() => {
+      const zahtev = firstParam(params.zahtev);
+      return zahtev !== undefined && PANEL_ZAHTEV.test(zahtev) ? zahtev : null;
+    })(),
+    filteriOtvoreni: firstParam(params.filteri) === "1",
   };
 }
 
@@ -247,6 +271,8 @@ export type KonobarPreviewParams = {
   /** K26 `slanje=salje|poslato|greska`: a send in progress, done or refused; `ishod=1` opens the call outcome. */
   slanje: IzlogSlanje | null;
   ishodPoziva: boolean;
+  /** K27 `ping=1`: a quiet reminder from Operativa stands above the queue. */
+  podsetnik: boolean;
 };
 
 const KONOBAR_REZERVACIJA = /^(?:1|rv_[a-z0-9]{2,4})$/;
@@ -274,6 +300,7 @@ export function parseKonobarPreview(params: IzlogSearchParams): KonobarPreviewPa
     posta: pickParam(params.posta, IZLOG_POSTA, "povezana"),
     slanje: pickOptional(params.slanje, IZLOG_SLANJA),
     ishodPoziva: firstParam(params.ishod) === "1",
+    podsetnik: firstParam(params.ping) === "1",
   };
 }
 

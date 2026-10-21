@@ -10,6 +10,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { useSelectedLayoutSegment } from "next/navigation";
 import { createContext, useContext, type ReactNode } from "react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
@@ -35,7 +36,8 @@ import {
   SekcijaZabranjena,
 } from "./stanja-panela";
 
-type PanelKontekst = { slug: string; actor: MenuActor; plan: MenuTier };
+/** K27 adds the service id (the section queries take it) and the venue name. */
+type PanelKontekst = { slug: string; actor: MenuActor; plan: MenuTier; menuServiceId: Id<"menuServices">; lokal: string };
 
 const Kontekst = createContext<PanelKontekst | null>(null);
 
@@ -67,10 +69,10 @@ export function MenuPanelRuta({ slug, children }: { slug: string; children: Reac
     );
   }
 
-  const { actor, plan, mode, business } = kontekst;
+  const { actor, plan, mode, business, menuServiceId } = kontekst;
   const uloga = menuDomenSr.roles[actor];
   return (
-    <Kontekst.Provider value={{ slug, actor, plan }}>
+    <Kontekst.Provider value={{ slug, actor, plan, menuServiceId, lokal: business.name }}>
       <MenuPanelShell
         lokal={business.name}
         rezim={fmt(menuDomenSr.serviceLabel, { mode: menuDomenSr.modes[mode] })}

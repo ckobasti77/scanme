@@ -98,6 +98,11 @@ describe("/dev/menu-panel-preview", () => {
       povratak: null,
       sablon: null,
       sabloniPrilagodjeni: false,
+      // K27 (intentional): Početna and Operativa content state, the ping, the open request and filters.
+      sadrzaj: "paznja",
+      pingPoslat: false,
+      zahtev: null,
+      filteriOtvoreni: false,
     });
   });
 
@@ -118,6 +123,11 @@ describe("/dev/menu-panel-preview", () => {
       povratak: null,
       sablon: null,
       sabloniPrilagodjeni: false,
+      // K27 (intentional): Početna and Operativa content state, the ping, the open request and filters.
+      sadrzaj: "paznja",
+      pingPoslat: false,
+      zahtev: null,
+      filteriOtvoreni: false,
     });
   });
 
@@ -150,6 +160,27 @@ describe("/dev/menu-panel-preview", () => {
     expect(parsePanelPreview({ sekcija: "kuhinja", plan: "enterprise", uloga: "konobar", stanje: "pokvareno", fioka: "da" })).toEqual(
       parsePanelPreview({}),
     );
+  });
+
+  test("K27: content state, ping, open request and filters; anything else gives the default", () => {
+    expect(parsePanelPreview({ sekcija: "operativa", stanje: "mirno", ping: "poslat", zahtev: "rq_05", filteri: "1" })).toMatchObject({
+      sekcija: "operativa",
+      stanje: null,
+      sadrzaj: "mirno",
+      pingPoslat: true,
+      zahtev: "rq_05",
+      filteriOtvoreni: true,
+    });
+    // A whole-screen state stays a whole-screen state; the content state keeps its default.
+    expect(parsePanelPreview({ stanje: "ucitava" })).toMatchObject({ stanje: "ucitava", sadrzaj: "paznja" });
+    expect(parsePanelPreview({ stanje: "bucno", ping: "1", zahtev: "../x", filteri: "da" })).toMatchObject({
+      sadrzaj: "paznja",
+      pingPoslat: false,
+      zahtev: null,
+      filteriOtvoreni: false,
+    });
+    expect(parseKonobarPreview({ ping: "1" }).podsetnik).toBe(true);
+    expect(parseKonobarPreview({ ping: "poslat" }).podsetnik).toBe(false);
   });
 
   test("the eight sections of master §13.1 plus the primitives page, each with its step", () => {
@@ -195,6 +226,8 @@ describe("/dev/menu-konobar-preview", () => {
       posta: "povezana",
       slanje: null,
       ishodPoziva: false,
+      // K27 (intentional): no reminder strip.
+      podsetnik: false,
     });
   });
 

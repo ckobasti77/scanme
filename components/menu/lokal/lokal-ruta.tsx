@@ -10,7 +10,7 @@
 
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { menuLokalSr } from "@/lib/i18n/sr/menu-lokal";
@@ -40,7 +40,16 @@ function useOrigin(): string {
   );
 }
 
-export function LokalRuta({ slug, pocetniPogled }: { slug: string; pocetniPogled: LokalPogled }) {
+export function LokalRuta({
+  slug,
+  pocetniPogled,
+  podaciLokala,
+}: {
+  slug: string;
+  pocetniPogled: LokalPogled;
+  /** K27: the card "Podaci o lokalu za Menu", shown right below the header. */
+  podaciLokala?: ReactNode;
+}) {
   const { isLoading } = useConvexAuth();
   const args = isLoading ? "skip" : { slug };
   const pregled = useQuery(api.menuFloor.overview, args);
@@ -161,6 +170,7 @@ export function LokalRuta({ slug, pocetniPogled }: { slug: string; pocetniPogled
       onPogled={onPogled}
       qrOrigin={qrOrigin}
       meniHref={`/${slug}/meni`}
+      podaciLokala={podaciLokala}
     />
   );
 }

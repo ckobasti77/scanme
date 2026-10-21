@@ -59,6 +59,7 @@ import type {
   KonobarZahtev,
   KonobarZauzetost,
 } from "./model";
+import { Podsetnici, vidljiviPodsetnici } from "./obavestenja";
 import { PragKasnjenja } from "./prag";
 import { RadniRed } from "./radni-red/radni-red";
 import { DetaljRezervacije, type RezDetaljRadnja } from "./rezervacije/detalj-rezervacije";
@@ -191,6 +192,8 @@ export function KonobarPanel({
   const [greskaStola, setGreskaStola] = useState<string | null>(null);
   const [najava, setNajava] = useState<{ tekst: string; vidljiva: boolean }>({ tekst: "", vidljiva: false });
   const [zatvorena, setZatvorena] = useState<ReadonlySet<string>>(() => new Set());
+  // K27: reminders from Operativa closed with `U redu` on this device (hidden at once, the server is told).
+  const [zatvoreniPodsetnici, setZatvoreniPodsetnici] = useState<ReadonlySet<string>>(() => new Set());
   const [otvorenOd] = useState(() => (izlogOd ?? pocetnoMs) - OTKAZI_SKORO_MS);
   // The own zone while it is being saved (a PIN waiter), or an account's zone (kept on the device).
   const [lokalnaZona, setLokalnaZona] = useState<{ vrednost: string | null } | null>(
@@ -511,6 +514,14 @@ export function KonobarPanel({
   const obavestenjaRez = rezervacije
     ? guestReservationCancellationsSince(rezervacije.rows, otvorenOd).filter((otkazana) => !zatvorena.has(otkazana.id))
     : [];
+  const podsetniciOperative = vidljiviPodsetnici(red?.podsetnici ?? [], sadaMs, zatvoreniPodsetnici);
+  function zatvoriPodsetnik(id: string) {
+    setZatvoreniPodsetnici((staro) => new Set([...staro, id]));
+    // A reminder that could not be marked seen simply comes back with the next sign-in; nothing to tell the waiter.
+    Promise.resolve()
+      .then(() => radnje.zatvoriPodsetnik?.(id))
+      .catch(() => undefined);
+  }
   const prikazOd = poslednjaVezaMs ?? offlineOd;
   const offlineTraka = offline ? <OfflineTraka vreme={prikazOd !== null ? clockTime(prikazOd) : undefined} /> : null;
   const greskaTraka = (prikazi: boolean) =>
@@ -761,8 +772,15 @@ export function KonobarPanel({
                 onRezervacijaStigli={gostiStigli}
                 obavestenjaRez={obavestenjaRez}
                 traka={
-                  offlineTraka || greska || vanZoneTraka ? (
+                  podsetniciOperative.length > 0 || offlineTraka || greska || vanZoneTraka ? (
                     <div className="grid gap-2">
+                      <Podsetnici
+                        stavke={podsetniciOperative}
+                        sadaMs={sadaMs}
+                        onOtvori={(id) => otvori(id)}
+                        onURedu={zatvoriPodsetnik}
+                        iskljuceno={offline}
+                      />
                       {offlineTraka}
                       {greskaTraka(greska !== null && greska.id !== izabranId)}
                       {vanZoneTraka}

@@ -39,6 +39,7 @@ import type {
   KonobarDetalj,
   KonobarIshod,
   KonobarKorisnik,
+  KonobarPodsetnik,
   KonobarRadnje,
   KonobarRezIshod,
   KonobarRezervacije,
@@ -66,6 +67,9 @@ import {
 import { nextStatus, type MenuRequestStatus, type RequestAction } from "@/lib/menu/request-status";
 
 const JA = "staff:ja";
+/** K27 `ping=1`: the invented sender of the reminder and how long before the izlog clock it was sent. */
+const PODSETNIK_OD = "Jelena";
+const PODSETNIK_PRE_MS = 2 * 60_000;
 const ODGOVOR_MS = 350;
 const cekaj = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -106,6 +110,23 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
   const [izabranId, setIzabranId] = useState<string | null>(
     params.ekran === "detalj" ? (params.zahtev && fx.detalji[params.zahtev] ? params.zahtev : "rq_03") : null,
   );
+  // K27 `ping=1`: one reminder for an order Milan has accepted (the first one of the fixture), sent 2 minutes ago.
+  const [podsetnici, setPodsetnici] = useState<KonobarPodsetnik[]>(() => {
+    const preuzet = params.podsetnik ? fx.zahtevi.find((zahtev) => zahtev.status === "accepted" && zahtev.acceptedBy?.isMe) : undefined;
+    return preuzet
+      ? [
+          {
+            id: "nt_01",
+            requestId: preuzet.id,
+            kind: preuzet.kind,
+            positionLabel: preuzet.positionLabel,
+            requestCreatedAt: preuzet.createdAt,
+            createdAt: IZLOG_SADA - PODSETNIK_PRE_MS,
+            from: PODSETNIK_OD,
+          },
+        ]
+      : [];
+  });
   const [brojac, setBrojac] = useState<PinCounter | null>(pin.brojac);
   const pocetnaSala = useMemo(
     () => fixtureSale({ zauzetost: params.zauzetost, kasniMin: params.kasni ? 5 : null, uloga: params.uloga, zona: params.zona }),
@@ -259,6 +280,10 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
       setRezId(null);
       setPrijavljen(false);
     },
+    zatvoriPodsetnik: async (id) => {
+      await cekaj(ODGOVOR_MS);
+      setPodsetnici((staro) => staro.filter((podsetnik) => podsetnik.id !== id));
+    },
   };
 
   async function prijava(unet: string): Promise<PinIshod> {
@@ -318,7 +343,13 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
     <KonobarPanel
       lokal={fx.lokal}
       korisnik={korisnik}
-      red={{ zahtevi, skraceno: fx.skraceno, otkazani: fx.otkazani }}
+      red={{
+        zahtevi,
+        skraceno: fx.skraceno,
+        otkazani: fx.otkazani,
+        // As the server: only for a request the waiter still holds (menuWaiter.activeRequests).
+        podsetnici: podsetnici.filter((podsetnik) => zahtevi.some((zahtev) => zahtev.id === podsetnik.requestId && zahtev.status === "accepted")),
+      }}
       izabranId={izabranId}
       detalj={detalj}
       onIzaberi={setIzabranId}

@@ -628,7 +628,10 @@ describe("the panel izlog mounts the blocks", () => {
     const iskljuceno = panel({ sekcija: "funkcionalnosti", rezervacije: "iskljuceno" });
     expect(radiji(iskljuceno)).toHaveLength(3);
     expect(radiji(iskljuceno)[0].izabran).toBe(true);
-    expect(tipoviUnosa(iskljuceno).filter((tip) => tip !== "radio")).toEqual([]);
+    // K27 (intentional): Funkcionalnosti now also has the feature switches; only the reservation block is checked.
+    const blok = iskljuceno.slice(iskljuceno.indexOf("data-rezervacije-izlog"), iskljuceno.indexOf('data-funkcija="occupancy"'));
+    expect(blok.length).toBeGreaterThan(0);
+    expect(tipoviUnosa(blok).filter((tip) => tip !== "radio")).toEqual([]);
     expect(iskljuceno).not.toContain(esc(t.kontakt));
   });
 
@@ -665,10 +668,8 @@ describe("the panel izlog mounts the blocks", () => {
   });
 
   test("the blocks stand between the section's title and its 'u pripremi' card", () => {
-    for (const [sekcija, oznaka] of [
-      ["funkcionalnosti", "data-rezervacije-izbor"],
-      ["podesavanja", "data-radno-vreme"],
-    ] as const) {
+    // K27 (intentional): Funkcionalnosti is a finished section now (no 'u pripremi' card); Podešavanja keeps it until K28.
+    for (const [sekcija, oznaka] of [["podesavanja", "data-radno-vreme"]] as const) {
       const html = panel({ sekcija });
       expect(html.indexOf("<h1")).toBeGreaterThan(0);
       expect(html.indexOf("<h1")).toBeLessThan(html.indexOf(oznaka));
@@ -676,6 +677,13 @@ describe("the panel izlog mounts the blocks", () => {
       expect(count(html, "<h1")).toBe(1);
       for (const svg of html.match(/<svg\b[^>]*>/g) ?? []) expect(svg).toContain('aria-hidden="true"');
     }
+    // Funkcionalnosti: the title, the guest's switches, then the reservation block; one h1, decorative icons.
+    const html = panel({ sekcija: "funkcionalnosti" });
+    expect(count(html, "<h1")).toBe(1);
+    expect(html.indexOf("<h1")).toBeLessThan(html.indexOf('data-funkcija="callWaiter"'));
+    expect(html.indexOf('data-funkcija="callWaiter"')).toBeLessThan(html.indexOf("data-rezervacije-izbor"));
+    expect(html).not.toContain("data-sekcija-u-pripremi");
+    for (const svg of html.match(/<svg\b[^>]*>/g) ?? []) expect(svg).toContain('aria-hidden="true"');
   });
 
   test("an editor does not see either section: the forbidden state, no blocks", () => {

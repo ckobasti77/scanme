@@ -8,7 +8,7 @@
 // One calm surface, three views of the same data: Lista, Raspored, Kartice.
 
 import { CircleCheck, ExternalLink } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { menuLokalSr } from "@/lib/i18n/sr/menu-lokal";
 import type { LokalEkranProps, LokalPodaci, LokalPogled } from "@/lib/menu/lokal/model";
 import { Dugme } from "../zajednicko/dugme";
@@ -57,7 +57,11 @@ export function LokalEkran({
   meniHref,
   pocetnaPozicija = null,
   pocetnaStampa = false,
-}: LokalEkranProps) {
+  podaciLokala,
+}: LokalEkranProps & {
+  /** K27: the card "Podaci o lokalu za Menu", right below the header. */
+  podaciLokala?: ReactNode;
+}) {
   const [pozicijaId, setPozicijaId] = useState<string | null>(pocetnaPozicija);
   const [dodajOtvoreno, setDodajOtvoreno] = useState(false);
   const [zoneOtvoreno, setZoneOtvoreno] = useState(false);
@@ -99,6 +103,8 @@ export function LokalEkran({
           </Dugme>
         }
       />
+
+      {podaciLokala}
 
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <Segmenti

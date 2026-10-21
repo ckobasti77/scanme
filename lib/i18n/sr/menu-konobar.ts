@@ -419,4 +419,14 @@ export const menuKonobarSr = {
     znacka: "Rezervacija {vreme}",
     znackaCitac: "Rezervacija: {ime}, {gosti}, {termin}",
   },
+  // K27 — a quiet reminder from Operativa of the client panel (no sound), to the waiter who took the request.
+  podsetnik: {
+    oznaka: "Podsetnici",
+    tekst: "Podsetnik iz Operative ({ko}): {vrsta} · {mesto} · čeka od {vreme}",
+    tekstBezImena: "Podsetnik iz Operative: {vrsta} · {mesto} · čeka od {vreme}",
+    otvori: "Otvori",
+    otvoriCitac: "Otvori zahtev: {vrsta}, {mesto}",
+    uRedu: "U redu",
+    uReduCitac: "U redu, podsetnik za {vrsta}, {mesto}",
+  },
 } as const satisfies MenuKonobarDict;

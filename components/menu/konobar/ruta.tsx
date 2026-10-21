@@ -113,6 +113,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
   const zauzmi = useMutation(api.menuWaiter.setOccupancy);
   const mojaZona = useMutation(api.menuWaiter.setMyZone);
   const zonaOsoblja = useMutation(api.menuWaiter.setStaffZone);
+  const vidiPodsetnik = useMutation(api.menuWaiter.seeNotice);
   const prihvatiRez = useMutation(api.menuReservations.accept);
   const odbijRez = useMutation(api.menuReservations.decline);
   const predloziRez = useMutation(api.menuReservations.proposeChange);
@@ -207,6 +208,8 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
     otkazi: async (id, ocekivaniStatus: MenuRequestStatus) =>
       (await otkazi({ ...prijavaArgs, requestId: id as Id<"menuRequests">, expectedStatus: ocekivaniStatus })) as KonobarIshod,
     odjava,
+    // K27 — `U redu` on a reminder from Operativa (only the PIN waiter it was sent to can close it).
+    zatvoriPodsetnik: async (id) => await vidiPodsetnik({ ...prijavaArgs, noticeId: id as Id<"menuStaffNotices"> }),
     postaviZauzetost: async (positionId, stanje) =>
       (await zauzmi({ ...prijavaArgs, positionId: positionId as Id<"menuPositions">, state: stanje })) as KonobarSalaIshod,
     postaviMojuZonu: async (zoneId) =>
@@ -275,7 +278,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
           ? undefined
           : red === null
             ? { zahtevi: [], skraceno: false, otkazani: [] }
-            : { zahtevi: red.requests, skraceno: red.truncated, otkazani: red.recentlyCancelled }
+            : { zahtevi: red.requests, skraceno: red.truncated, otkazani: red.recentlyCancelled, podsetnici: red.notices }
       }
       izabranId={izabranId}
       detalj={detalj}

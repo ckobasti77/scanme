@@ -37,6 +37,7 @@ import {
   MENU_MAX_POSITIONS,
   MENU_MAX_RECENT_CANCELLED,
   MENU_MAX_STAFF,
+  MENU_MAX_STAFF_NOTICES,
   MENU_MAX_ZONES,
 } from "../lib/menu/limits";
 import type { OccupancyState } from "../lib/menu/occupancy";
@@ -492,7 +493,62 @@ export type WaiterQueue = {
   truncated: boolean;
   /** The last cancelled requests (newest first), so a guest's cancellation is never silent. */
   recentlyCancelled: WaiterCancelledRow[];
+  /**
+   * K27: unseen reminders ("ping") from Operativa to THIS PIN waiter, newest
+   * first, at most 5, only for requests the waiter still holds. The device
+   * shows those sent in the last 30 minutes (the query never reads the clock).
+   * Always empty for an account.
+   */
+  notices: WaiterNotice[];
 };
+
+export type WaiterNotice = {
+  id: Id<"menuStaffNotices">;
+  requestId: Id<"menuRequests">;
+  kind: MenuRequestKind;
+  positionLabel: string;
+  /** When the guest sent the request ("čeka od 18:12"). */
+  requestCreatedAt: number;
+  createdAt: number;
+  /** Who sent it (an account name, never an e-mail). */
+  from: string;
+};
+
+/** K27: the reminders of one PIN waiter (see WaiterQueue.notices). */
+async function noticesOf(
+  ctx: QueryCtx,
+  staffId: Id<"menuStaff">,
+  menuServiceId: Id<"menuServices">,
+  open: Doc<"menuRequests">[],
+): Promise<WaiterNotice[]> {
+  const rows = await ctx.db
+    .query("menuStaffNotices")
+    .withIndex("by_staffId_and_createdAt", (q) => q.eq("staffId", staffId))
+    .order("desc")
+    .take(MENU_MAX_STAFF_NOTICES * 4);
+  const held = new Map(open.filter((request) => request.acceptedByStaffId === staffId).map((request) => [request._id, request]));
+  const names = new Map<Id<"users">, string>();
+  const notices: WaiterNotice[] = [];
+  for (const row of rows) {
+    if (notices.length >= MENU_MAX_STAFF_NOTICES) break;
+    const request = held.get(row.requestId);
+    if (row.seenAt !== undefined || row.menuServiceId !== menuServiceId || !request || request.status !== "accepted") continue;
+    if (!names.has(row.createdByUserId)) {
+      const user = await ctx.db.get(row.createdByUserId);
+      names.set(row.createdByUserId, user ? userNameForOthers(user) : "");
+    }
+    notices.push({
+      id: row._id,
+      requestId: request._id,
+      kind: request.kind,
+      positionLabel: request.positionLabel,
+      requestCreatedAt: request.createdAt,
+      createdAt: row.createdAt,
+      from: names.get(row.createdByUserId) ?? "",
+    });
+  }
+  return notices;
+}
 
 /** The live work queue of the venue: ONE subscription per device. */
 export const activeRequests = query({
@@ -517,6 +573,7 @@ export const activeRequests = query({
         cancelledAt: request.cancelledAt ?? null,
         cancelledBy: request.cancelledBy ?? null,
       })),
+      notices: waiter.actor.kind === "staff" ? await noticesOf(ctx, waiter.actor.staff._id, menuServiceId, open) : [],
     };
   },
 });
@@ -671,6 +728,32 @@ export const complete = mutation({
 export const cancel = mutation({
   args: { ...actionArgs, expectedStatus: v.optional(menuRequestStatusValidator) },
   handler: async (ctx, args) => await act(ctx, args, "cancel", args.expectedStatus),
+});
+
+/**
+ * K27: "U redu" on a reminder from Operativa — only the PIN waiter it was
+ * sent to closes it (anyone else: `menu/not_found`, the same as a missing
+ * one). Closing twice is a no-op.
+ */
+export const seeNotice = mutation({
+  args: { ...staffArgs, noticeId: v.id("menuStaffNotices") },
+  handler: async (ctx, args): Promise<{ ok: true; changed: boolean } | { ok: false; code: StaffErrorCode | MenuErrorCode }> => {
+    const now = Date.now();
+    const waiter = await loadMenuStaff(ctx, args, now);
+    if (!waiter) return { ok: false, code: STAFF_ERROR.signedOut };
+    const notice = await ctx.db.get(args.noticeId);
+    if (
+      waiter.actor.kind !== "staff" ||
+      !notice ||
+      notice.menuServiceId !== waiter.menuService._id ||
+      notice.staffId !== waiter.actor.staff._id
+    ) {
+      return { ok: false, code: MENU_ERROR.notFound };
+    }
+    if (notice.seenAt !== undefined) return { ok: true, changed: false };
+    await ctx.db.patch(notice._id, { seenAt: now });
+    return { ok: true, changed: true };
+  },
 });
 
 // -----------------------------------------------------------------------------

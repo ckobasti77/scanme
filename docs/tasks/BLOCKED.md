@@ -2322,3 +2322,12 @@ Nijedna stavka ne blokira kod. Funkcija je isključena dok se ne postave env klj
 3. **Tekst poslate poruke se ne čuva** (samo vrsta, kanal, ishod, ko i kada). Pitanje: u redu, ili lokal treba da vidi šta je poslato (više ličnih podataka, rok čuvanja iz K24/6)?
 4. **Klik na „Otvori u e-pošti" se beleži** kao „Otvoreno u e-pošti" (ne zna se da li je poruka zaista poslata); ishod poziva je opcioni. Pitanje: u redu?
 5. **Promena povezanog mailboxa** opoziva stari Google grant samo kad je to drugi nalog; Microsoft nema opoziv iz aplikacije (lokal uklanja aplikaciju u svom nalogu). Pitanje: treba li tekst u Podešavanjima da to kaže?
+
+## SCANME MENU V1 — K27 (21. 10. 2026.) — Početna, Operativa, Funkcionalnosti: izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod.
+
+1. **„Niko od osoblja nije prijavljen" na Početnoj** (K01 OTV 13) znači: gosti su poslali nove zahteve, a nijedan član osoblja nije prijavljen PIN-om u konobarski panel. Vlasnik ili menadžer koji radi u konobarskom panelu svojim nalogom nema sesiju, pa se ne računa. Pitanje: da li i nalog u konobarskom panelu treba da gasi ovo upozorenje (traži beleženje sesije naloga)?
+2. **„Neobjavljene izmene starije od 24 h"** se meri od poslednje sačuvane izmene nacrta (`lastEditAt`), jer se vreme prve neobjavljene izmene ne čuva. Posledica: ko svaki dan nešto doda, a ne objavljuje, ne dobija upozorenje. Pitanje: u redu, ili treba čuvati vreme prve neobjavljene izmene (novo polje)?
+3. **Operativa ne pokazuje ime gosta sa rezervacije** (samo vreme, broj gostiju i sto), jer je to pregled; ime i kontakt su u konobarskom panelu. Pitanje: treba li menadžeru ime?
+4. **Podsetnik ide samo PIN konobaru koji je preuzeo zahtev** (plan K24-20; pitanje K24/8): nepreuzet zahtev i zahtev preuzet nalogom nemaju dugme, nego razlog rečima. Ponavljamo pitanje uz gotov ekran.

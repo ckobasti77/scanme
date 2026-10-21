@@ -3913,6 +3913,25 @@ export default defineSchema({
     .index("by_menuServiceId_and_createdAt", ["menuServiceId", "createdAt"])
     .index("by_menuServiceId_and_clientSendId", ["menuServiceId", "clientSendId"]),
 
+  // K27 — a quiet reminder from the client panel's Operativa to the ONE waiter
+  // responsible for a request (master §13.5; plan docs/meni/planovi/K24.md
+  // K24-20): only the PIN staff member who accepted it (`acceptedByStaffId`),
+  // at most one per request per 5 minutes. No sound; the waiter sees it in the
+  // existing `menuWaiter.activeRequests` subscription and closes it
+  // (`menuWaiter.seeNotice` sets `seenAt`). Nothing is reassigned.
+  menuStaffNotices: defineTable({
+    menuServiceId: v.id("menuServices"),
+    staffId: v.id("menuStaff"),
+    kind: v.literal("ping"),
+    requestId: v.id("menuRequests"),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+    seenAt: v.optional(v.number()),
+  })
+    .index("by_staffId_and_createdAt", ["staffId", "createdAt"])
+    .index("by_requestId_and_createdAt", ["requestId", "createdAt"])
+    .index("by_menuServiceId_and_createdAt", ["menuServiceId", "createdAt"]),
+
   // Explicit Menu roles (K01 §4.2). Account roles are DERIVED from
   // accountMemberships / businessMemberships; a row here grants an explicit
   // role (e.g. an outside Urednik) and the stronger of the two applies.

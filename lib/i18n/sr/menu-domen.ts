@@ -142,6 +142,9 @@ export const menuDomenSr = {
     "reservation/url_invalid": "Upišite ispravan link koji počinje sa https://.",
     "reservation/hours_invalid": "Proverite radno vreme: intervali ne smeju da se preklapaju, a dan ima najviše tri.",
     "reservation/position_invalid": "Taj sto više ne postoji u lokalu. Izaberite drugi.",
+    "ping/no_responsible":
+      "Ovaj zahtev nije preuzeo niko od osoblja, pa nema kome da se pošalje podsetnik.",
+    "ping/too_soon": "Podsetnik za ovaj zahtev je već poslat. Novi možete poslati za nekoliko minuta.",
   },
   allergens: {
     gluten: "Žitarice koje sadrže gluten",

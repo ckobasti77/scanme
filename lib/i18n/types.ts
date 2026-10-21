@@ -64,6 +64,7 @@ import type { FloorErrorCode } from "../menu/errors/floor";
 import type { RequestErrorCode } from "../menu/errors/requests";
 import type { StaffErrorCode } from "../menu/errors/waiter";
 import type { ReservationErrorCode } from "../menu/errors/reservations";
+import type { OperationsErrorCode } from "../menu/errors/operations";
 import type {
   MenuMigrationErrorCode,
   MenuMigrationIssueCode,
@@ -2380,7 +2381,8 @@ export interface MenuDomenDict {
     | FloorErrorCode
     | RequestErrorCode
     | StaffErrorCode
-    | ReservationErrorCode,
+    | ReservationErrorCode
+    | OperationsErrorCode,
     string
   >;
   // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
@@ -7260,6 +7262,156 @@ export interface MenuPanelDict {
     sacuvano: string;
     greska: string;
   };
+  // K27 — Početna (master §13.2). Plurals by srPluralCategory; {n}, {prag}, {kada}, {vreme}, {gosti}, {sto}.
+  pocetna: {
+    opis: string;
+    ucitavanje: string;
+    greskaNaslov: string;
+    paznja: {
+      naslov: string;
+      mirno: string;
+      mirnoOpis: string;
+      mirnoUrednik: string;
+      ima: MenuStudioMnozina;
+      zahteviKasne: MenuStudioMnozina;
+      bezOsoblja: string;
+      rezervacijeKasne: MenuStudioMnozina;
+      rezervacijeCekaju: MenuStudioMnozina;
+      posta: string;
+      roomService: MenuStudioMnozina;
+      neobjavljeno: string;
+      radnje: { operativa: string; konobar: string; podesavanja: string; editor: string };
+    };
+    sada: {
+      naslov: string;
+      aktivni: string;
+      ostali: string;
+      ostaliOpis: string;
+      skraceno: string;
+      rezervacije: string;
+      jos: MenuStudioMnozina;
+      sledeca: string;
+      sto: string;
+      bezStola: string;
+      nemaRezervacija: string;
+      osoblje: string;
+      osobljeBroj: MenuStudioMnozina;
+      osobljeNiko: string;
+      nemaZahteva: string;
+    };
+    meni: { naslov: string; opis: string; nikad: string };
+    analitika: { naslov: string; prazno: string; praznoOpis: string };
+    brziUlazi: {
+      naslov: string;
+      editor: { naziv: string; opis: string };
+      operativa: { naziv: string; opis: string };
+      lokal: { naziv: string; opis: string };
+      analitika: { naziv: string; opis: string };
+      konobar: { naziv: string; opis: string };
+    };
+  };
+  // K27 — Operativa (master §13.5).
+  operativa: {
+    opis: string;
+    konobarskiPanel: string;
+    ucitavanje: string;
+    greskaNaslov: string;
+    filteri: {
+      naslov: string;
+      dugme: string;
+      dugmeBroj: string;
+      vrsta: string;
+      konobar: string;
+      zona: string;
+      sve: string;
+      svi: string;
+      nepreuzeti: string;
+      sveZone: string;
+      ocisti: string;
+      prikazi: string;
+    };
+    zahtevi: {
+      naslov: string;
+      broj: string;
+      kasni: MenuStudioMnozina;
+      cekajuPreuzimanje: MenuStudioMnozina;
+      kodOsoblja: MenuStudioMnozina;
+      prazno: string;
+      praznoOpis: string;
+      praznoFilter: string;
+      praznoFilterOpis: string;
+      skraceno: string;
+    };
+    red: {
+      preuzeto: string;
+      preuzetoNalogom: string;
+      nepreuzet: string;
+      bezImena: string;
+      vreme: string;
+      trajanje: { manje: string; min: string; sati: string };
+      kasni: string;
+      detalj: string;
+      detaljCitac: string;
+      bezZone: string;
+    };
+    ping: {
+      dugme: string;
+      dugmeCitac: string;
+      salje: string;
+      poslat: string;
+      vidjen: string;
+      razlozi: { nepreuzet: string; nalog: string; poslat: string };
+      objasnjenje: string;
+      greska: string;
+    };
+    detalj: {
+      samoPregled: string;
+      stanje: string;
+      poslato: string;
+      preuzeto: string;
+      ko: string;
+      zona: string;
+      kartica: string;
+      placanje: string;
+      stavke: string;
+      napomena: string;
+      medjuzbir: string;
+      dostava: string;
+      ukupno: string;
+      roomService: string;
+      ucitava: string;
+      nijeAktivan: string;
+      zatvori: string;
+    };
+    smena: { naslov: string; prazno: string; od: string; bezZone: string };
+    rezervacije: { naslov: string; prazno: string; gosti: string; bezStola: string; kasni: string; skraceno: string };
+  };
+  // K27 — Funkcionalnosti (master §13.7).
+  funkcionalnosti: {
+    opis: string;
+    vaziOdmah: string;
+    ucitavanje: string;
+    greskaNaslov: string;
+    grupe: { gost: string; osoblje: string; posebne: string };
+    stavke: Record<
+      "callWaiter" | "billRequest" | "ordering" | "occupancy" | "roomService",
+      { naziv: string; opis: string }
+    >;
+    premium: { oznaka: string; zakljucano: string; samoIskljucivanje: string };
+    nemaPrava: string;
+    cuva: string;
+    sacuvano: string;
+    greska: string;
+  };
+  // K27 — Lokal i QR: the venue data that matter for Menu.
+  lokalPodaci: {
+    naslov: string;
+    naziv: string;
+    link: string;
+    kopiraj: string;
+    kopirano: string;
+    kopiranjeNeuspelo: string;
+  };
 }
 
 // ScanMe Menu V1 (MENI run, K10) — the editor (master §13.4, §5.3, §6.1).
@@ -9581,6 +9733,16 @@ export interface MenuKonobarDict {
     };
     znacka: string;
     znackaCitac: string;
+  };
+  // K27 — the reminder strip (components/menu/konobar/obavestenja.tsx). {ko}, {vrsta}, {mesto}, {vreme}.
+  podsetnik: {
+    oznaka: string;
+    tekst: string;
+    tekstBezImena: string;
+    otvori: string;
+    otvoriCitac: string;
+    uRedu: string;
+    uReduCitac: string;
   };
 }
 

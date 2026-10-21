@@ -93,6 +93,9 @@ export const MENU_AUDIT_ACTIONS = [
   "mail.connected",
   /** The mailbox connection was ended (its tokens deleted). */
   "mail.disconnected",
+  // K27 — Operativa of the client panel (a read-only overview; master §13.5).
+  /** The Owner or a Manager sent a quiet reminder to the waiter who took a request (never a reassignment). */
+  "operations.ping",
 ] as const;
 
 export type MenuAuditAction = (typeof MENU_AUDIT_ACTIONS)[number];

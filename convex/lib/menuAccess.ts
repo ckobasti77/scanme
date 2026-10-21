@@ -283,7 +283,9 @@ export type MenuOwnedTable =
   | "menuMailConnections"
   | "menuMessageTemplates"
   | "menuReservationReplies"
-  // K23
+  // K27
+  | "menuStaffNotices"
+  // K23 (last: convex/menuWaiterFloor.test.ts reads it as the end of the union)
   | "menuPositionOccupancy";
 
 export async function loadOwned<T extends MenuOwnedTable>(

@@ -6,7 +6,7 @@
 // the same rules as convex/menuFloor.ts and convex/menuQr.ts
 // (lib/menu/lokal/memorija.ts). Nothing is sent anywhere; a reload starts over.
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { fixtureLokalPodaci } from "@/components/menu/fixtures/lokal-qr";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import type { LokalPreviewParams } from "@/lib/menu/izlog-params";
@@ -22,7 +22,14 @@ import { LokalEkran } from "../lokal/lokal-ekran";
 /** The fictional origin the izlog's QR codes encode. */
 export const LOKAL_IZLOG_QR_ORIGIN = "https://scanme.rs";
 
-export function LokalIzlog({ params }: { params: LokalPreviewParams }) {
+export function LokalIzlog({
+  params,
+  podaciLokala,
+}: {
+  params: LokalPreviewParams;
+  /** K27: the card "Podaci o lokalu za Menu", shown right below the header. */
+  podaciLokala?: ReactNode;
+}) {
   const [memorija, setMemorija] = useState<LokalMemorija>(() =>
     memorijaOd(fixtureLokalPodaci(params.stanje ?? "restoran"), {
       podrazumevanaOznaka: menuDomenSr.qrCardDefaultLabel,
@@ -81,6 +88,7 @@ export function LokalIzlog({ params }: { params: LokalPreviewParams }) {
         meniHref="/dev/menu-public-preview"
         pocetnaPozicija={pocetnaPozicija}
         pocetnaStampa={params.stampa}
+        podaciLokala={podaciLokala}
       />
     </div>
   );

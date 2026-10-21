@@ -72,10 +72,26 @@ export type KonobarOtkazan = {
   cancelledBy: "guest" | "staff" | null;
 };
 
+/** K27: a quiet reminder from Operativa to the PIN waiter who took the request (convex/menuWaiter.ts WaiterNotice). */
+export type KonobarPodsetnik = {
+  id: string;
+  requestId: string;
+  kind: MenuRequestKind;
+  positionLabel: string;
+  /** When the guest sent the request ("čeka od 18:12"). */
+  requestCreatedAt: number;
+  /** When the reminder was sent (the device hides it after 30 minutes). */
+  createdAt: number;
+  /** Who sent it (an account name); empty = unknown. */
+  from: string;
+};
+
 export type KonobarRed = {
   zahtevi: KonobarZahtev[];
   skraceno: boolean;
   otkazani: KonobarOtkazan[];
+  /** K27: unseen reminders, newest first (a PIN waiter only). */
+  podsetnici?: KonobarPodsetnik[];
 };
 
 export type KonobarKorisnik = {
@@ -95,6 +111,8 @@ export type KonobarRadnje = {
   zavrsi(id: string): Promise<KonobarIshod>;
   otkazi(id: string, ocekivaniStatus: MenuRequestStatus): Promise<KonobarIshod>;
   odjava(): void | Promise<void>;
+  /** K27: `U redu` on a reminder from Operativa (the server remembers it as seen). */
+  zatvoriPodsetnik?(id: string): Promise<unknown> | void;
   /** K23: Status stola by hand (null = back to neutral); refused when the module is off. */
   postaviZauzetost(positionId: string, stanje: OccupancyState | null): Promise<KonobarSalaIshod>;
   /** K23: the own active zone (null = every zone). */

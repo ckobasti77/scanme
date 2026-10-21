@@ -86,7 +86,8 @@ const MAX_INTERNAL_PARTS = Math.ceil(MENU_VERSION_MAX_BYTES / MENU_VERSION_PART_
 
 export type DraftPublishState = "never_published" | "clean" | "dirty";
 
-function publishStateOf(
+/** Also read by the client panel's Početna (convex/menuPanel.ts home, K27). */
+export function publishStateOf(
   menuService: Doc<"menuServices">,
   state: Doc<"menuDraftState">,
 ): DraftPublishState {

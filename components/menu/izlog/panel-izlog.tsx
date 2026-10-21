@@ -2,8 +2,12 @@
 // real section states and the real whole-screen states, with an invented
 // venue and the role and plan from the query string. Links stay inside the
 // izlog (the same route with another `sekcija`, the waiter izlog for staff).
+// K27: Početna, Operativa, Funkcionalnosti and Lokal i QR are the real
+// sections over invented data (`stanje=paznja|mirno`, `ping=poslat`,
+// `zahtev=rq_XX`, `filteri=1`); Tim, Analitika and Podešavanja stay "u pripremi".
 
 import { fixtureVenue } from "@/components/menu/fixtures";
+import { PodaciLokala } from "@/components/menu/panel/lokal/podaci-lokala";
 import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
@@ -29,13 +33,26 @@ import {
   SekcijaZabranjena,
 } from "../panel/stanja-panela";
 import { EditorIzlog } from "./editor-izlog";
+import { FunkcionalnostiIzlog } from "./funkcionalnosti-izlog";
 import { LokalIzlog } from "./lokal-izlog";
 import { PostaIzlog, SabloniIzlog } from "./odgovor-izlog";
-import { PodesavanjaRezervacijaIzlog, RezervacijeIzlog } from "./rezervacije-izlog";
+import { OperativaIzlog } from "./operativa-izlog";
+import { PocetnaIzlog } from "./pocetna-izlog";
+import { PodesavanjaRezervacijaIzlog } from "./rezervacije-izlog";
 
 const t = menuPanelSr;
-/** The optional K25/K26 izlog fields (/dev/menu-editor-preview mounts the panel without them). */
-type K25K26 = "rezervacije" | "bezRadnogVremena" | "posta" | "povratak" | "sablon" | "sabloniPrilagodjeni";
+/** The optional K25–K27 izlog fields (/dev/menu-editor-preview mounts the panel without them). */
+type K25K26 =
+  | "rezervacije"
+  | "bezRadnogVremena"
+  | "posta"
+  | "povratak"
+  | "sablon"
+  | "sabloniPrilagodjeni"
+  | "sadrzaj"
+  | "pingPoslat"
+  | "zahtev"
+  | "filteriOtvoreni";
 export const PANEL_IZLOG_PUTANJA = "/dev/menu-panel-preview";
 
 export function PanelIzlog({
@@ -107,19 +124,59 @@ export function PanelIzlog({
         }
       />
     );
+  } else if (sekcija === "pocetna") {
+    // K27: the real Početna over invented data (`stanje=paznja|mirno`); links stay inside the izlog.
+    sadrzaj = (
+      <PocetnaIzlog
+        actor={actor}
+        plan={plan}
+        sadrzaj={params.sadrzaj ?? "paznja"}
+        hrefs={{
+          editor: href("editor"),
+          operativa: href("operativa"),
+          lokal: href("lokal"),
+          analitika: href("analitika"),
+          podesavanja: href("podesavanja"),
+          konobar: konobarIzloga,
+        }}
+      />
+    );
+  } else if (sekcija === "operativa") {
+    // K27: the real Operativa (read-only overview) over invented data; the ping succeeds locally.
+    sadrzaj = (
+      <OperativaIzlog
+        sadrzaj={params.sadrzaj ?? "paznja"}
+        pingPoslat={params.pingPoslat ?? false}
+        zahtev={params.zahtev ?? null}
+        filteriOtvoreni={params.filteriOtvoreni ?? false}
+        konobarHref={konobarIzloga}
+      />
+    );
+  } else if (sekcija === "funkcionalnosti") {
+    // K27: the real Funkcionalnosti with the K25 reservation block in it.
+    sadrzaj = (
+      <FunkcionalnostiIzlog
+        plan={plan}
+        actor={actor}
+        rezervacije={rezervacije}
+        bezRadnogVremena={bezRadnogVremena}
+        radnoVremeHref={radnoVremeIzloga}
+      />
+    );
   } else if (sekcija === "lokal") {
     // K20: the real "Lokal i QR" over the invented restaurant; /dev/menu-lokal-preview has its states.
-    sadrzaj = <LokalIzlog params={{ tema, pogled: "lista", stanje: null, fokusPozicija: false, stampa: false }} />;
+    // K27: with the card "Podaci o lokalu za Menu" under its header.
+    const venue = fixtureVenue("restaurant");
+    sadrzaj = (
+      <LokalIzlog
+        params={{ tema, pogled: "lista", stanje: null, fokusPozicija: false, stampa: false }}
+        podaciLokala={<PodaciLokala naziv={venue.name} javniLink={`https://scanme.rs/${venue.slug}/meni`} />}
+      />
+    );
   } else {
-    // K25/K26: the finished reservation and reply blocks stand above the "u pripremi" card until K27/K28 build the rest.
+    // K26: the finished reply blocks stand above the "u pripremi" card until K28 builds the rest.
     const iznad =
-      sekcija === "funkcionalnosti" ? (
-        <RezervacijeIzlog
-          rezervacije={rezervacije}
-          bezRadnogVremena={bezRadnogVremena}
-          radnoVremeHref={radnoVremeIzloga}
-        />
-      ) : sekcija === "podesavanja" ? (
+      sekcija === "podesavanja" ? (
         // K26: the venue mailbox and the reply templates (K28 places them in the finished section).
         <div className="grid gap-6">
           <PodesavanjaRezervacijaIzlog bezRadnogVremena={bezRadnogVremena} />

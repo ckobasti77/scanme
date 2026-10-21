@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
-import { PanelSekcija } from "@/components/menu/panel/ruta";
+import { OperativaRuta } from "@/components/menu/panel/operativa/operativa-ruta";
 import { fmt } from "@/lib/i18n/format";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
 
-// Section "operativa" of the ScanMe Menu client panel. Until its screen exists it
-// shows an honest "this is what will be here" state (K08); the shell checks the role.
+// Section "operativa" of the ScanMe Menu client panel (K27; master §13.5): the
+// read-only overview of the active requests, the staff on shift and today's
+// reservations. The shell (layout) checks sign-in and role (Owner and Manager).
 export const metadata: Metadata = {
   title: fmt(menuPanelSr.meta.naslov, { sekcija: menuPanelSr.sekcije.operativa }),
 };
 
 export default function MenuPanelOperativaPage() {
-  return <PanelSekcija sekcija="operativa" />;
+  return <OperativaRuta />;
 }

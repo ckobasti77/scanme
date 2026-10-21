@@ -96,6 +96,15 @@ export const MENU_MAX_PANEL_RESERVATIONS = 200;
 export const MENU_MAX_RECENT_CANCELLED_RESERVATIONS = 20;
 /** K25 — the window of accepted reservations the waiter panel subscribes to: from `fromMs` (12 h back) for 60 h. */
 export const MENU_RESERVATION_PANEL_WINDOW_MS = 60 * 60 * 60 * 1000;
+/** K27 — a reminder (ping) of one request from Operativa: at most one per this many ms (K24-20). */
+export const MENU_PING_COOLDOWN_MS = 5 * 60 * 1000;
+/** K27 — unseen reminders a waiter sees at once (newest first) and for how long after they were sent. */
+export const MENU_MAX_STAFF_NOTICES = 5;
+export const MENU_STAFF_NOTICE_VISIBLE_MS = 30 * 60 * 1000;
+/** K27 — reminders of the venue Operativa reads (to show "Podsetnik poslat · 18:44"). */
+export const MENU_MAX_PANEL_NOTICES = 300;
+/** K27 — live PIN sessions of one venue Operativa and Početna read ("U smeni"). */
+export const MENU_MAX_PANEL_SESSIONS = 200;
 /** K25 — other reservations of the same table read in a reservation detail. */
 export const MENU_MAX_RESERVATIONS_ON_POSITION = 20;
 
