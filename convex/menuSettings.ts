@@ -12,7 +12,7 @@ import { RESERVATION_ERROR } from "../lib/menu/errors/reservations";
 import { MENU_SOURCE_LANGUAGE, checkLanguageChange } from "../lib/menu/languages";
 import { DEFAULT_RESERVATION_CONTACT } from "../lib/menu/reservation-config";
 import { isValidReservationHold, reservationHoldOf } from "../lib/menu/reservation-late";
-import { isValidLateThreshold, isValidReminder } from "../lib/menu/thresholds";
+import { isValidLateThreshold, isValidReminder, panelTimingOf } from "../lib/menu/thresholds";
 import { isValidWorkingHours } from "../lib/menu/working-hours";
 
 // =============================================================================
@@ -95,6 +95,16 @@ export const setLanguages = mutation({
  * threshold (1–120 min) and the reminder (0 = off, 1–60 min). Operational,
  * applies at once, never part of the draft. The UI comes in K28 (Podešavanja).
  */
+/** K28 — the waiter panel's timing for Podešavanja (the venue's own or the defaults). null for every refusal. */
+export const panelTiming = query({
+  args: { menuServiceId: v.id("menuServices") },
+  handler: async (ctx, args) => {
+    const access = await getMenuAccess(ctx, { menuServiceId: args.menuServiceId }, "settings.edit");
+    if (!access) return null;
+    return panelTimingOf(access.menuService.settings?.panel);
+  },
+});
+
 export const setPanelTiming = mutation({
   args: { menuServiceId: v.id("menuServices"), lateThresholdMin: v.number(), reminderMin: v.number() },
   handler: async (ctx, args) => {

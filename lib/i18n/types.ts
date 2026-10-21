@@ -65,6 +65,8 @@ import type { RequestErrorCode } from "../menu/errors/requests";
 import type { StaffErrorCode } from "../menu/errors/waiter";
 import type { ReservationErrorCode } from "../menu/errors/reservations";
 import type { OperationsErrorCode } from "../menu/errors/operations";
+import type { TeamErrorCode } from "../menu/errors/team";
+import type { MenuAuditAction } from "../menu/audit";
 import type {
   MenuMigrationErrorCode,
   MenuMigrationIssueCode,
@@ -2382,7 +2384,8 @@ export interface MenuDomenDict {
     | RequestErrorCode
     | StaffErrorCode
     | ReservationErrorCode
-    | OperationsErrorCode,
+    | OperationsErrorCode
+    | TeamErrorCode,
     string
   >;
   // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
@@ -2560,6 +2563,60 @@ export interface MenuAdminDict {
   deactivateDialogBody: string;
   deactivateConfirm: string;
   deactivateCancel: string;
+
+  // K28 — the internal tool of the new Menu model: the service mode (only
+  // ScanMe changes it, master §4.1) and the import into the draft (K06).
+  rezimNaslov: string;
+  rezimOpis: string;
+  rezimNemaUsluge: string;
+  rezimTrenutni: string;
+  /** {datum} */
+  rezimPostavljen: string;
+  rezimIzbor: string;
+  rezimNedostupno: { services: string; retail: string };
+  rezimPromeni: string;
+  rezimDijalogNaslov: string;
+  rezimUpozorenje: string;
+  rezimGase: string;
+  rezimNistaSeNeGasi: string;
+  rezimUkljucena: string;
+  rezimVecIskljucena: string;
+  rezimIzaberiDrugi: string;
+  /** {naziv} */
+  rezimPotvrdaOznaka: string;
+  rezimPotvrdaPomoc: string;
+  rezimPotvrdi: string;
+  rezimOdustani: string;
+  /** {funkcije} */
+  rezimUspeh: string;
+  rezimUspehBezGasenja: string;
+  rezimBezPromene: string;
+  rezimGreska: string;
+  rezimFunkcije: {
+    callWaiter: string;
+    billRequest: string;
+    ordering: string;
+    roomService: string;
+    occupancy: string;
+    reservations: string;
+  };
+  uvozNaslov: string;
+  uvozOpis: string;
+  uvozPolje: string;
+  uvozPomoc: string;
+  uvozProveri: string;
+  uvozUvezi: string;
+  uvozRadi: string;
+  /** {grupe} {artikli} */
+  uvozIzvestaj: string;
+  /** {upozorenja} {duplikati} */
+  uvozUpozorenja: string;
+  uvozBlokirano: string;
+  uvozSpremno: string;
+  /** {artikli} */
+  uvozUspeh: string;
+  uvozNeispravan: string;
+  uvozGreska: string;
 }
 
 // menu-editor — the Menu editor shell (components/menu/editor/**, TASK-51),
@@ -7411,6 +7468,272 @@ export interface MenuPanelDict {
     kopiraj: string;
     kopirano: string;
     kopiranjeNeuspelo: string;
+  };
+  // K28 — Tim i pristupi (master §10.6; plan docs/meni/planovi/K24.md §4.6).
+  tim: {
+    opis: string;
+    ucitavanje: string;
+    greskaNaslov: string;
+    vaziOdmah: string;
+    uloge: Record<"owner" | "manager" | "editor" | "staff", { naziv: string; opis: string }>;
+    pravaNaslov: string;
+    pravaOpis: string;
+    /** One line per right of lib/menu/team-view.ts PRAVA (+ `vlasnistvo`). */
+    prava: Record<
+      | "meni"
+      | "funkcionalnosti"
+      | "lokal"
+      | "operativa"
+      | "konobar"
+      | "zone"
+      | "osoblje"
+      | "tim"
+      | "podesavanja"
+      | "analitika"
+      | "vlasnistvo",
+      string
+    >;
+    sme: string;
+    nesme: string;
+    samoVlasnik: string;
+    clanovi: {
+      naslov: string;
+      opis: string;
+      izNaloga: string;
+      izNalogaPomoc: string;
+      pozvaniNaslov: string;
+      vi: string;
+      bezImena: string;
+      statusAktivan: string;
+      statusPozvan: string;
+      statusIstekao: string;
+      /** {datum} */
+      istice: string;
+      /** {datum} */
+      isteklo: string;
+      prazno: string;
+      pozovi: string;
+      promeniUlogu: string;
+      ukloni: string;
+      opozovi: string;
+      ponoviPoziv: string;
+      /** {ime} */
+      radnje: string;
+      ukloniNaslov: string;
+      /** {ime} */
+      ukloniOpis: string;
+      ukloniPotvrdi: string;
+      opozoviNaslov: string;
+      /** {ime} */
+      opozoviOpis: string;
+      opozoviPotvrdi: string;
+      odustani: string;
+      ulogaNaslov: string;
+      /** {ime} */
+      ulogaOpis: string;
+      sacuvaj: string;
+      cuva: string;
+      sacuvano: string;
+      greska: string;
+      samoVlasnik: string;
+      svojRed: string;
+    };
+    pozivnica: {
+      naslov: string;
+      opis: string;
+      email: string;
+      emailPomoc: string;
+      emailNeispravan: string;
+      uloga: string;
+      posalji: string;
+      salje: string;
+      linkNaslov: string;
+      linkOpis: string;
+      /** {datum} — the date already ends with a period. */
+      linkIstice: string;
+      kopiraj: string;
+      kopirano: string;
+      kopiranjeNeuspelo: string;
+      zatvori: string;
+      bezMejla: string;
+      greska: string;
+    };
+    osoblje: {
+      naslov: string;
+      opis: string;
+      prazno: string;
+      dodaj: string;
+      ime: string;
+      imePomoc: string;
+      imeNeispravno: string;
+      sacuvaj: string;
+      odustani: string;
+      ulogaUPanelu: string;
+      panelUloge: { staff: string; manager: string };
+      panelUlogeOpis: { staff: string; manager: string };
+      neaktivni: string;
+      neaktivan: string;
+      pinPostavljen: string;
+      pinNije: string;
+      postaviPin: string;
+      promeniPin: string;
+      resetujPin: string;
+      pinNaslov: string;
+      /** {ime} */
+      pinOpis: string;
+      pinIzaberi: string;
+      pinSistem: string;
+      pinSvoj: string;
+      pinPolje: string;
+      pinPomoc: string;
+      pinPotvrdi: string;
+      pinJednomNaslov: string;
+      /** {ime} */
+      pinJednomOpis: string;
+      pinZapamtio: string;
+      pinOdjava: string;
+      pinNikadVidljiv: string;
+      resetNaslov: string;
+      /** {ime} */
+      resetOpis: string;
+      resetPotvrdi: string;
+      resetSamoVlasnik: string;
+      preimenuj: string;
+      deaktiviraj: string;
+      deaktivirajNaslov: string;
+      /** {ime} */
+      deaktivirajOpis: string;
+      deaktivirajPotvrdi: string;
+      /** {ime} */
+      radnje: string;
+      zona: string;
+      sveZone: string;
+      zonaPomoc: string;
+      bezZona: string;
+      otkljucaj: string;
+      otkljucajOpis: string;
+      /** {broj} */
+      otkljucano: string;
+      greska: string;
+    };
+    linkPanela: {
+      naslov: string;
+      opis: string;
+      nemaLinka: string;
+      napravi: string;
+      kopiraj: string;
+      kopirano: string;
+      kopiranjeNeuspelo: string;
+      qrOznaka: string;
+      promeni: string;
+      promeniNaslov: string;
+      promeniOpis: string;
+      promeniPotvrdi: string;
+      odustani: string;
+      /** {broj} */
+      odjavljeno: string;
+      greska: string;
+    };
+    aktivnost: {
+      naslov: string;
+      opis: string;
+      prikazi: string;
+      sakrij: string;
+      prazno: string;
+      akcije: Record<MenuAuditAction, string>;
+      akter: { scanme: string; gost: string; sistem: string; clan: string; osoblje: string };
+      /** {akter} {radnja} */
+      red: string;
+      /** {radnja} {osoba} */
+      saOsobom: string;
+    };
+  };
+  // K28 — Podešavanja (master §13.9; plan docs/meni/planovi/K24.md §4.7).
+  podesavanja: {
+    opis: string;
+    ucitavanje: string;
+    greskaNaslov: string;
+    sidro: string;
+    blokovi: Record<"radnoVreme" | "jezici" | "konobar" | "zadrzavanje" | "posta" | "sabloni" | "brend", string>;
+    nemaPrava: string;
+    jezici: {
+      naslov: string;
+      opis: string;
+      izvorni: string;
+      /** {jezik} */
+      ukloni: string;
+      dodaj: string;
+      izaberi: string;
+      krozObjavu: string;
+      nemaPrevoda: string;
+      standardLimit: string;
+      premiumRazlog: string;
+      premiumOznaka: string;
+      iznadLimita: string;
+      sacuvaj: string;
+      cuva: string;
+      sacuvano: string;
+      greska: string;
+    };
+    konobar: {
+      naslov: string;
+      opis: string;
+      prag: string;
+      pragPomoc: string;
+      podsetnik: string;
+      podsetnikPomoc: string;
+      jedinica: string;
+      opseg: string;
+      sacuvaj: string;
+      cuva: string;
+      sacuvano: string;
+      greska: string;
+    };
+    brend: {
+      naslov: string;
+      opis: string;
+      naziv: string;
+      nazivPomoc: string;
+      plan: string;
+      planStandard: string;
+      planPremium: string;
+      premiumOtkljucava: string;
+      premiumStavke: readonly string[];
+      premiumUkljucen: string;
+      rezim: string;
+      rezimPomoc: string;
+      zatraziPromenu: string;
+      /** The subject of the prepared e-mail; {lokal} */
+      zatraziPredmet: string;
+      /** The body of the prepared e-mail; {lokal} */
+      zatraziTelo: string;
+      izgled: string;
+      izgledPomoc: string;
+      otvoriIzgled: string;
+    };
+  };
+  // K28 — accepting an invitation into the Menu team (/[slug]/client-panel/meni/poziv/[token]).
+  poziv: {
+    naslov: string;
+    ucitavanje: string;
+    /** {lokal} {uloga} */
+    opis: string;
+    /** {datum} */
+    istice: string;
+    prihvati: string;
+    prihvata: string;
+    prijavaNaslov: string;
+    prijavaOpis: string;
+    prijavaDugme: string;
+    drugiNalogNaslov: string;
+    drugiNalogOpis: string;
+    nevazeciNaslov: string;
+    nevazeciOpis: string;
+    istekaoNaslov: string;
+    istekaoOpis: string;
+    uspehNaslov: string;
+    otvoriPanel: string;
+    greska: string;
   };
 }
 

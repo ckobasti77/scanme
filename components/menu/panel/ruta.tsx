@@ -50,9 +50,13 @@ export function usePanelKontekst(): PanelKontekst {
 
 export function MenuPanelRuta({ slug, children }: { slug: string; children: ReactNode }) {
   const { isLoading } = useConvexAuth();
-  const kontekst = useQuery(api.menuPanel.shellContext, isLoading ? "skip" : { slug });
-  const aktivna = sekcijaIzSegmenta(useSelectedLayoutSegment());
+  const segment = useSelectedLayoutSegment();
+  // K28: an invitation link (poziv/[token]) is opened by someone who has no role yet: no shell, no role check.
+  const poziv = segment === "poziv";
+  const kontekst = useQuery(api.menuPanel.shellContext, isLoading || poziv ? "skip" : { slug });
+  const aktivna = sekcijaIzSegmenta(segment);
 
+  if (poziv) return <>{children}</>;
   if (kontekst === undefined) return <PanelUcitavanje />;
   if (kontekst.status === "unauthenticated") {
     return <PanelPrijava prijavaHref={klijentskiPanelHref(slug)} konobarHref={konobarskiPanelUlazHref(slug)} />;

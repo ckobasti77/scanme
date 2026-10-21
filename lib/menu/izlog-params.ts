@@ -161,7 +161,20 @@ export type PanelPreviewParams = {
   zahtev: string | null;
   /** K27 `filteri=1` (Operativa): the filter drawer is open (telephone) / filters are shown chosen. */
   filteriOtvoreni: boolean;
+  /** K28 `modal=pozivnica|pin|link-panela` (sekcija=tim): that dialog is open on the first render. */
+  modal: PanelModal | null;
+  /** K28 `stanje=bez-zona` (sekcija=tim): the venue has no zones, so no zone control is shown. */
+  bezZona: boolean;
+  /** K28 `poziv=vazeca|istekla|nevazeca|prijava|drugi-nalog|prihvaceno`: the invitation page instead of the panel. */
+  poziv: PanelPoziv | null;
 };
+
+/** K28: a dialog of Tim i pristupi opened by the izlog. */
+export const PANEL_MODALI = ["pozivnica", "pin", "link-panela"] as const;
+export type PanelModal = (typeof PANEL_MODALI)[number];
+/** K28: the states of the invitation page /[slug]/client-panel/meni/poziv/[token]. */
+export const PANEL_POZIVI = ["vazeca", "istekla", "nevazeca", "prijava", "drugi-nalog", "prihvaceno"] as const;
+export type PanelPoziv = (typeof PANEL_POZIVI)[number];
 
 export function parsePanelPreview(params: IzlogSearchParams): PanelPreviewParams {
   return {
@@ -184,6 +197,9 @@ export function parsePanelPreview(params: IzlogSearchParams): PanelPreviewParams
       return zahtev !== undefined && PANEL_ZAHTEV.test(zahtev) ? zahtev : null;
     })(),
     filteriOtvoreni: firstParam(params.filteri) === "1",
+    modal: pickOptional(params.modal, PANEL_MODALI),
+    bezZona: firstParam(params.stanje) === "bez-zona",
+    poziv: pickOptional(params.poziv, PANEL_POZIVI),
   };
 }
 

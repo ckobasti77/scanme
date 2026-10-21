@@ -1932,3 +1932,99 @@ Za Jovana: posle sesije proveriti da li PID 18620 i 18864 rade i po potrebi ih u
 - Ping stiže samo odgovornom konobaru istog lokala — ispunjeno: `convex/menuPanelOperations.test.ts` (samo konobar koji je preuzeo, ne drugi konobar, ne nalog, ne drugi lokal; `ping/no_responsible` za nepreuzet i preuzet nalogom).
 - Uključivanje Room service-a ga pokazuje u Editoru, a na Standardu je zaključano uz razlog — ispunjeno: `convex/menuPanelFeatures.test.ts` (Premium: uslov grupe `Posebne usluge` je ispunjen, isključivanje ga gasi; Standard: `plan/premium_required`) i `funkcionalnosti.test.tsx` (zaključan prekidač sa razlogom i oznakom Premium).
 - Provere prolaze; sekcija K27 je u progress-u — ispunjeno (gore).
+
+## K28 — Panel: Tim i pristupi, Podešavanja, interni admin alat   (2026-10-21 10:20)
+**Fajlovi:**
+- Deljeno: `lib/menu/limits.ts` (`MENU_MAX_MEMBERS`, `MENU_MAX_ACCOUNT_MEMBERS`, `MENU_MAX_ACTIVITY`), `lib/menu/audit.ts` (`team.invited|invite_revoked|joined|role_changed|removed`), `lib/menu/errors/team.ts` (novo), `lib/i18n/types.ts` + `lib/i18n/sr/{menu-panel,menu-admin,menu-domen}.ts` (blokovi `tim`, `podesavanja`, `poziv`; `rezim*`/`uvoz*`; greške `team/*`), `lib/menu/izlog-params.ts` (+ test), `convex/_generated/api.d.ts` (codegen).
+- Backend: `convex/menuTeam.ts` (novo: `list`, `activity`, `inviteStatus`, `invite`, `revokeInvite`, `acceptInvite`, `changeRole`, `remove`), `convex/menuStaff.ts` (`setZone`), `convex/menuSettings.ts` (`panelTiming`), `convex/menuAdmin.ts` (`serviceForBusiness`).
+- Čista logika (novo): `lib/menu/invite.ts`, `lib/menu/team-view.ts`, `lib/menu/settings-view.ts`.
+- UI (novo): `components/menu/panel/tim/{model,tim,clanovi,pozivnica,osoblje,link-panela,aktivnost,tim-ruta}.ts(x)`, `components/menu/panel/podesavanja/{podesavanja,jezici,pragovi,brend-nalog,otvori-na-sirokom,podesavanja-ruta}.tsx`, `components/menu/panel/poziv/{prihvatanje,prihvatanje-ruta}.tsx`, `components/admin/menu-admin-rezim.tsx`; izmenjeni `components/menu/panel/ruta.tsx` (segment `poziv` bez ljuske i bez upita uloge), `components/admin/menu-admin-subpage.tsx` (dve kartice, ostalo netaknuto).
+- Rute: `app/[slug]/client-panel/meni/{tim,podesavanja}/page.tsx` (prave sekcije), `app/[slug]/client-panel/meni/poziv/[token]/page.tsx` (novo).
+- Izlog: `components/menu/izlog/{tim-izlog,podesavanja-izlog,poziv-izlog}.tsx`, `components/menu/fixtures/tim.ts` (novo); izmenjeni `components/menu/izlog/{panel-izlog,rezervacije-izlog}.tsx` (uklonjen `PodesavanjaRezervacijaIzlog`, koji je K28 učinio nekorišćenim) i `app/dev/menu-admin-preview/{page,menu-admin-preview}.tsx` (`fixture=1`, `modal=rezim|uvoz`).
+- Testovi (novi): `convex/menuTeam.test.ts`, `convex/menuK28.test.ts`, `lib/menu/{invite,team-view,settings-view}.test.ts`, `components/menu/panel/tim/tim.test.tsx`, `components/menu/panel/podesavanja/podesavanja.test.tsx`, `components/menu/panel/poziv/prihvatanje.test.tsx`, `components/admin/menu-admin-rezim.test.tsx`; namerno izmenjeni `components/menu/izlog/panel-izlog.test.tsx`, `components/menu/panel/rezervacije-podesavanja.test.tsx`, `lib/menu/izlog-params.test.ts`.
+- Dokumenti: `docs/menu/MENU-ARHITEKTURA.md` (§3.2 `menuTeam`, `menuStaff`, `menuSettings`, `menuAdmin`; §8 rute; §9 izlog), `docs/menu/MENU-UX.md` (§5.15 novo), `docs/tasks/BLOCKED.md` (`SCANME MENU V1 — K28`).
+
+**Šta je urađeno:** Klijentski panel je dobio dve poslednje upravljačke sekcije; u pripremi ostaje samo Analitika. **Tim i pristupi** prikazuje članove iz naloga (Vlasnik i Menadžer izvedeni iz članstva naloga, samo prikaz, oznaka „iz naloga") i članove pozvane u ScanMe Menu, sa ulogom, statusom (aktivan, pozvan do datuma, pozivnica istekla) i radnjama Promeni ulogu, Ukloni iz tima, Opozovi pozivnicu i Pošalji novu pozivnicu; Menadžer nikad ne nudi ni ne dira ulogu Vlasnik, a niko ne menja sebe. Pozivnica je sopstveni tok nad `menuMembers` (token 256 bita, u bazi samo heš, rok 7 dana, ista e-adresa, nikad `businessMemberships`); link se prikazuje jednom, a stranica `/[slug]/client-panel/meni/poziv/[token]` radi izvan ljuske panela. **Osoblje i konobarski panel**: dodavanje, ime, uloga u panelu, deaktivacija, `Postavi PIN` (sistem bira ili 3 cifre; PIN se vidi jednom, u dijalogu), `Resetuj PIN` uz potvrdu, `Otključaj PIN-ove`, podrazumevana zona samo kad lokal ima zone (nova `menuStaff.setZone`) i link panela sa QR kodom i `Promeni link` uz upozorenje. Blok „Šta svaka uloga sme" čita jednu matricu (Može / Ne može, „Samo vlasnik"), a sklopiva Aktivnost prikazuje poslednjih 50 osetljivih radnji po imenu, bez e-adrese. **Podešavanja** imaju blokove Radno vreme, Jezici (Standard: srpski i još jedan, treći zaključan uz katanac, Premium i razlog; „ide kroz objavu"), Konobarski panel (prag 1–120, podsetnik 0–60; nov upit `panelTiming`), Zadržavanje, Poslovna e-pošta i Šabloni (blokovi K25/K26) i Brend i nalog (naziv, paket i šta Premium otključava, „ScanMe Menu · Ugostiteljstvo" sa **samo linkom** `Zatraži promenu režima`, Izgled → Editor); od 1280 px sidro je levo, a ispod toga harmonika. **Interni admin** (podstranica menija klijenta) dobio je karticu Režim usluge (nedostupni režimi vidljivi i onemogućeni, dijalog sa upozorenjem, listom funkcija koje se gase i potvrdom upisom naziva lokala; zove postojeći `adminSetMode`) i Uvoz u nacrt (novi model) (`importDraftV2`, prvo provera).
+
+**ODLUKE:**
+- **„Postojeći tok pozivnica" (prompt) → sopstveni tok nad `menuMembers`** (plan K24-21): `acceptInvitationForUser` bi dao pun legacy pristup nalogu. `convex/lib/invitations.ts`, `businessInvitations` i `businessMemberships` nisu dirani; test dokazuje da prihvatanje ne pravi red u `businessMemberships`, `businessInvitations` ni `accountMemberships`. **Mejl pozivnice se ne šalje**: opcioni `convex/menuTeamEmails.ts` i `MENU_TEAM_INVITE_EMAILS_ENABLED` nisu uvedeni (konzervativno, nijedan nov izlazni mejl); link se kopira. BLOCKED K28/1.
+- **Prijava za pozivnicu**: segment `poziv` u `MenuPanelRuta` preskače upit ljuske i proveru uloge, jer pozvani još nema ulogu. Prijava ostaje postojeća klijentska (`/[slug]/client-panel`), a posle nje se link otvara ponovo. `inviteStatus` ne čita sat (vraća `expiresAt`, pa uređaj razlikuje važeću od istekle); `acceptInvite` proverava rok stvarnim vremenom. Nevažeći, opozvan i iskorišćen link daju isti odgovor `invalid`, a odgovor nikad ne sadrži e-adresu.
+- **Jedan red po adresi**: istekla ili uklonjena pozivnica iste adrese se ponovo koristi, pa redovi ne rastu; kad korisnik prihvati, njegov stariji aktivni red u istoj usluzi postaje `removed`. Tim ima najviše 50 članova (`team/full`). Novi kodovi `team/full` i `team/email_invalid` dodati su pored onih iz plana.
+- **Članovi iz naloga** se čitaju kao u `requireBusinessAccess`: za migriran nalog `accountMemberships` (pun pristup → Vlasnik, upravljanje lokalom → Menadžer, obim lokala poštovan), inače aktivni `businessMemberships` → Menadžer; samo prikaz. BLOCKED K28/6.
+- **PIN**: postojeći `menuStaff` je ostao; `resetPin` i `setPin` već traže `staff.pin` (Vlasnik, Menadžer, admin), a K28 to dokazuje testom. Zona osobe je `activeZoneId` (isto polje kao K23 `setStaffZone`); nova `setZone` traži `waiter.assignZones` i aktivnu zonu istog lokala.
+- **Režim**: klijent ga samo vidi; `Zatraži promenu režima` (i Premium) je `mailto:office@scanme.rs` sa pripremljenom porukom (kao K17-3; klijentski chat se ne otvara linkom). BLOCKED K28/2. **Admin alat** je u podstranici menija klijenta (`components/admin/menu-admin-subpage.tsx`, gde meni-admin već živi, dostupan iz lokala klijenta). `app/admin/usluge/meni` (lista profila, `AdminServiceOperations`) nije menjan, jer bi to diralo opšti admin. Kartice stoje posle Izvoza i van uslova starog menija, da se vide i lokalu bez starog menija. Izlog admina (`fixture=1`) odbija nedostupan režim kao server.
+- **Naziv lokala** je u Brend i nalog samo prikaz (vodi se na nalogu); logo, boje i fontovi vode u `Editor › Izgled` (`?tab=izgled`, samo uz `menu.edit`). BLOCKED K28/4.
+- **Aktivnost** prikazuje sve radnje `menuAuditLog` (svaka akcija ima tekst, nepoznata se preskače), sa akterom po imenu (nalog ili osoblje) i osobom na koju se radnja odnosi, takođe po imenu. BLOCKED K28/3.
+- **Podešavanja**: jedan markup za oba rasporeda (`<details>`). Od 1280 px su sidro i svi blokovi otvoreni kroz `::details-content`, a `OtvoriNaSirokom` otvara blokove u browserima koji to ne podržavaju. Raspored je prvo počinjao od 1024 px, ali se Radno vreme tada prelivalo (snimak), pa sada počinje od 1280. Tekst u `<summary>` je oznaka, ne naslov (blok nosi svoj `h2`); sekcija je dobila `h1` zaglavlje.
+- **Posle pregleda snimaka (Sonnet radnik: 5 visokih, 9 srednjih, 6 niskih nalaza) ispravljeno**:
+  - oznaka „Sme" velikim slovima ličila je na „SME" → liste „Može" / „Ne može" po ulozi i oznaka „Samo vlasnik";
+  - upozorenje u admin dijalogu je oštrije (`rezimUpozorenje`), u tonu upozorenja, uz postojeći `modeChangeNotice`;
+  - svaka funkcija koja se gasi ima oznaku „sada uključeno" ili „već isključeno";
+  - dugme za zatvaranje dijaloga ima 44 px, a onemogućeno „Promeni režim" ima vidljiv razlog;
+  - radnje u redu člana su ujednačene, opasne su u tonu opasnosti, a prazna kružna ikonica u oznakama uloga je uklonjena;
+  - uklonjena je dupla tačka posle datuma;
+  - „Menadžer smene" dobio je napomenu „Važi samo u konobarskom panelu.";
+  - dodata je poruka kad lokal nema zone, a link panela se lomi bez prelivanja.
+- **Nije menjano (zapisano)**:
+  - dugme „Odjavi se" i prikaz adresa na stranici pogrešnog naloga (BLOCKED K28/5);
+  - dugme „Zatraži Premium": isti mailto obrazac postoji u Brend i nalog, a ostali tekstovi pripadaju K03/K27;
+  - isti tekst `Sačuvaj` na dugmadi po bloku, jer svaki blok ima svoj naslov;
+  - oznake `{ime}` u šablonima (K26) i gornja traka izloga, koja nije deo panela;
+  - vreme u poljima radnog vremena, koje browser prikazuje po svom jeziku (komponenta K25).
+- **Testovi menjani namerno**: `panel-izlog.test.tsx` (u pripremi je još samo Analitika; Podešavanja i Tim su prave sekcije; `mailto:` link ne nosi temu izloga; QR je smislena slika `role="img"` sa imenom), `rezervacije-podesavanja.test.tsx` (blokovi su u pravoj sekciji), `izlog-params.test.ts` (novi parametri). Svaka izmena ima komentar `K28 (intentional)`.
+- **Vizuelna provera**: dev server se u ovom runu ne pokreće, pa je korišćen statički pregled `tmp/meni/k28-pregled/` (kopija K27, plus `izlog=admin` i lokalni shim za `useConvex`). Skillovi `design-taste-frontend`, `ui-ux-pro-max` i `frontend-design` nisu pozivani: UI su gradili Sonnet radnici po MENU-UX i skicama K24 §4.6–§4.8, a ključne snimke sam pregledao.
+- Proces: radnici nisu pokretali git. `npx convex codegen` je radio. `next-env.d.ts` je posle build-a vraćen na sadržaj iz HEAD-a. Sajam, resolver kartica i ostatak admina nisu dirani; FRONTEND-DELTA se ne piše (`docs/events/**` je van obima).
+
+**Novi paketi:** nema (run ne uvodi pakete)
+
+**Testovi:**
+- `convex/menuTeam.test.ts` (68):
+  - `invite` po ulogama: Urednik, finansije, pregled, autsajder i drugi lokal → `menu/forbidden`, anoniman → `menu/unauthenticated`; **Menadžer ne može da pozove Vlasnika** (`team/role_forbidden`); loša adresa; dupla važeća pozivnica; token od 43 znaka i putanja; **u bazi je samo heš** (nijedno polje ne sadrži sirov token); rok 7 dana.
+  - `acceptInvite`: traži prijavu; druga adresa → `team/email_mismatch`; ista adresa prolazi bez obzira na velika slova i razmake; link radi samo jednom; istekla tačno na granici; opozvana; uloga posle prihvatanja; **nikad ne pravi red u `businessMemberships`, `businessInvitations` ni `accountMemberships`**.
+  - `inviteStatus`: formati tokena, nepoznat token, `viewer`, odgovor bez „@".
+  - `changeRole`, `remove`, `revokeInvite`: Menadžer i Vlasnik, `team/self_change`, tenant → `menu/not_found`, audit bez e-adrese.
+  - `list`: članovi iz migriranog i legacy naloga, tenant. `activity`: uloge, redosled, najviše 50, bez „@", PIN-a i heša.
+- `convex/menuK28.test.ts` (54):
+  - **postojeći PIN se nigde ne prikazuje**: `setPin` ga vraća tačno jednom; `menuStaff.list`, `panelLink`, `menuTeam.list`, `activity`, `panelTiming`, `menuServices.context` i audit ne sadrže PIN, `pinHash` ni `pinLookup`;
+  - **reset PIN-a samo Vlasnik, Menadžer ili admin**: Urednik → `menu/forbidden`, ostali → `menu/not_found`, anoniman (to je i osoblje, koje nema nalog) odbijen;
+  - `setZone`: uloge, tuđa i neaktivna zona, tuđa osoba, `null`;
+  - **Standard ne može da doda treći jezik**: `plan/language_limit` i ništa se ne menja; Premium može; Premium drugog naloga ne pomaže;
+  - **režim menja samo ScanMe admin**: Vlasnik, Menadžer i anoniman su odbijeni; `menu/mode_not_available`; isti režim bez promene; nepostojeća usluga;
+  - `serviceForBusiness`, `panelTiming` i granice `setPanelTiming`.
+- `lib/menu/invite.test.ts` (12), `lib/menu/team-view.test.ts` (15: prava po ulozi iz matrice, `smeUpravljati`, `ulogeZaPoziv`, `statusClana`), `lib/menu/settings-view.test.ts` (9).
+- Render testovi:
+  - `tim.test.tsx`: nijedan PIN u markupu, napomena o PIN-u uvek prisutna, Menadžer i uloga Vlasnik, izbor uloga u pozivnici, zone samo kad ih lokal ima (inače poruka), „iz naloga" bez radnji, „Vi", istekla pozivnica, Može / Ne može, „Samo vlasnik", jedan `h1`, učitavanje;
+  - `podesavanja.test.tsx`: Standard (katanac, oznaka Premium i razlog u `aria-describedby`), Premium, iznad limita, „ide kroz objavu", **Brend i nalog bez ijedne kontrole režima** (nema `<select`, radio, prekidača ni `<button`, samo mailto link), pragovi, sedam blokova redom;
+  - `prihvatanje.test.tsx` (21): sva stanja, jedan `h1`, nevažeća pozivnica ne imenuje lokal, bez „@";
+  - `menu-admin-rezim.test.tsx`: nedostupni režimi onemogućeni sa „V1.1" / „Kasnija faza", upozorenje i lista funkcija, potvrda tek posle tačnog naziva, oznake uključeno/isključeno, uvoz tek posle čiste provere;
+  - `panel-izlog.test.tsx`: 12 novih K28 testova i namerne izmene.
+- Ceo skup: 584 fajla, 13.070 testova prolazi, 2 preskočena. Jedini pad u prvom prolazu je zatečeni nestabilni `convex/adminMail.test.ts` (BLOKADA K23), koji ponovljen prolazi 52/52. Na kraju K27 bilo je 573 fajla i 12.792 testa.
+
+**Snimci:** `output/playwright/meni/K28/` (statički pregled `tmp/meni/k28-pregled/`, ceo ekran): 19 stanja × 1440, 1024 i 390 × svetla i tamna (admin samo svetla) = 114 snimaka + `metrike.json`.
+- Stanja: Tim (vlasnik/Standard, menadžer/Premium, urednik, bez zona, pozivnica za vlasnika i menadžera, PIN, promena linka), Podešavanja (vlasnik Standard/Premium, menadžer, urednik, povezana pošta sa šablonima), pozivnica (važeća, istekla, drugi nalog), interni admin (osnovno, dijalog režima, uvoz sa izveštajem).
+- Nema vodoravnog skrola ni elemenata van ekrana, svaki snimak ima tačno jedan `h1`, a konzola je bez grešaka.
+- „Male mete" su samo skrivena veza „Pređi na sadržaj", prekidač 48×28 čija je meta red od 44 px (primitiv K07) i admin radio-krugovi od 16 px čija je meta ceo red-oznaka od 44 px.
+- Sonnet radnik je ocenio jasnoću prava i podešavanja; visoki i većina srednjih nalaza su ispravljeni (gore).
+
+**Rezultat provere:**
+- `node .nocni-run/meni/alati/typecheck.mjs`: bez grešaka; `npx tsc --noEmit -p convex/tsconfig.json`: bez grešaka.
+- `npx eslint --ignore-pattern ".nocni-run/**"`: 0 grešaka; dva zatečena upozorenja (`components/admin/venue-admin.tsx`, `convex/purchaseLifecycle.test.ts`).
+- `npx vitest run --testTimeout=30000 --hookTimeout=60000`: konačan prolaz **584 fajla, 13.070 testova prolazi, 0 padova, 2 preskočena**. Ranija dva prolaza imala su po jedan pad zatečenih testova pod opterećenjem: prvi `convex/adminMail.test.ts` (nestabilnost iz K23, sam 52/52), drugi `lib/admin-v2/three/import-boundary.test.ts` (sam 20/20; nijedan fajl K28 ne uvozi `three`). Oba nisu deo K28.
+- `npm run harness:namespace`: prošlo. `npm run build`: prošlo; `next-env.d.ts` vraćen na HEAD.
+- Svi novi i izmenjeni fajlovi su LF (62 proverena node-om: 0 CR, 0 LS/PS). Dev server nije pokretan i nijedan proces koji sam pokrenuo nije ostao upaljen.
+
+**Za Jovana ujutru:**
+- Otvori ove ekrane na telefonu, tabletu i desktopu, u obe teme:
+  - `/dev/menu-panel-preview?sekcija=tim` (i `&uloga=menadzer`, `&modal=pozivnica`, `&modal=pin`, `&modal=link-panela`, `&stanje=bez-zona`);
+  - `?sekcija=podesavanja` (i `&plan=premium`, `&posta=povezana&sabloni=1`);
+  - `?poziv=vazeca`, `?poziv=istekla`, `?poziv=drugi-nalog`;
+  - `/dev/menu-admin-preview?fixture=1&modal=rezim` i `&modal=uvoz`.
+- Probaj: pozivnicu (link se vidi jednom), Postavi PIN (PIN se vidi jednom), Resetuj PIN, promenu uloge kao menadžer nad vlasnikom, dodavanje jezika na Standardu i potvrdu režima upisom naziva.
+- Kad Convex funkcije budu puštene na DEV: pozovi drugi svoj nalog kao Urednika i otvori link prijavljen tim nalogom (prihvatanje), pa drugim nalogom (odbijanje). U adminu lokala → Meni proveri Režim usluge i Uvoz u nacrt.
+- `docs/tasks/BLOCKED.md` → `SCANME MENU V1 — K28`: 6 pitanja (mejl pozivnice, mailto za režim i Premium, aktivnost, naziv lokala, stranica pogrešnog naloga, članovi iz naloga).
+
+**Prihvatanje (prompt K28), stavku po stavku:**
+- Postojeći PIN se nigde ne prikazuje, a reset rade samo Vlasnik ili Menadžer — ispunjeno: `convex/menuK28.test.ts` „Postojeći PIN se nigde ne prikazuje" i „Reset PIN-a samo Vlasnik ili Menadžer"; render `tim.test.tsx` (nijedan PIN u markupu).
+- Standard ne može da doda treći jezik — ispunjeno: `convex/menuK28.test.ts` „Standard ne može da doda treći jezik" (`plan/language_limit`) i `podesavanja.test.tsx` (zaključano uz razlog).
+- Režim menja samo ScanMe admin kroz zaštićenu radnju — ispunjeno: `convex/menuK28.test.ts` „Režim menja samo ScanMe admin"; `podesavanja.test.tsx` (klijent nema kontrolu, samo link); `menu-admin-rezim.test.tsx` (potvrda upisom naziva, upozorenje).
+- Provere prolaze; sekcija K28 je u progress-u — ispunjeno (gore).

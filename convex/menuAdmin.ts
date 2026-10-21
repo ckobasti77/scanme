@@ -8,6 +8,7 @@ import {
 } from "./_generated/server";
 import { requireAdmin } from "./lib/access";
 import { writeAdminAudit } from "./lib/adminAudit";
+import { activeMenuServiceForBusiness } from "./lib/menuAccess";
 import { touchDraft, writeMenuAudit } from "./lib/menuDraft";
 import { assertLegacyMenuWritable } from "./lib/menuLegacyGuard";
 import {
@@ -380,6 +381,26 @@ export const publishForClient = mutation({
 // menuMigration.purgeMigratedService. One transaction, refused BEFORE any
 // write when it would exceed MENU_IMPORT_MAX_WRITES. The client panel has no
 // import and no migration (master §2.3).
+/**
+ * K28 — the new-model Menu service of a business for the internal admin tool
+ * (Režim usluge, Uvoz u nacrt): its id, locked mode and feature switches.
+ * ScanMe admin only; null when the business has no active Menu service.
+ */
+export const serviceForBusiness = query({
+  args: { businessId: v.id("businesses") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const service = await activeMenuServiceForBusiness(ctx, args.businessId);
+    if (!service) return null;
+    return {
+      menuServiceId: service._id,
+      mode: service.mode,
+      modeSetAt: service.modeSetAt ?? null,
+      features: service.features,
+    };
+  },
+});
+
 export const importDraftV2 = mutation({
   args: {
     menuServiceId: v.id("menuServices"),

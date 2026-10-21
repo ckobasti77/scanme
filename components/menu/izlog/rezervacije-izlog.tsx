@@ -1,19 +1,14 @@
 "use client";
 
 // ScanMe Menu V1 (K25) — the reservation blocks of the client panel in the
-// izlog: Funkcionalnosti > Rezervacije and Podešavanja > Radno vreme and
-// Zadržavanje. The real blocks over invented data (fixtures/rezervacije.ts);
-// "saving" is applied in memory with the server's own rule for the hours, and
-// nothing is sent anywhere. A reload starts over.
+// izlog: Funkcionalnosti > Rezervacije over invented data
+// (fixtures/rezervacije.ts); nothing is sent anywhere. K28 mounts Radno vreme
+// and Zadržavanje inside the real Podešavanja (podesavanja-izlog.tsx).
 
-import { fixtureRadnoVreme, fixtureRezervacijeConfig } from "@/components/menu/fixtures/rezervacije";
+import { fixtureRezervacijeConfig } from "@/components/menu/fixtures/rezervacije";
 import type { PanelRezervacije } from "@/lib/menu/izlog-params";
-import { RESERVATION_ERROR } from "@/lib/menu/errors/reservations";
 import type { ReservationMode } from "@/lib/menu/reservation-config";
-import { isValidWorkingHours, type WorkingHours } from "@/lib/menu/working-hours";
 import { RezervacijeIzbor } from "../panel/funkcionalnosti/rezervacije";
-import { RadnoVreme } from "../panel/podesavanja/radno-vreme";
-import { ZadrzavanjeRezervacije } from "../panel/podesavanja/zadrzavanje";
 
 const REZIM_IZ_PARAMETRA: Record<PanelRezervacije, ReservationMode> = {
   forma: "form",
@@ -41,25 +36,6 @@ export function RezervacijeIzlog({
         config={fixtureRezervacijeConfig({ mode, bezRadnogVremena })}
         bezRadnogVremena={bezRadnogVremena}
         radnoVremeHref={radnoVremeHref}
-        onSacuvaj={() => Promise.resolve({ ok: true as const })}
-      />
-    </div>
-  );
-}
-
-/** Radno vreme and Zadržavanje rezervacije, the two blocks of Podešavanja that belong to reservations. */
-export function PodesavanjaRezervacijaIzlog({ bezRadnogVremena }: { bezRadnogVremena: boolean }) {
-  const sacuvaj = (radnoVreme: WorkingHours) =>
-    Promise.resolve(
-      isValidWorkingHours(radnoVreme)
-        ? { ok: true as const }
-        : { ok: false as const, code: RESERVATION_ERROR.hoursInvalid },
-    );
-  return (
-    <div data-podesavanja-rezervacija-izlog="" className="grid gap-6">
-      <RadnoVreme radnoVreme={bezRadnogVremena ? null : fixtureRadnoVreme()} onSacuvaj={sacuvaj} />
-      <ZadrzavanjeRezervacije
-        minuta={fixtureRezervacijeConfig().holdMinutes}
         onSacuvaj={() => Promise.resolve({ ok: true as const })}
       />
     </div>

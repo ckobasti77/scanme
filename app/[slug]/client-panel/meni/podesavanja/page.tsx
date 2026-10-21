@@ -1,14 +1,25 @@
 import type { Metadata } from "next";
-import { PanelSekcija } from "@/components/menu/panel/ruta";
+import { PodesavanjaRuta } from "@/components/menu/panel/podesavanja/podesavanja-ruta";
 import { fmt } from "@/lib/i18n/format";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
+import { readMailReturn } from "@/lib/menu/http/mail-callback";
 
-// Section "podesavanja" of the ScanMe Menu client panel. Until its screen exists it
-// shows an honest "this is what will be here" state (K08); the shell checks the role.
+// Section "Podešavanja" of the ScanMe Menu client panel (K28; master §13.9):
+// working hours, languages, the waiter panel's timing, the reservation hold,
+// the business mailbox, reply templates and Brend i nalog. The shell (layout)
+// checks sign-in and role. `?posta=…` is the return of the mailbox OAuth (K26).
 export const metadata: Metadata = {
   title: fmt(menuPanelSr.meta.naslov, { sekcija: menuPanelSr.sekcije.podesavanja }),
 };
 
-export default function MenuPanelPodesavanjaPage() {
-  return <PanelSekcija sekcija="podesavanja" />;
+export default async function MenuPanelPodesavanjaPage({
+  searchParams,
+}: PageProps<"/[slug]/client-panel/meni/podesavanja">) {
+  const query = await searchParams;
+  const params = new URLSearchParams();
+  for (const kljuc of ["posta", "kod"]) {
+    const vrednost = query[kljuc];
+    if (typeof vrednost === "string") params.set(kljuc, vrednost);
+  }
+  return <PodesavanjaRuta povratak={readMailReturn(params)} />;
 }

@@ -145,6 +145,14 @@ export const menuDomenSr = {
     "ping/no_responsible":
       "Ovaj zahtev nije preuzeo niko od osoblja, pa nema kome da se pošalje podsetnik.",
     "ping/too_soon": "Podsetnik za ovaj zahtev je već poslat. Novi možete poslati za nekoliko minuta.",
+    "team/invite_exists": "Ova adresa već ima važeću pozivnicu ili je već u timu.",
+    "team/invite_invalid": "Ova pozivnica više ne važi. Zatražite novu od vlasnika ili menadžera lokala.",
+    "team/email_mismatch":
+      "Pozivnica je poslata na drugu e-adresu. Prijavite se nalogom sa adresom na koju je pozivnica stigla.",
+    "team/role_forbidden": "Ulogu Vlasnik dodeljuje i menja samo vlasnik lokala.",
+    "team/self_change": "Svoju ulogu ne možete menjati niti sebe ukloniti iz tima.",
+    "team/full": "Tim je popunjen. Uklonite nekoga pre novog poziva.",
+    "team/email_invalid": "Upišite ispravnu e-adresu, na primer ime@example.com.",
   },
   allergens: {
     gluten: "Žitarice koje sadrže gluten",

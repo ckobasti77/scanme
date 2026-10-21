@@ -103,6 +103,10 @@ describe("/dev/menu-panel-preview", () => {
       pingPoslat: false,
       zahtev: null,
       filteriOtvoreni: false,
+      // K28 (intentional): the Tim dialog, the venue without zones and the invitation page, absent by default.
+      modal: null,
+      bezZona: false,
+      poziv: null,
     });
   });
 
@@ -128,6 +132,35 @@ describe("/dev/menu-panel-preview", () => {
       pingPoslat: false,
       zahtev: null,
       filteriOtvoreni: false,
+      // K28 (intentional): the Tim dialog, the venue without zones and the invitation page.
+      modal: null,
+      bezZona: false,
+      poziv: null,
+    });
+  });
+
+  test("K28: modal, stanje=bez-zona and poziv; unknown values give null / false", () => {
+    for (const modal of ["pozivnica", "pin", "link-panela"] as const) {
+      expect(parsePanelPreview({ sekcija: "tim", modal }).modal).toBe(modal);
+    }
+    for (const poziv of ["vazeca", "istekla", "nevazeca", "prijava", "drugi-nalog", "prihvaceno"] as const) {
+      expect(parsePanelPreview({ poziv }).poziv).toBe(poziv);
+    }
+    expect(parsePanelPreview({ modal: "stampa" }).modal).toBeNull();
+    expect(parsePanelPreview({ modal: "Pin" }).modal).toBeNull();
+    expect(parsePanelPreview({ poziv: "x" }).poziv).toBeNull();
+    expect(parsePanelPreview({ poziv: "" }).poziv).toBeNull();
+    // stanje=bez-zona is a content state of Tim: the whole-screen stanje stays null.
+    expect(parsePanelPreview({ sekcija: "tim", stanje: "bez-zona" })).toMatchObject({
+      sekcija: "tim",
+      stanje: null,
+      bezZona: true,
+      sadrzaj: "paznja",
+    });
+    expect(parsePanelPreview({ stanje: "mirno" }).bezZona).toBe(false);
+    expect(parsePanelPreview({ modal: ["pin", "pozivnica"], poziv: ["istekla", "vazeca"] })).toMatchObject({
+      modal: "pin",
+      poziv: "istekla",
     });
   });
 

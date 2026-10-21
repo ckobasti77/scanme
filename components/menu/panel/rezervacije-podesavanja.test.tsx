@@ -653,7 +653,11 @@ describe("the panel izlog mounts the blocks", () => {
 
   test("Podešavanja shows the working hours and the hold, from the fixtures or empty", () => {
     const html = panel({ sekcija: "podesavanja" });
-    expect(html).toContain("data-podesavanja-rezervacija-izlog");
+    // K28 (intentional): was the marker data-podesavanja-rezervacija-izlog; the blocks are inside the real section (data-podesavanja).
+    expect(html).toContain("data-podesavanja=");
+    expect(html).toContain('data-podesavanja-blok="radnoVreme"');
+    expect(html).toContain('data-podesavanja-blok="zadrzavanje"');
+    expect(html).not.toContain("data-sekcija-u-pripremi");
     expect(count(html, "<fieldset disabled")).toBe(0);
     expect(count(html, 'data-dan="')).toBe(7);
     expect(count(html, 'type="time"')).toBe(14 + 2);
@@ -667,13 +671,16 @@ describe("the panel izlog mounts the blocks", () => {
     expect(prazno).toContain(esc(zd.naslov));
   });
 
-  test("the blocks stand between the section's title and its 'u pripremi' card", () => {
-    // K27 (intentional): Funkcionalnosti is a finished section now (no 'u pripremi' card); Podešavanja keeps it until K28.
+  // K28 (intentional): was "the blocks stand between the section's title and its 'u pripremi' card"; Podešavanja is a
+  // finished section now (no 'u pripremi' card), so the blocks stand after its h1, the working hours before the hold.
+  test("the blocks stand after the section's title, the working hours before the hold", () => {
+    // K27 (intentional): Funkcionalnosti is a finished section too (no 'u pripremi' card).
     for (const [sekcija, oznaka] of [["podesavanja", "data-radno-vreme"]] as const) {
       const html = panel({ sekcija });
       expect(html.indexOf("<h1")).toBeGreaterThan(0);
       expect(html.indexOf("<h1")).toBeLessThan(html.indexOf(oznaka));
-      expect(html.indexOf(oznaka)).toBeLessThan(html.indexOf("data-sekcija-u-pripremi"));
+      expect(html.indexOf(oznaka)).toBeLessThan(html.indexOf("data-zadrzavanje"));
+      expect(html).not.toContain("data-sekcija-u-pripremi");
       expect(count(html, "<h1")).toBe(1);
       for (const svg of html.match(/<svg\b[^>]*>/g) ?? []) expect(svg).toContain('aria-hidden="true"');
     }

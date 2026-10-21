@@ -2331,3 +2331,14 @@ Nijedna stavka ne blokira kod.
 2. **„Neobjavljene izmene starije od 24 h"** se meri od poslednje sačuvane izmene nacrta (`lastEditAt`), jer se vreme prve neobjavljene izmene ne čuva. Posledica: ko svaki dan nešto doda, a ne objavljuje, ne dobija upozorenje. Pitanje: u redu, ili treba čuvati vreme prve neobjavljene izmene (novo polje)?
 3. **Operativa ne pokazuje ime gosta sa rezervacije** (samo vreme, broj gostiju i sto), jer je to pregled; ime i kontakt su u konobarskom panelu. Pitanje: treba li menadžeru ime?
 4. **Podsetnik ide samo PIN konobaru koji je preuzeo zahtev** (plan K24-20; pitanje K24/8): nepreuzet zahtev i zahtev preuzet nalogom nemaju dugme, nego razlog rečima. Ponavljamo pitanje uz gotov ekran.
+
+## SCANME MENU V1 — K28 (21. 10. 2026.) — Tim i pristupi, Podešavanja, interni alat: izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod.
+
+1. **Pozivnica u tim se ne šalje mejlom.** Prompt K28 traži „postojeći tok pozivnica", ali `acceptInvitationForUser` daje pun legacy pristup nalogu; run je (po planu K24-21) napravio isti obrazac nad `menuMembers` (token 256 bita, samo heš, rok 7 dana, ista e-adresa). Link se prikazuje jednom i vlasnik ga šalje sam; opcioni `convex/menuTeamEmails.ts` i prekidač `MENU_TEAM_INVITE_EMAILS_ENABLED` nisu uvedeni (nijedan novi izlazni mejl bez odluke). Pitanje: treba li ScanMe da šalje pozivnicu sa svoje adrese (ponavlja K24/9)?
+2. **„Zatraži promenu režima" i Premium** vode na `mailto:office@scanme.rs` sa pripremljenom porukom (kao K17-3); klijentski chat se ne otvara linkom. Pitanje: u redu, ili zahtev treba da stigne u interni admin?
+3. **Aktivnost u Tim i pristupi** prikazuje vlasniku i menadžeru poslednjih 50 osetljivih radnji sa imenom osobe (ime naloga ili ime osoblja), nikad e-adresu. Pitanje: da li i menadžer sme da vidi aktivnost vlasnika?
+4. **Naziv lokala je u Podešavanjima samo prikaz** (vodi se na ScanMe nalogu za sve usluge); logo, boje i fontovi menija vode u Editor › Izgled. Pitanje: treba li klijent da menja naziv iz ScanMe Menu?
+5. **Stranica pozivnice za pogrešan nalog** kaže da se osoba odjavi i prijavi drugim nalogom, bez dugmeta za odjavu i bez prikaza adresa (da ne otkriva na koju je adresu poslata). Pitanje: u redu?
+6. **Članovi „iz naloga"**: Vlasnik i Menadžer izvedeni iz članstva naloga (pun pristup → Vlasnik, upravljanje lokalom → Menadžer; finansije i pregled bez pristupa Menu-u) prikazuju se samo za čitanje; menjaju se u nalogu, ne ovde. Pitanje: u redu?

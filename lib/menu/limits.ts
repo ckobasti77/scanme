@@ -107,6 +107,12 @@ export const MENU_MAX_PANEL_NOTICES = 300;
 export const MENU_MAX_PANEL_SESSIONS = 200;
 /** K25 — other reservations of the same table read in a reservation detail. */
 export const MENU_MAX_RESERVATIONS_ON_POSITION = 20;
+/** K28 — explicit team members of one Menu service (invited and active rows of menuMembers). */
+export const MENU_MAX_MEMBERS = 50;
+/** K28 — account members (Vlasnik, Menadžer "iz naloga") Tim i pristupi reads. */
+export const MENU_MAX_ACCOUNT_MEMBERS = 100;
+/** K28 — the last sensitive actions the "Aktivnost" block of Tim i pristupi shows. */
+export const MENU_MAX_ACTIVITY = 50;
 
 /** Text lengths, in characters after whitespace cleaning. */
 export const MENU_TEXT = {

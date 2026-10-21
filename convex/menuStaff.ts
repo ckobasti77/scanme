@@ -206,6 +206,40 @@ export const deactivate = mutation({
   },
 });
 
+/**
+ * K28 — a member's default (active) zone from Tim i pristupi (master §9.3: the
+ * manager distributes the waiters; a filter, never routing). `null` = every
+ * zone. Owner, Manager or ScanMe admin (`waiter.assignZones`); the zone must
+ * be an active zone of the same venue. Audited like the waiter panel's
+ * menuWaiter.setStaffZone.
+ */
+export const setZone = mutation({
+  args: { staffId: v.id("menuStaff"), zoneId: v.union(v.id("menuZones"), v.null()) },
+  handler: async (ctx, args): Promise<{ ok: true; changed: boolean }> => {
+    const row = await ctx.db.get(args.staffId);
+    if (!row) throw new ConvexError("menu/not_found");
+    const access = await requireMenuAccessToRow(ctx, row.menuServiceId, "waiter.assignZones");
+    const staff = await loadOwned(ctx, args.staffId, access.menuService._id);
+    if (!staff.active) throw new ConvexError(STAFF_ERROR.inactive);
+    if (args.zoneId !== null) {
+      const zone = await loadOwned(ctx, args.zoneId, access.menuService._id);
+      if (!zone.active) throw new ConvexError("menu/not_found");
+    }
+    if ((staff.activeZoneId ?? null) === args.zoneId) return { ok: true, changed: false };
+    await ctx.db.patch(staff._id, { activeZoneId: args.zoneId ?? undefined, updatedAt: Date.now() });
+    await writeMenuAudit(ctx, {
+      menuServiceId: staff.menuServiceId,
+      actorKind: auditActorKind(access.actor),
+      actorUserId: access.user._id,
+      action: "staff.zone_assigned",
+      entityType: "staff",
+      entityKey: staff._id,
+      details: { zoneId: args.zoneId },
+    });
+    return { ok: true, changed: true };
+  },
+});
+
 // -----------------------------------------------------------------------------
 // PINs
 // -----------------------------------------------------------------------------

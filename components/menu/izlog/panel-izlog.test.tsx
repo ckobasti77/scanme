@@ -6,6 +6,8 @@
 // K27: Početna, Operativa, Funkcionalnosti and Lokal i QR are the real sections
 // over invented data (`stanje=paznja|mirno`, `ping=poslat`, `zahtev=`, `filteri=1`);
 // only Tim i pristupi, Analitika and Podešavanja are still "u pripremi".
+// K28: Tim i pristupi (`modal=`, `stanje=bez-zona`) and Podešavanja are real screens too, and
+// `poziv=` shows the invitation page instead of the panel; only Analitika is still "u pripremi".
 //
 // The shared next/link stub (vitest.config.ts) keeps only href, children and
 // className, so it drops aria-current. These tests need aria-current, so the
@@ -43,7 +45,8 @@ const KONOBAR_PUTANJA = "/dev/menu-konobar-preview";
 const KONOBAR_PIN = `${KONOBAR_PUTANJA}?ekran=pin`;
 const SVE_SEKCIJE: readonly PanelNavSekcija[] = PANEL_NAV_SEKCIJE;
 // K27: the sections that are still the "u pripremi" card; every other section is a real screen.
-const U_PRIPREMI: readonly PanelNavSekcija[] = ["tim", "analitika", "podesavanja"];
+// K28 (intentional): was ["tim", "analitika", "podesavanja"]; now ["analitika"] (Tim and Podešavanja are real).
+const U_PRIPREMI: readonly PanelNavSekcija[] = ["analitika"];
 const STVARNE_SEKCIJE: readonly PanelNavSekcija[] = ["pocetna", "operativa", "funkcionalnosti", "lokal"];
 // K27: the blocks of Početna, in the order of the screen, and its quick entries.
 const BLOKOVI_POCETNE = ["paznja", "meni", "sada", "analitika", "brzi-ulazi"] as const;
@@ -171,6 +174,12 @@ const nemaSkoka = (links: readonly Sidro[]) => links.filter((link) => !link.href
 /** K27: a link of the izlog leads to the panel izlog or, for the waiter panel, to the waiter izlog. */
 const unutarIzloga = (href: string | undefined) =>
   href !== undefined && (href.startsWith(PUTANJA) || href.startsWith(KONOBAR_PUTANJA));
+/**
+ * K28: an icon is fine when it is hidden from assistive technology or when it is a meaningful image with a
+ * label (the QR code of the waiter-panel link on Tim i pristupi: `role="img"` and a non-empty `aria-label`).
+ */
+const jeDekorativan = (svg: string) =>
+  svg.includes('aria-hidden="true"') || (svg.includes('role="img"') && /\saria-label="[^"]+"/.test(svg));
 
 /** Whether the markup is the shell (frame, navigation) and not a whole-screen state. */
 const jeOkvir = (html: string) => html.includes('data-menu-panel=""');
@@ -313,11 +322,14 @@ describe("the default panel ({})", () => {
 describe("the Editor action, on every section in the izlog", () => {
   // K20: "lokal" has its real screen (Lokal i QR). K27: so do Početna, Operativa and Funkcionalnosti;
   // only Tim i pristupi, Analitika and Podešavanja are still sections in preparation.
+  // K28: Tim i pristupi and Podešavanja are real screens too; only Analitika is left.
   const SA_EKRANOM = SVE_SEKCIJE.filter((sekcija) => U_PRIPREMI.includes(sekcija));
 
   // K27 (intentional): was "each of the six sections in preparation"; three of them became real screens.
-  test("each of the three sections in preparation offers the Editor, with the sentence, in the card", () => {
-    expect(SA_EKRANOM).toEqual(["tim", "analitika", "podesavanja"]);
+  // K28 (intentional): was "each of the three sections in preparation" (tim, analitika, podesavanja); now only Analitika.
+  test("the one section in preparation (Analitika) offers the Editor, with the sentence, in the card", () => {
+    // K28 (intentional): was ["tim", "analitika", "podesavanja"]; now ["analitika"].
+    expect(SA_EKRANOM).toEqual(["analitika"]);
     for (const sekcija of SA_EKRANOM) {
       const main = element(panel({ sekcija }), "main");
       expect(sidra(main).filter((link) => link.text === esc(t.sekcija.otvoriEditor)).map((link) => link.href)).toEqual([
@@ -336,7 +348,8 @@ describe("the Editor action, on every section in the izlog", () => {
   });
 
   test("it keeps the role, the plan and the theme in its link", () => {
-    const html = panel({ sekcija: "tim", uloga: "menadzer", plan: "premium", tema: "tamna" });
+    // K28 (intentional): was sekcija "tim"; Tim i pristupi is a real screen without the Editor card, so Analitika carries the check.
+    const html = panel({ sekcija: "analitika", uloga: "menadzer", plan: "premium", tema: "tamna" });
     const link = sidra(element(html, "main")).filter((sidro) => sidro.text === esc(t.sekcija.otvoriEditor));
     expect(link.map((sidro) => sidro.href)).toEqual([navHref("editor", "menadzer", "premium", "tamna")]);
   });
@@ -379,11 +392,17 @@ describe("K25: the reservation blocks of Funkcionalnosti and Podešavanja", () =
     expect(panel({ sekcija: "funkcionalnosti" })).not.toContain(esc(rez.bezRadnogVremena));
   });
 
-  test("Podešavanja: the working hours and the hold stand above the 'u pripremi' card", () => {
+  // K28 (intentional): was "the working hours and the hold stand above the 'u pripremi' card"; they are blocks of the
+  // real Podešavanja now (podesavanja-radnoVreme, podesavanja-zadrzavanje) and there is no 'u pripremi' card.
+  test("Podešavanja: the working hours and the hold are blocks of the real section; there is no 'u pripremi' card", () => {
     const main = element(panel({ sekcija: "podesavanja" }), "main");
     expect(count(main, "<h1")).toBe(1);
+    expect(main.indexOf("<h1")).toBeLessThan(main.indexOf("data-radno-vreme"));
     expect(main.indexOf("data-radno-vreme")).toBeLessThan(main.indexOf("data-zadrzavanje"));
-    expect(main.indexOf("data-zadrzavanje")).toBeLessThan(main.indexOf('data-sekcija-u-pripremi="podesavanja"'));
+    expect(main.indexOf('id="podesavanja-radnoVreme"')).toBeLessThan(main.indexOf("data-radno-vreme"));
+    expect(main.indexOf("data-radno-vreme")).toBeLessThan(main.indexOf('id="podesavanja-zadrzavanje"'));
+    expect(main.indexOf('id="podesavanja-zadrzavanje"')).toBeLessThan(main.indexOf("data-zadrzavanje"));
+    expect(main).not.toContain("data-sekcija-u-pripremi");
     expect(main).toContain(`>${esc(radno.naslov)}</h2>`);
     expect(main).toContain(`>${esc(zadrzavanje.naslov)}</h2>`);
     expect(count(main, 'data-dan="')).toBe(7);
@@ -565,19 +584,28 @@ describe("uloga=admin and uloga=menadzer", () => {
     }
   });
 
-  test("a manager sees all eight sections, the role, and the manager's note on Tim i pristupi", () => {
+  // K28 (intentional): was "... and the manager's note on Tim i pristupi" (the 'u pripremi' note); Tim is a real screen
+  // now, so the test asserts its h1 and the "Članovi tima" card instead of the note.
+  test("a manager sees all eight sections, the role, and the real Tim i pristupi screen", () => {
     const html = panel({ uloga: "menadzer", sekcija: "tim" });
     expect(navLinks(html)).toHaveLength(8);
     expect(html).toContain(ulogaRed(menuDomenSr.roles.manager));
-    const napomena = t.sekcija.napomenaMenadzer.tim;
-    expect(napomena).toBeDefined();
-    expect(html).toContain(esc(napomena ?? ""));
+    const main = element(html, "main");
+    expect(naslovi(main, 1)).toEqual([esc(t.sekcije.tim)]);
+    expect(naslovi(main, 2)).toContain(esc(t.tim.clanovi.naslov));
+    expect(main).not.toContain("data-sekcija-u-pripremi");
     expect(navLinks(html).filter((link) => link.current).map((link) => link.sekcija)).toEqual(["tim"]);
   });
 
-  test("an owner does not get the manager's note", () => {
+  // K28 (intentional): was "an owner does not get the manager's note"; the note is gone with the 'u pripremi' card, so
+  // neither role gets it, and the owner sees the same real screen.
+  test("neither the owner nor the manager gets a manager's note on Tim i pristupi (it is the real screen)", () => {
     const napomena = t.sekcija.napomenaMenadzer.tim;
-    expect(panel({ uloga: "vlasnik", sekcija: "tim" })).not.toContain(esc(napomena ?? ""));
+    for (const uloga of ["vlasnik", "menadzer"]) {
+      const html = panel({ uloga, sekcija: "tim" });
+      expect(html).not.toContain(esc(napomena ?? ""));
+      expect(naslovi(element(html, "main"), 2)).toContain(esc(t.tim.clanovi.naslov));
+    }
   });
 });
 
@@ -772,13 +800,19 @@ describe("tema", () => {
       { sekcija: "analitika" },
       { sekcija: "funkcionalnosti", "radno-vreme": "prazno" },
       { sekcija: "podesavanja" },
+      // K28: the real Tim i pristupi (with a zone-less venue) and Podešavanja for a manager on Premium.
+      { sekcija: "tim" },
+      { sekcija: "tim", stanje: "bez-zona" },
+      { sekcija: "podesavanja", uloga: "menadzer", plan: "premium" },
       // K27: the real Početna (both states, owner and editor) and Operativa.
       { stanje: "mirno" },
       { uloga: "urednik" },
       { plan: "premium" },
       { sekcija: "operativa" },
     ]) {
-      const links = nemaSkoka(sidra(panel({ ...query, tema: "tamna" })));
+      // K28 (intentional): was every link but the skip link; a `mailto:` link ("Zatraži promenu režima" in Brend i nalog)
+      // cannot carry the izlog theme, so it is left out. Every other link, absolute ones included, must keep the theme.
+      const links = nemaSkoka(sidra(panel({ ...query, tema: "tamna" }))).filter((link) => !link.href?.startsWith("mailto:"));
       expect(links.length).toBeGreaterThan(2);
       for (const link of links) expect(link.href).toContain("tema=tamna");
     }
@@ -848,7 +882,8 @@ describe("accessibility of the whole panel", () => {
     for (const upit of upiti) {
       const html = panel(upit);
       expect(count(html, "<h1")).toBe(1);
-      for (const svg of html.match(/<svg\b[^>]*>/g) ?? []) expect(svg).toContain('aria-hidden="true"');
+      // K28 (intentional): was aria-hidden on every svg; a labelled role="img" svg (the QR code of Tim i pristupi) is allowed too.
+      for (const svg of html.match(/<svg\b[^>]*>/g) ?? []) expect(jeDekorativan(svg), svg).toBe(true);
     }
   });
 
@@ -870,12 +905,21 @@ describe("accessibility of the whole panel", () => {
       { sekcija: "funkcionalnosti", plan: "premium" },
       { sekcija: "lokal" },
       { sekcija: "tim" },
+      // K28: Tim i pristupi without zones and with each dialog open, the manager's view, and Podešavanja on both plans.
+      { sekcija: "tim", stanje: "bez-zona" },
+      { sekcija: "tim", modal: "pozivnica" },
+      { sekcija: "tim", modal: "pin" },
+      { sekcija: "tim", modal: "link-panela" },
+      { sekcija: "tim", uloga: "menadzer" },
+      { sekcija: "podesavanja", plan: "premium" },
+      { sekcija: "podesavanja", uloga: "menadzer", sabloni: "1", posta: "povezana" },
       { sekcija: "analitika" },
     ];
     for (const upit of upiti) {
       const html = panel(upit);
       expect(count(html, "<h1")).toBe(1);
-      for (const svg of html.match(/<svg\b[^>]*>/g) ?? []) expect(svg).toContain('aria-hidden="true"');
+      // K28 (intentional): was aria-hidden on every svg; a labelled role="img" svg (the QR code of Tim i pristupi) is allowed too.
+      for (const svg of html.match(/<svg\b[^>]*>/g) ?? []) expect(jeDekorativan(svg), svg).toBe(true);
     }
   }, 20_000);
 
@@ -887,7 +931,8 @@ describe("accessibility of the whole panel", () => {
           const html = panel({ uloga, plan, sekcija });
           expect(count(html, "<h1")).toBe(1);
           expect(count(html, "<main")).toBe(1);
-          for (const svg of html.match(/<svg\b[^>]*>/g) ?? []) expect(svg).toContain('aria-hidden="true"');
+          // K28 (intentional): was aria-hidden on every svg; a labelled role="img" svg (the QR code of Tim i pristupi) is allowed too.
+          for (const svg of html.match(/<svg\b[^>]*>/g) ?? []) expect(jeDekorativan(svg), svg).toBe(true);
         }
       }
     }
@@ -909,7 +954,8 @@ describe("accessibility of the whole panel", () => {
 
 describe("K27: which sections are real screens", () => {
   // The Editor is left out: it is the heavy real editor, and the sekcija=editor tests render it.
-  test("exactly Tim i pristupi, Analitika and Podešavanja are still 'u pripremi'; every other section is a real screen", () => {
+  // K28 (intentional): was "exactly Tim i pristupi, Analitika and Podešavanja are still 'u pripremi'"; now only Analitika.
+  test("exactly Analitika is still 'u pripremi'; every other section is a real screen", () => {
     for (const sekcija of SVE_SEKCIJE.filter((kandidat) => kandidat !== "editor")) {
       const main = element(panel({ sekcija }), "main");
       expect(main.includes(`data-sekcija-u-pripremi="${sekcija}"`)).toBe(U_PRIPREMI.includes(sekcija));
@@ -1128,6 +1174,144 @@ describe("K27: Lokal i QR", () => {
   });
 });
 
+describe("K28: Tim i pristupi, Podešavanja and the invitation page", () => {
+  const BLOKOVI_PODESAVANJA = ["radnoVreme", "jezici", "konobar", "zadrzavanje", "posta", "sabloni", "brend"] as const;
+
+  describe("sekcija=tim", () => {
+    test("is the real Tim i pristupi for the owner and the manager: one h1, the account members, the staff with a PIN set", () => {
+      for (const uloga of ["vlasnik", "menadzer"]) {
+        const html = panel({ sekcija: "tim", uloga });
+        const main = element(html, "main");
+        expect(count(html, "<h1")).toBe(1);
+        expect(naslovi(main, 1)).toEqual([esc(t.sekcije.tim)]);
+        expect(naslovi(main, 2)).toContain(esc(t.tim.clanovi.naslov));
+        expect(main).not.toContain("data-sekcija-u-pripremi");
+        expect(main).not.toContain("data-sekcija-zabranjena");
+        // The two members that come from the ScanMe account, marked as such.
+        expect(count(main, `>${esc(t.tim.clanovi.izNaloga)}</`)).toBeGreaterThanOrEqual(2);
+        // The staff of the invented venue: two with a PIN set, one without.
+        expect(count(main, esc(t.tim.osoblje.pinPostavljen))).toBeGreaterThanOrEqual(2);
+        expect(main).toContain(esc(t.tim.osoblje.pinNije));
+        expect(navLinks(html).filter((link) => link.current).map((link) => link.sekcija)).toEqual(["tim"]);
+      }
+    });
+
+    test("never shows a PIN (a three-digit text) while no dialog is open", () => {
+      for (const uloga of ["vlasnik", "menadzer"]) {
+        const main = element(panel({ sekcija: "tim", uloga }), "main");
+        expect(main).not.toMatch(/>\s*\d{3}\s*</);
+        expect(main).not.toContain(esc(t.tim.osoblje.pinJednomNaslov));
+      }
+    });
+
+    test("stanje=bez-zona hides the zone controls; without it they are there", () => {
+      const sZonama = element(panel({ sekcija: "tim" }), "main");
+      expect(sZonama).toContain(esc(t.tim.osoblje.zona));
+      const bezZona = element(panel({ sekcija: "tim", stanje: "bez-zona" }), "main");
+      expect(bezZona).not.toContain(esc(t.tim.osoblje.zona));
+      // A content state, not a whole-screen one: the shell and the real screen are still there.
+      expect(naslovi(bezZona, 1)).toEqual([esc(t.sekcije.tim)]);
+      expect(bezZona).toContain(esc(t.tim.osoblje.pinPostavljen));
+    });
+
+    test("an editor gets the forbidden screen, not Tim i pristupi", () => {
+      const html = panel({ sekcija: "tim", uloga: "urednik" });
+      const main = element(html, "main");
+      expect(main).toContain('data-sekcija-zabranjena=""');
+      expect(naslovi(main, 1)).toEqual([esc(t.sekcije.tim)]);
+      expect(count(html, "<h1")).toBe(1);
+      expect(main).not.toContain(esc(t.tim.clanovi.naslov));
+      expect(main).not.toContain(esc(t.tim.osoblje.naslov));
+    });
+  });
+
+  describe("sekcija=podesavanja", () => {
+    const html = panel({ sekcija: "podesavanja" });
+    const main = element(html, "main");
+
+    test("is the real section: one h1, the seven blocks in order, no 'u pripremi' card", () => {
+      expect(count(html, "<h1")).toBe(1);
+      expect(naslovi(main, 1)).toEqual([esc(t.sekcije.podesavanja)]);
+      expect(main).not.toContain("data-sekcija-u-pripremi");
+      expect(main).not.toContain(esc(t.sekcija.uPripremi));
+      const mesta = BLOKOVI_PODESAVANJA.map((kljuc) => main.indexOf(`data-podesavanja-blok="${kljuc}"`));
+      expect(mesta.every((mesto) => mesto > 0)).toBe(true);
+      expect(mesta).toEqual([...mesta].sort((a, b) => a - b));
+      expect(count(main, "data-podesavanja-blok=")).toBe(7);
+      expect(main.indexOf("<h1")).toBeLessThan(mesta[0]);
+      expect(navLinks(html).filter((link) => link.current).map((link) => link.sekcija)).toEqual(["podesavanja"]);
+    });
+
+    test("Brend i nalog names the service and only asks ScanMe for a mode change: no control changes the mode", () => {
+      const brend = main.slice(main.indexOf('data-podesavanja-blok="brend"'));
+      expect(brend).toContain(esc(fmt(menuDomenSr.serviceLabel, { mode: menuDomenSr.modes.hospitality })));
+      expect(brend).toContain("ScanMe Menu · Ugostiteljstvo");
+      const zahtev = sidra(brend).filter((link) => link.text === esc(t.podesavanja.brend.zatraziPromenu));
+      expect(zahtev).toHaveLength(1);
+      expect(zahtev[0].href).toMatch(/^mailto:office@scanme\.rs\?/);
+      expect(brend).not.toContain("<select");
+      expect(brend).not.toContain('type="radio"');
+      expect(brend).not.toContain('role="switch"');
+    });
+
+    test("plan=standard shows the Premium reason for the third language; plan=premium does not", () => {
+      expect(main).toContain(esc(t.podesavanja.jezici.premiumRazlog));
+      expect(main).toContain("data-jezici-zakljucano");
+      const premium = element(panel({ sekcija: "podesavanja", plan: "premium" }), "main");
+      expect(premium).not.toContain(esc(t.podesavanja.jezici.premiumRazlog));
+      expect(premium).not.toContain("data-jezici-zakljucano");
+    });
+
+    test("an editor gets the forbidden screen, without any block", () => {
+      const urednik = panel({ sekcija: "podesavanja", uloga: "urednik" });
+      const zabranjeno = element(urednik, "main");
+      expect(zabranjeno).toContain('data-sekcija-zabranjena=""');
+      expect(naslovi(zabranjeno, 1)).toEqual([esc(t.sekcije.podesavanja)]);
+      expect(count(urednik, "<h1")).toBe(1);
+      expect(zabranjeno).not.toContain("data-podesavanja");
+    });
+  });
+
+  describe("poziv=", () => {
+    test("poziv=vazeca is the invitation page without the panel shell, with the invented venue and the accept button", () => {
+      const html = panel({ poziv: "vazeca" });
+      expect(jeOkvir(html)).toBe(false);
+      expect(html).not.toContain("<nav");
+      expect(html).not.toContain("data-nav=");
+      expect(count(html, "<h1")).toBe(1);
+      expect(naslovi(html, 1)).toEqual([esc(t.poziv.naslov)]);
+      expect(html).toContain("Demo restoran");
+      expect(html).toContain(`>${esc(t.poziv.prihvati)}</button>`);
+    });
+
+    test("poziv=nevazeca and poziv=istekla say so and never name the venue", () => {
+      const nevazeca = panel({ poziv: "nevazeca" });
+      expect(naslovi(nevazeca, 1)).toEqual([esc(t.poziv.nevazeciNaslov)]);
+      expect(nevazeca).toContain(esc(t.poziv.nevazeciOpis));
+      expect(nevazeca).not.toContain("Demo restoran");
+      expect(jeOkvir(nevazeca)).toBe(false);
+      const istekla = panel({ poziv: "istekla" });
+      expect(naslovi(istekla, 1)).toEqual([esc(t.poziv.istekaoNaslov)]);
+      expect(istekla).not.toContain("Demo restoran");
+    });
+
+    test("every poziv state is its own page outside the shell, whatever the role or section", () => {
+      for (const poziv of ["vazeca", "istekla", "nevazeca", "prijava", "drugi-nalog", "prihvaceno"]) {
+        const html = panel({ poziv, uloga: "urednik", sekcija: "tim" });
+        expect(jeOkvir(html)).toBe(false);
+        expect(html).not.toContain("<nav");
+        expect(count(html, "<h1")).toBe(1);
+        expect(html).toBe(panel({ poziv }));
+      }
+    });
+
+    test("an unknown poziv value renders the normal panel", () => {
+      expect(panel({ poziv: "x" })).toBe(panel({}));
+      expect(jeOkvir(panel({ poziv: "x" }))).toBe(true);
+    });
+  });
+});
+
 describe("namespace", () => {
   test("no rendered panel uses another product's CSS namespace", () => {
     const upiti: IzlogSearchParams[] = [
@@ -1148,6 +1332,10 @@ describe("namespace", () => {
       { sekcija: "operativa", stanje: "mirno", ping: "poslat", filteri: "1", tema: "tamna" },
       { sekcija: "funkcionalnosti", plan: "premium", tema: "tamna" },
       { sekcija: "lokal", tema: "tamna" },
+      // K28: Tim i pristupi (a dialog open), Podešavanja and the invitation page.
+      { sekcija: "tim", modal: "pin", tema: "tamna" },
+      { sekcija: "podesavanja", plan: "premium", tema: "tamna" },
+      { poziv: "vazeca", tema: "tamna" },
     ];
     const html = upiti.map(panel).join("\n");
     expect(html).not.toContain(VENUE_NS);

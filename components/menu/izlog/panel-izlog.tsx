@@ -4,7 +4,9 @@
 // izlog (the same route with another `sekcija`, the waiter izlog for staff).
 // K27: Početna, Operativa, Funkcionalnosti and Lokal i QR are the real
 // sections over invented data (`stanje=paznja|mirno`, `ping=poslat`,
-// `zahtev=rq_XX`, `filteri=1`); Tim, Analitika and Podešavanja stay "u pripremi".
+// `zahtev=rq_XX`, `filteri=1`). K28: Tim i pristupi (`modal=pozivnica|pin|link-panela`,
+// `stanje=bez-zona`) and Podešavanja are real too; `poziv=…` shows the invitation page instead
+// of the panel. Only Analitika stays "u pripremi".
 
 import { fixtureVenue } from "@/components/menu/fixtures";
 import { PodaciLokala } from "@/components/menu/panel/lokal/podaci-lokala";
@@ -35,10 +37,11 @@ import {
 import { EditorIzlog } from "./editor-izlog";
 import { FunkcionalnostiIzlog } from "./funkcionalnosti-izlog";
 import { LokalIzlog } from "./lokal-izlog";
-import { PostaIzlog, SabloniIzlog } from "./odgovor-izlog";
 import { OperativaIzlog } from "./operativa-izlog";
 import { PocetnaIzlog } from "./pocetna-izlog";
-import { PodesavanjaRezervacijaIzlog } from "./rezervacije-izlog";
+import { PodesavanjaIzlog } from "./podesavanja-izlog";
+import { PozivIzlog } from "./poziv-izlog";
+import { TimIzlog } from "./tim-izlog";
 
 const t = menuPanelSr;
 /** The optional K25–K27 izlog fields (/dev/menu-editor-preview mounts the panel without them). */
@@ -52,7 +55,10 @@ type K25K26 =
   | "sadrzaj"
   | "pingPoslat"
   | "zahtev"
-  | "filteriOtvoreni";
+  | "filteriOtvoreni"
+  | "modal"
+  | "bezZona"
+  | "poziv";
 export const PANEL_IZLOG_PUTANJA = "/dev/menu-panel-preview";
 
 export function PanelIzlog({
@@ -85,6 +91,8 @@ export function PanelIzlog({
     tema,
   });
 
+  // K28: the invitation page lives outside the panel shell (the invited person has no role yet).
+  if (params.poziv) return <PozivIzlog stanje={params.poziv} pocetnaHref={pocetnaIzloga} />;
   if (stanje === "ucitava") return <PanelUcitavanje />;
   if (stanje === "prijava") return <PanelPrijava prijavaHref={pocetnaIzloga} konobarHref={konobarIzloga} />;
   if (stanje === "neaktivno") return <PanelNeaktivan klijentskiPanelHref={pocetnaIzloga} />;
@@ -173,24 +181,30 @@ export function PanelIzlog({
         podaciLokala={<PodaciLokala naziv={venue.name} javniLink={`https://scanme.rs/${venue.slug}/meni`} />}
       />
     );
+  } else if (sekcija === "tim") {
+    // K28: the real Tim i pristupi over the invented team; actions change an in-memory store.
+    sadrzaj = <TimIzlog key={uloga} actor={actor} lokal={lokal} modal={params.modal ?? null} bezZona={params.bezZona ?? false} />;
+  } else if (sekcija === "podesavanja") {
+    // K28: the real Podešavanja; the K25 and K26 blocks keep their parameters.
+    sadrzaj = (
+      <PodesavanjaIzlog
+        plan={plan}
+        lokal={lokal}
+        editorHref={sekcijaVidljiva(actor, "editor") ? izlogHref("/dev/menu-editor-preview", { tab: "izgled", tema }) : null}
+        bezRadnogVremena={bezRadnogVremena}
+        posta={params.posta ?? "nije"}
+        povratak={params.povratak ?? null}
+        sablon={params.sablon ?? null}
+        sabloniPrilagodjeni={params.sabloniPrilagodjeni ?? false}
+      />
+    );
   } else {
-    // K26: the finished reply blocks stand above the "u pripremi" card until K28 builds the rest.
-    const iznad =
-      sekcija === "podesavanja" ? (
-        // K26: the venue mailbox and the reply templates (K28 places them in the finished section).
-        <div className="grid gap-6">
-          <PodesavanjaRezervacijaIzlog bezRadnogVremena={bezRadnogVremena} />
-          <PostaIzlog posta={params.posta ?? "nije"} povratak={params.povratak ?? null} />
-          <SabloniIzlog prilagodjeni={params.sabloniPrilagodjeni ?? false} sablon={params.sablon ?? null} />
-        </div>
-      ) : undefined;
     sadrzaj = (
       <SekcijaUPripremi
         sekcija={sekcija}
         plan={plan}
         actor={actor}
         editorHref={sekcijaVidljiva(actor, "editor") ? href("editor") : undefined}
-        iznad={iznad}
       />
     );
   }

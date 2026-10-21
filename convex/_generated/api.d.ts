@@ -210,6 +210,7 @@ import type * as menuServices from "../menuServices.js";
 import type * as menuSettings from "../menuSettings.js";
 import type * as menuStaff from "../menuStaff.js";
 import type * as menuStudio from "../menuStudio.js";
+import type * as menuTeam from "../menuTeam.js";
 import type * as menuTranslations from "../menuTranslations.js";
 import type * as menuWaiter from "../menuWaiter.js";
 import type * as migrations from "../migrations.js";
@@ -443,6 +444,7 @@ declare const fullApi: ApiFromModules<{
   menuSettings: typeof menuSettings;
   menuStaff: typeof menuStaff;
   menuStudio: typeof menuStudio;
+  menuTeam: typeof menuTeam;
   menuTranslations: typeof menuTranslations;
   menuWaiter: typeof menuWaiter;
   migrations: typeof migrations;

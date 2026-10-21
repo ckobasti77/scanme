@@ -96,6 +96,17 @@ export const MENU_AUDIT_ACTIONS = [
   // K27 — Operativa of the client panel (a read-only overview; master §13.5).
   /** The Owner or a Manager sent a quiet reminder to the waiter who took a request (never a reassignment). */
   "operations.ping",
+  // K28 — Tim i pristupi (master §10.6). Never the e-mail address or the invitation token.
+  /** The Owner or a Manager invited someone into the Menu team (role only). */
+  "team.invited",
+  /** A pending invitation was revoked. */
+  "team.invite_revoked",
+  /** The invited person accepted and joined the team. */
+  "team.joined",
+  /** A team member's role changed. */
+  "team.role_changed",
+  /** A team member was removed from the Menu team. */
+  "team.removed",
 ] as const;
 
 export type MenuAuditAction = (typeof MENU_AUDIT_ACTIONS)[number];
