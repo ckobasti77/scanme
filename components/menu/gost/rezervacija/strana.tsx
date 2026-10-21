@@ -5,6 +5,7 @@
 // routes reach them through app/[slug]/meni/_lib/prikaz.tsx, the one wiring
 // file the JS budget test lets import the guest's folder.
 
+import type { JavniAnalitika } from "@/lib/menu/analitika/track";
 import type { JavniIzgled } from "@/lib/menu/identity/public-tokens";
 import type { JavniLokal } from "@/lib/menu/public-view";
 import type { PublicReservationEntry } from "@/lib/menu/reservation-config";
@@ -28,7 +29,10 @@ export function RezervacijaStrana({
   akcije,
   meniHref,
   mojiZahteviHref,
+  analitika = null,
 }: {
+  /** K29: the live route's analytics context (absent in the izlog). */
+  analitika?: JavniAnalitika | null;
   okvir: RezervacijaOkvir;
   /** How the venue takes reservations; the route sends "off" to a 404 before it gets here. */
   ulaz: PublicReservationEntry;
@@ -49,6 +53,7 @@ export function RezervacijaStrana({
           meniHref={meniHref}
           mojiZahteviHref={mojiZahteviHref}
           satUzivo
+          analitika={analitika}
         />
       ) : ulaz.mode === "external" ? (
         <RezervacijaEksterni lokal={okvir.lokal.naziv} url={ulaz.url} meniHref={meniHref} />

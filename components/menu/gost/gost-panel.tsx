@@ -21,6 +21,7 @@ import { fmt, srPluralCategory } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuGostSr } from "@/lib/i18n/sr/menu-gost";
 import { cartCount, orderFingerprint, orderLinesOf, orderTotals, type CartLine } from "@/lib/menu/cart";
+import { trackJavni } from "@/lib/menu/analitika/track";
 import { REQUEST_ERROR } from "@/lib/menu/errors/requests";
 import { isOpenStatus, type MenuPaymentPreference, type MenuRequestStatus } from "@/lib/menu/request-status";
 import { KorpaList, type KorpaGreska, type KorpaPotvrda } from "./korpa/korpa";
@@ -132,6 +133,8 @@ export function GostPanel({
     setSalje(null);
     setList(null);
     if (ishod.ok) {
+      // K29: a step of the conversion flow (counted only inside a session; a no-op without context).
+      if (!ishod.deduped) trackJavni({ vrsta: "korak", korak: "zahtev" });
       setTraka({
         vrsta,
         requestId: ishod.requestId,
@@ -156,6 +159,7 @@ export function GostPanel({
     const ishod = await bezbedno(() => radnje.posalji({ kanal, linije, videnUkupnoRsd: zbir.totalRsd, kljuc }));
     setSalje(null);
     if (ishod.ok) {
+      if (!ishod.deduped) trackJavni({ vrsta: "korak", korak: "porudzbina" });
       zavrsiSlanje(slug, kanal, cuvaj);
       korpa.isprazni();
       setKorpaPotvrda({ requestId: ishod.requestId, createdAt: ishod.createdAt, status: ishod.status, totals: ishod.totals });

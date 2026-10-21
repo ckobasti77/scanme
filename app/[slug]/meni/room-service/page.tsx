@@ -22,7 +22,7 @@ import { saJezikom } from "@/lib/menu/i18n-fallback";
 import { MENU_ROOM_SERVICE_PATH } from "@/lib/menu/guest-actions";
 import { mogucnostiIzPrezentacije } from "@/lib/menu/public-view";
 import { roomServicePage, roomServiceSections } from "@/lib/menu/room-service-view";
-import { JAVNI_ROBOTS, saAkcijama } from "../_lib/prikaz";
+import { JAVNI_ROBOTS, analitikaZa, saAkcijama } from "../_lib/prikaz";
 import { gostZaStranicu, jedanParametar, ucitajGostSesiju, ucitajJavno, ulazJavno } from "../_lib/ucitaj";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +62,7 @@ const ucitajRoomService = cache(async (slug: string, jezik: string | undefined) 
       pageKey: null,
       dostavaRsd: rs.deliveryFeeRsd,
     }),
+    kartica: sesija?.cardId ?? null,
   };
 });
 
@@ -105,6 +106,7 @@ export default async function RoomServicePage(props: PageProps<"/[slug]/meni/roo
           />
         }
         gost={gost}
+        analitika={analitikaZa(rs.view.lokal.slug, rs.view.jezik, rs.kartica)}
       />
     );
   }

@@ -569,6 +569,8 @@ describe("gates", () => {
       position: { label: "Sto 12", kind: "table" },
       actions: { call: true, bill: false, order: true, roomService: false },
       expiresAt: (await sessionRowOf(env.t, env.table.guestToken)).expiresAt,
+      // K29 (intentional): the card of the session, the analytics "QR kartica".
+      cardId: (await sessionRowOf(env.t, env.table.guestToken)).cardId ?? null,
     });
     const terrace = await seat(env, { label: "Terasa", kind: "other" });
     expect(codeOf(await callWaiter(env.t, terrace.guestToken))).toBe("ok");

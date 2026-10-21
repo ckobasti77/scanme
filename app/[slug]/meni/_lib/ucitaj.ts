@@ -50,6 +50,8 @@ export type JavnoUcitano =
       kurs: MenuKurs | null;
       /** K21: the guest at a position; null = a plain link. */
       gost: GostServer | null;
+      /** K29: the QR card of the guest's position session (the analytics "QR kartica"), or null. */
+      kartica: string | null;
     }
   | {
       vrsta: "razdelnik";
@@ -75,6 +77,8 @@ async function gostKolacici() {
 export type GostSesija = {
   position: { label: string; kind: "table" | "room" | "other" };
   actions: GuestActions;
+  /** K29: the card the session came from. */
+  cardId?: string | null;
 };
 
 /** K21: the live guest session of this venue behind the smm_g cookie, or null. */
@@ -169,6 +173,7 @@ export const ucitajJavno = cache(
         pageKey: page.page.key,
         dostavaRsd: null,
       }),
+      kartica: sesija?.cardId ?? null,
     };
   },
 );

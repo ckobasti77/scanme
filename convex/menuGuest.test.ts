@@ -249,6 +249,8 @@ describe("the hop (menuGuest.mintFromCard) and the guest session", () => {
       // K21: the actions the position offers; none while the venue has no published menu.
       actions: { call: false, bill: false, order: false, roomService: false },
       expiresAt: sessions[0].expiresAt,
+      // K29 (intentional): the card of the session, the analytics "QR kartica".
+      cardId: sessions[0].cardId ?? null,
     });
     // Another venue's menu never sees this session.
     expect(await t.query(api.menuGuest.sessionView, { slug: SLUG_B, guestToken: outcome.session.guestToken })).toBeNull();

@@ -2342,3 +2342,12 @@ Nijedna stavka ne blokira kod.
 4. **Naziv lokala je u Podešavanjima samo prikaz** (vodi se na ScanMe nalogu za sve usluge); logo, boje i fontovi menija vode u Editor › Izgled. Pitanje: treba li klijent da menja naziv iz ScanMe Menu?
 5. **Stranica pozivnice za pogrešan nalog** kaže da se osoba odjavi i prijavi drugim nalogom, bez dugmeta za odjavu i bez prikaza adresa (da ne otkriva na koju je adresu poslata). Pitanje: u redu?
 6. **Članovi „iz naloga"**: Vlasnik i Menadžer izvedeni iz članstva naloga (pun pristup → Vlasnik, upravljanje lokalom → Menadžer; finansije i pregled bez pristupa Menu-u) prikazuju se samo za čitanje; menjaju se u nalogu, ne ovde. Pitanje: u redu?
+
+## SCANME MENU V1 — K29 (21. 10. 2026.) — analitika: izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod. Definicije: `docs/menu/ANALITIKA-DEFINICIJE.md`.
+
+1. **Identifikator sesije i saglasnost (master §14.4, P8).** Tačka saglasnosti postoji u kodu (`lib/menu/analitika/saglasnost.ts`, promenljiva `MENU_ANALYTICS_IDENTIFIERS`: `off` / `on` / `consent`). Run je ostavio `off`: u browseru gosta se ne čuva nikakav identifikator, pa sesije i konverzioni tokovi pokazuju „nije dostupno", a otvaranja, detalji, skenovi, zahtevi i rezervacije rade. Identifikator bi bio slučajan, poseban za svaki lokal, u `localStorage`, zamenjen posle 30 min neaktivnosti, bez fingerprintinga. Pitanja za vlasnika i pravnika: da li je dozvoljen bez pitanja (`on`) ili samo uz pristanak gosta (`consent`, tada treba tekst pitanja i mesto u javnom meniju), i tekst za politiku privatnosti (šta se beleži: stranica, otvoren artikal, jezik, klasa uređaja, sat, QR kartica; šta ne: IP, ime, kontakt, uređaj).
+2. **Interni saobraćaj.** Ne broji se browser sa prijavljenom ScanMe sesijom (vlasnik, menadžer, urednik, admin). Osoblje koje otvara meni bez prijave na nalog (npr. konobar sa svog telefona) broji se kao gost. Skenove štampanih kartica broji postojeći resolver i on prijavljene ne isključuje. Pitanje: u redu?
+3. **Čuvanje.** Sirovi događaji 90 dana, dnevni agregati 24 meseca, otvorene sesije 24 h (master §14.4). Procena prostora za 1.000 lokala: ~6 GB sirovih, ~2 GB agregata (definicije §9). Pitanje: da li troškovna ili pravna provera traži kraće čuvanje sirovih (jedna konstanta)?
+4. **Jedinstveni posetioci se ne mere** (nema ih u §14.2; manje podataka). Pitanje: u redu?

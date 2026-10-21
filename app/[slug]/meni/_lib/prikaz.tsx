@@ -18,6 +18,8 @@ import type { GostAkcije, GostUcitano } from "@/components/menu/gost/ostrvo";
 import type { RezervacijaAkcije } from "@/components/menu/gost/rezervacija/model";
 import { UlazRezervacije } from "@/components/menu/gost/rezervacija/ulaz";
 import { saJezikom } from "@/lib/menu/i18n-fallback";
+import { analitikaRezim } from "@/lib/menu/analitika/saglasnost";
+import type { JavniAnalitika } from "@/lib/menu/analitika/track";
 import type { PublicReservationEntry } from "@/lib/menu/reservation-config";
 import { otkaziZahtev, posaljiPorudzbinu, pozoviKonobara, zatraziRacun } from "./radnje-gosta";
 import { posaljiRezervaciju } from "./radnje-rezervacije";
@@ -42,6 +44,14 @@ export const REZERVACIJA_AKCIJE: RezervacijaAkcije = { posalji: posaljiRezervaci
 
 export function saAkcijama(gost: GostServer | null): GostUcitano | null {
   return gost ? { ...gost, akcije: GOST_AKCIJE } : null;
+}
+
+/**
+ * K29: the analytics context of a live public page (docs/menu/ANALITIKA-DEFINICIJE.md).
+ * Only the live routes pass it; the identifier mode is the consent point (P8).
+ */
+export function analitikaZa(slug: string, jezik: string, kartica: string | null): JavniAnalitika {
+  return { slug, jezik, kartica, rezim: analitikaRezim(process.env.MENU_ANALYTICS_IDENTIFIERS) };
 }
 
 export function javniMetadata(ucitano: JavnoUcitano): Metadata {
@@ -87,6 +97,7 @@ export function JavniPrikaz({ ucitano, rezervacija }: { ucitano: JavnoUcitano; r
       kurs={ucitano.kurs}
       gost={gost}
       rezervacija={ulaz}
+      analitika={analitikaZa(lokal.slug, jezik, ucitano.kartica)}
     />
   );
 }

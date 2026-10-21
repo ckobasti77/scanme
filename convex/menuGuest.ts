@@ -10,6 +10,7 @@ import {
 import { cardResolution } from "./lib/accessResolution";
 import { normalizeCode } from "./lib/codes";
 import { activeMenuServiceForBusiness } from "./lib/menuAccess";
+import { zabeleziDogadjaj } from "./lib/menuAnalytics";
 import { menuRequestChannelValidator, menuPaymentPreferenceValidator } from "./lib/menuDomainValidators";
 import { guestActionsOf, loadMenuGuest, type MenuGuest } from "./lib/menuGuestAccess";
 import { resolveMenuCardLink } from "./lib/menuQrResolve";
@@ -244,6 +245,8 @@ export const sessionView = query({
     position: { label: string; kind: Doc<"menuPositions">["kind"] };
     actions: GuestActions;
     expiresAt: number;
+    /** K29: the card the position session came from (the analytics "QR kartica"), or null. */
+    cardId: Id<"cards"> | null;
   } | null> => {
     const guest = await loadMenuGuest(ctx, args, null);
     if (!guest) return null;
@@ -252,6 +255,7 @@ export const sessionView = query({
       position: { label: guest.position.label, kind: guest.position.kind },
       actions,
       expiresAt: guest.session.expiresAt,
+      cardId: guest.session.cardId ?? null,
     };
   },
 });
@@ -369,7 +373,7 @@ async function insertRequest(
 ): Promise<Id<"menuRequests">> {
   const card = guest.session.cardId ? await ctx.db.get(guest.session.cardId) : null;
   const order = input.order;
-  return await ctx.db.insert("menuRequests", {
+  const requestId = await ctx.db.insert("menuRequests", {
     menuServiceId: guest.menuService._id,
     businessId: guest.business._id,
     kind: input.kind,
@@ -396,6 +400,19 @@ async function insertRequest(
     createdAt: now,
     updatedAt: now,
   });
+  // K29: a new request (a deduped repeat never reaches this function).
+  await zabeleziDogadjaj(
+    ctx,
+    guest.menuService._id,
+    {
+      vrsta: "zahtev_poslat",
+      zahtev: input.kind,
+      kanal: input.channel,
+      ...(card && card.businessId === guest.business._id ? { kartica: card._id } : {}),
+    },
+    now,
+  );
+  return requestId;
 }
 
 /** Call the waiter or ask for the bill: one open request of each kind per position (K19-7). */

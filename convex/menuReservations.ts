@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { activeMenuServiceForBusiness } from "./lib/menuAccess";
+import { zabeleziDogadjaj } from "./lib/menuAnalytics";
 import { menuReservationStatusValidator } from "./lib/menuDomainValidators";
 import { applyReservationAction, type ReservationActorDoc } from "./lib/menuReservationWriter";
 import {
@@ -235,6 +236,8 @@ export const submit = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    // K29: a new reservation request (a deduped repeat returned above).
+    await zabeleziDogadjaj(ctx, menuServiceId, { vrsta: "rezervacija_poslata" }, now);
     return { ok: true, reservationId, requestedAt: value.requestedAt, partySize: value.partySize, deduped: false };
   },
 });

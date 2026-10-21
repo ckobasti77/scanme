@@ -32,6 +32,7 @@ import {
   type ReservationFieldErrors,
 } from "@/lib/menu/reservation-form";
 import type { WorkingHours } from "@/lib/menu/working-hours";
+import { postaviAnalitiku, trackJavni, type JavniAnalitika } from "@/lib/menu/analitika/track";
 import { useMinutniSat } from "../../javni/use-minutni-sat";
 import {
   gostiTekst,
@@ -67,6 +68,8 @@ export type RezervacijaFormaProps = {
   putanjaLinka?: string;
   /** The izlog's starting state: filled values and a refusal; a guest starts empty. */
   pocetno?: { vrednosti?: Partial<VrednostiForme>; odbijeno?: Odbijeno };
+  /** K29: the live route's analytics context (a sent request is a step of the conversion flow); absent in the izlog. */
+  analitika?: JavniAnalitika | null;
 };
 
 /** The control each field's error and the summary's link point at. */
@@ -106,6 +109,7 @@ export function RezervacijaForma({
   satUzivo = false,
   putanjaLinka,
   pocetno,
+  analitika = null,
 }: RezervacijaFormaProps) {
   const id = useId();
   const sada = useMinutniSat(sadaMs, satUzivo);
@@ -159,6 +163,10 @@ export function RezervacijaForma({
     if (ishod.ok) {
       pokusaj.current = null;
       setPoslato(ishod);
+      if (analitika && !ishod.deduped) {
+        postaviAnalitiku(analitika);
+        trackJavni({ vrsta: "korak", korak: "rezervacija" });
+      }
       return;
     }
     setOdbijeno(ishod);

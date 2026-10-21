@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { zabeleziPrelazZahteva } from "./menuAnalytics";
 import { writeMenuAudit } from "./menuDraft";
 import { nextStatus, type MenuRequestStatus, type RequestAction } from "../../lib/menu/request-status";
 import type { RequestErrorCode } from "../../lib/menu/errors/requests";
@@ -75,6 +76,8 @@ export async function applyRequestAction(
     if (staffId) patch.cancelledByStaffId = staffId;
   }
   await ctx.db.patch(request._id, patch);
+  // K29: one analytics event per real transition (docs/menu/ANALITIKA-DEFINICIJE.md §4).
+  await zabeleziPrelazZahteva(ctx, request, result.to, result.alsoAccepted, patch.cancelledBy, now);
 
   if (result.to === "cancelled") {
     await writeMenuAudit(ctx, {

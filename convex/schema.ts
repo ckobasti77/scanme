@@ -62,6 +62,14 @@ import {
   menuModelValidator,
 } from "./lib/menuValidators";
 import {
+  menuAnalyticsBreakdownValidator,
+  menuAnalyticsDeviceValidator,
+  menuAnalyticsKindValidator,
+  menuAnalyticsSessionStepsValidator,
+  menuAnalyticsStepValidator,
+  menuAnalyticsTotalsValidator,
+} from "./lib/menuAnalyticsValidators";
+import {
   menuAddonSelectionValidator,
   menuArticleAllergensValidator,
   menuArticleKindValidator,
@@ -4252,6 +4260,75 @@ export default defineSchema({
     .index("by_storageId", ["storageId"])
     .index("by_status_and_createdAt", ["status", "createdAt"])
     .index("by_menuServiceId_and_createdAt", ["menuServiceId", "createdAt"]),
+
+  // K29 — analytics (master §14; docs/menu/ANALITIKA-DEFINICIJE.md). Raw
+  // events are only ever inserted (the browser through /api/meni/analitika,
+  // the request and reservation writers on the server); a 15-minute cron sums
+  // them into ONE totals row and ONE breakdown row per service and Belgrade
+  // day, so no write contends with another. Never a name, contact, IP,
+  // User-Agent, device hash or token. Raw rows live 90 days (by
+  // _creationTime), daily rows 24 months (by dayKey), session rows a day.
+  menuAnalyticsEvents: defineTable({
+    menuServiceId: v.id("menuServices"),
+    vrsta: menuAnalyticsKindValidator,
+    occurredAt: v.number(),
+    dayKey: v.string(),
+    sat: v.number(),
+    stranica: v.optional(v.string()),
+    artikal: v.optional(v.string()),
+    kartica: v.optional(v.id("cards")),
+    jezik: v.optional(v.string()),
+    uredjaj: v.optional(menuAnalyticsDeviceValidator),
+    korak: v.optional(menuAnalyticsStepValidator),
+    // The anonymous session id (only when the consent point allows it).
+    sesija: v.optional(v.string()),
+    zahtev: v.optional(menuRequestKindValidator),
+    kanal: v.optional(menuRequestChannelValidator),
+    ko: v.optional(menuRequestCancelledByValidator),
+  }),
+
+  menuAnalyticsDaily: defineTable({
+    menuServiceId: v.id("menuServices"),
+    dayKey: v.string(),
+    brojevi: menuAnalyticsTotalsValidator,
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_dayKey", ["menuServiceId", "dayKey"])
+    .index("by_dayKey", ["dayKey"]),
+
+  menuAnalyticsDailyDims: defineTable({
+    menuServiceId: v.id("menuServices"),
+    dayKey: v.string(),
+    po: menuAnalyticsBreakdownValidator,
+    updatedAt: v.number(),
+  })
+    .index("by_menuServiceId_and_dayKey", ["menuServiceId", "dayKey"])
+    .index("by_dayKey", ["dayKey"]),
+
+  // One row per open session segment (a pause of 30 min starts a new one,
+  // counted on its own start day); deleted a day after its last event.
+  menuAnalyticsSessions: defineTable({
+    menuServiceId: v.id("menuServices"),
+    sesija: v.string(),
+    dayKey: v.string(),
+    pocetak: v.number(),
+    poslednji: v.number(),
+    koraci: menuAnalyticsSessionStepsValidator,
+  })
+    .index("by_menuServiceId_and_sesija", ["menuServiceId", "sesija"])
+    .index("by_poslednji", ["poslednji"]),
+
+  // Where the crons stopped: `dogadjaji` (last summed _creationTime) and
+  // `skenovi` (last finished day moved from dailyCardMetrics, and the
+  // menuServices page cursor while a day is being moved).
+  menuAnalyticsCursors: defineTable({
+    kljuc: v.union(v.literal("dogadjaji"), v.literal("skenovi")),
+    poslednji: v.optional(v.number()),
+    dan: v.optional(v.string()),
+    radniDan: v.optional(v.string()),
+    stranica: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index("by_kljuc", ["kljuc"]),
 
   // ===========================================================================
   // Sajam automobila 2026 — fair tables (B0; BACKEND-HANDOFF §5,

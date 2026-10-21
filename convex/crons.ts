@@ -229,4 +229,13 @@ crons.interval("menu guest sessions sweep", { minutes: 30 }, internal.menuGuest.
 // forgets PIN counters nobody touched for over 12 h (convex/menuWaiter.ts).
 crons.interval("menu staff sessions sweep", { minutes: 30 }, internal.menuWaiter.sweepExpiredSessions, {});
 
+// ScanMe Menu V1 (K29): analytics (docs/menu/ANALITIKA-DEFINICIJE.md §7) —
+// raw events summed into Belgrade daily rows; scans of finished days moved
+// from dailyCardMetrics; raw events deleted after 90 days, daily rows after
+// 24 months, session rows a day after their last event. All in bounded
+// batches with a cursor (convex/menuAnalyticsRollup.ts).
+crons.interval("menu analytics rollup", { minutes: 15 }, internal.menuAnalyticsRollup.zbir, {});
+crons.interval("menu analytics scans", { hours: 1 }, internal.menuAnalyticsRollup.skenovi, {});
+crons.interval("menu analytics retention", { hours: 1 }, internal.menuAnalyticsRollup.retencija, {});
+
 export default crons;

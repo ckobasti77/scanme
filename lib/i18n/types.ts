@@ -66,6 +66,7 @@ import type { StaffErrorCode } from "../menu/errors/waiter";
 import type { ReservationErrorCode } from "../menu/errors/reservations";
 import type { OperationsErrorCode } from "../menu/errors/operations";
 import type { TeamErrorCode } from "../menu/errors/team";
+import type { AnalyticsErrorCode } from "../menu/errors/analytics";
 import type { MenuAuditAction } from "../menu/audit";
 import type {
   MenuMigrationErrorCode,
@@ -2385,7 +2386,8 @@ export interface MenuDomenDict {
     | StaffErrorCode
     | ReservationErrorCode
     | OperationsErrorCode
-    | TeamErrorCode,
+    | TeamErrorCode
+    | AnalyticsErrorCode,
     string
   >;
   // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).

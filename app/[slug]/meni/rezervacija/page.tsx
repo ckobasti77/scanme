@@ -11,7 +11,7 @@ import { fmt } from "@/lib/i18n/format";
 import { menuGostSr } from "@/lib/i18n/sr/menu-gost";
 import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
 import { saJezikom } from "@/lib/menu/i18n-fallback";
-import { JAVNI_ROBOTS, REZERVACIJA_AKCIJE, RezervacijaStrana, javniViewport } from "../_lib/prikaz";
+import { JAVNI_ROBOTS, REZERVACIJA_AKCIJE, RezervacijaStrana, analitikaZa, javniViewport } from "../_lib/prikaz";
 import { jedanParametar, ucitajJavno, ucitajUlazRezervacije, ulazJavno } from "../_lib/ucitaj";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +55,7 @@ export default async function RezervacijaPage(props: PageProps<"/[slug]/meni/rez
       akcije={REZERVACIJA_AKCIJE}
       meniHref={saJezikom(`/${slug}/meni`, view.jezik, view.jezici)}
       mojiZahteviHref={saJezikom(`/${slug}/meni/zahtevi`, view.jezik, view.jezici)}
+      analitika={analitikaZa(view.lokal.slug, view.jezik, null)}
     />
   );
 }

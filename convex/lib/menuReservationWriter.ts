@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { zabeleziPrelazRezervacije } from "./menuAnalytics";
 import { writeMenuAudit } from "./menuDraft";
 import {
   nextReservationStatus,
@@ -85,6 +86,8 @@ export async function applyReservationAction(
       break;
   }
   await ctx.db.patch(reservation._id, patch);
+  // K29: one analytics event per real transition (docs/menu/ANALITIKA-DEFINICIJE.md §4).
+  await zabeleziPrelazRezervacije(ctx, reservation, action, actor.kind === "guest" ? "guest" : "staff", now);
 
   if (result.to === "declined" || result.to === "cancelled") {
     await writeMenuAudit(ctx, {

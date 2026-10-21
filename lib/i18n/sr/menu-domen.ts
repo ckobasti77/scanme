@@ -153,6 +153,8 @@ export const menuDomenSr = {
     "team/self_change": "Svoju ulogu ne možete menjati niti sebe ukloniti iz tima.",
     "team/full": "Tim je popunjen. Uklonite nekoga pre novog poziva.",
     "team/email_invalid": "Upišite ispravnu e-adresu, na primer ime@example.com.",
+    "analytics/invalid_period":
+      "Izaberite period od najviše 366 dana, koji ne ide u budućnost i nije stariji od 24 meseca.",
   },
   allergens: {
     gluten: "Žitarice koje sadrže gluten",

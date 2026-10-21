@@ -20,7 +20,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
 import { brojBezPodataka, brojUpozorenja, normalizujAlergene } from "@/lib/menu/allergen-warnings";
 import type { MenuAllergenCode } from "@/lib/menu/allergens";
-import { trackJavni } from "@/lib/menu/analitika/track";
+import { postaviAnalitiku, trackJavni, type JavniAnalitika } from "@/lib/menu/analitika/track";
 import { datumKursa, kursJeSvez, type MenuKurs } from "@/lib/menu/currency";
 import { fmt } from "@/lib/i18n/format";
 import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
@@ -85,6 +85,8 @@ export type JavniMeniProps = {
   dodajUKorpu?: (args: JavniDodajArgs) => ReactNode;
   /** K25: the way into reservations (a server-rendered card); passed through to the frame, absent in the editor preview. */
   rezervacija?: ReactNode;
+  /** K29: only the live public page passes it; without it (editor, izlog, draft preview) nothing is counted. */
+  analitika?: JavniAnalitika | null;
 };
 
 /** K21: what the ordering slot of the detail gets. */
@@ -127,6 +129,7 @@ export function JavniMeni({
   radnjeGosta,
   dodajUKorpu,
   rezervacija,
+  analitika = null,
 }: JavniMeniProps) {
   // K17: the venue's menu-wide media display caps every article (master §7.4).
   const view = useMemo(() => {
@@ -201,10 +204,17 @@ export function JavniMeni({
     return map;
   }, [view.sekcije]);
 
+  // K29: one "stranica" event per shown page; the context is the live page's only.
+  const analitikaSlug = analitika?.slug ?? null;
+  const analitikaJezik = analitika?.jezik ?? null;
+  const analitikaKartica = analitika?.kartica ?? null;
+  const analitikaRezim = analitika?.rezim ?? null;
   useEffect(() => {
-    if (ugradjen) return;
-    trackJavni({ vrsta: "page_open", slug, pageKey });
-  }, [ugradjen, slug, pageKey]);
+    if (ugradjen || !analitikaSlug || !analitikaJezik || !analitikaRezim) return;
+    postaviAnalitiku({ slug: analitikaSlug, jezik: analitikaJezik, kartica: analitikaKartica, rezim: analitikaRezim });
+    trackJavni({ vrsta: "stranica", stranica: pageKey });
+    return () => postaviAnalitiku(null);
+  }, [ugradjen, analitikaSlug, analitikaJezik, analitikaKartica, analitikaRezim, pageKey]);
 
   // Leaving a category with Back (a fragment change) also closes an open detail.
   useEffect(() => {
@@ -217,9 +227,9 @@ export function JavniMeni({
   const onOtvori = useCallback(
     (articleKey: string) => {
       setOtvoren(articleKey);
-      trackJavni({ vrsta: "article_detail_open", slug, pageKey, articleKey });
+      trackJavni({ vrsta: "detalj", stranica: pageKey, artikal: articleKey });
     },
-    [slug, pageKey],
+    [pageKey],
   );
 
   const zajednicko = {

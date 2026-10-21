@@ -135,6 +135,12 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // menuMailSendReservation: per reservation, 5 a day — an answer, a change and
   // a follow-up fit; the venue's address never floods one guest.
   menuMailSendReservation: { kind: "token bucket", rate: 5, period: 24 * HOUR, capacity: 5 },
+  // ScanMe Menu V1 (K29, docs/menu/ANALITIKA-DEFINICIJE.md §2) — menu
+  // analytics events (menuAnalytics.ingest), per IP hash, one token per EVENT
+  // (a call carries 1–10). A guest makes a few a minute; 300 leaves room for a
+  // full hall behind one NAT and bounds what one address can write. Over it the
+  // events are dropped silently (an undercount, never an error for the guest).
+  menuAnalyticsIp: { kind: "token bucket", rate: 300, period: MINUTE, capacity: 300 },
   // TASK-66 (RFC-004 §2.9): the two GUEST ACTIONS. Deliberately keyed
   // differently from each other, and from the per-IP hop buckets above —
   // §2.9 rejects a per-IP action limit outright, because a whole hall sits

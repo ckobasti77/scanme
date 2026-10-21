@@ -52,7 +52,7 @@ type MenuCardRow = {
  * to MENU_MAX_QR_CARDS cards of the business (cards of every destination, read
  * oldest first); `truncated` says there were more.
  */
-async function menuCardRows(
+export async function menuCardRows(
   ctx: DatabaseCtx,
   menuServiceId: Id<"menuServices">,
   businessId: Id<"businesses">,
