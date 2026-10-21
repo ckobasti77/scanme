@@ -142,3 +142,11 @@ Uključeni identifikatori sesije dodaju po lokalu ~60 redova sesija i ~120 izmen
 - Saglasnost i politika privatnosti za identifikator sesije: `docs/tasks/BLOCKED.md`, „SCANME MENU V1 — K29".
 - Da li Urednik vidi Analitiku (BLOCKED, K24/K28) — danas ne.
 - Brisanje starih `menuRequests` i `menuReservations` (K19, K25) nije deo ove retencije: analitika ih ne čita.
+
+## 11. Prikaz u panelu (K30)
+
+- Tekst objašnjenja svake brojke je u `lib/i18n/sr/menu-analitika.ts` i prati redove §5; kad se definicija promeni, menja se i rečenica. Render test „svaka prikazana brojka ima objašnjenje“ (`components/menu/panel/analitika/analitika.test.tsx`) proverava da svaka prikazana brojka pokazuje na svoje objašnjenje.
+- **Malo podataka** (`lib/menu/analitika/prikaz.ts`, `stanjePodataka`): osnovica ekrana su sesije kad se mere (`sesije.broj`), inače otvaranja menija. Ispod 20 panel ne prikazuje nijedan procenat (udeo ishoda, promenu, udeo u raspodeli ni tok gosta) i kaže „Još je malo podataka". Iznad toga svaki procenat i dalje traži svoj imenilac od 20 (§2). Testovi: `[pravilo-20]` (`lib/menu/analitika/prikaz.test.ts`) i render test „ispod 20 sesija nema procenata“ (`components/menu/panel/analitika/analitika.test.tsx`).
+- **Poređenje** se prikazuje kao razlika rečima („28 više nego prethodnih 30 dana") i procentom samo kad prethodni period ima najmanje 20; boja ne govori da li je promena dobra. Test `[poredjenje]`.
+- **CSV** (Premium, `lib/menu/analitika/csv.ts`): izabrani period dan po dan (kolone su metrike §5 osim interne `otvaranjaSaSesijom`; sesije i tok gosta samo kad su pouzdani) sa redom „Ukupno", ili izabrana raspodela dan po dan (vrednosti, „Ostalo", „Ukupno"). UTF-8 sa BOM-om, `;`, CRLF, ISO datumi, zaštita od formula. Samo zbirne brojke: nema identifikatora sesije, imena, kontakta ni ključeva artikala i kartica (nazivi su nazivi iz menija). Test `[csv]`.
+- **Kartica „Poslednjih 7 dana"** na Početnoj čita `pregled` sa `dana: 7` i prikazuje samo otvaranja menija, otvaranja artikala, skeniranja i najotvaraniji artikal (bez zahteva i rezervacija, koje su operativni blokovi Početne).

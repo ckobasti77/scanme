@@ -302,8 +302,6 @@ export const menuPanelSr = {
     },
     analitika: {
       naslov: "Poslednjih 7 dana",
-      prazno: "Analitika stiže uskoro",
-      praznoOpis: "Ovde ćete videti kako su gosti koristili meni u poslednjih 7 dana. Prikazivaćemo samo stvarne podatke.",
     },
     brziUlazi: {
       naslov: "Brzi ulazi",

@@ -107,6 +107,8 @@ describe("/dev/menu-panel-preview", () => {
       modal: null,
       bezZona: false,
       poziv: null,
+      // K30 (intentional): the data state of Analitika and of the Početna card (`stanje=malo-podataka|prazno|bez-sesija`); absent = enough data.
+      analitika: null,
     });
   });
 
@@ -136,7 +138,37 @@ describe("/dev/menu-panel-preview", () => {
       modal: null,
       bezZona: false,
       poziv: null,
+      // K30 (intentional): the data state of Analitika and of the Početna card, absent by default.
+      analitika: null,
     });
+  });
+
+  test("K30: stanje=malo-podataka|prazno|bez-sesija is the data state of Analitika; absent or unknown gives null", () => {
+    for (const stanje of ["malo-podataka", "prazno", "bez-sesija"] as const) {
+      expect(parsePanelPreview({ sekcija: "analitika", stanje }).analitika).toBe(stanje);
+      // It is a content state, not a whole-screen one: the shell state stays null.
+      expect(parsePanelPreview({ stanje }).stanje).toBeNull();
+    }
+    for (const stanje of [undefined, "", "puno", "Prazno", "malo", "pokvareno", "mirno", "paznja", "bez-zona"]) {
+      expect(parsePanelPreview({ stanje }).analitika).toBeNull();
+    }
+    expect(parsePanelPreview({ sekcija: "analitika" }).analitika).toBeNull();
+    // A repeated parameter counts by its first value.
+    expect(parsePanelPreview({ stanje: ["prazno", "malo-podataka"] }).analitika).toBe("prazno");
+    expect(parsePanelPreview({ stanje: ["nepoznato", "prazno"] }).analitika).toBeNull();
+  });
+
+  test("K30: stanje=ucitava is still the whole-screen state, with no analytics state", () => {
+    expect(parsePanelPreview({ sekcija: "analitika", stanje: "ucitava" })).toMatchObject({
+      sekcija: "analitika",
+      stanje: "ucitava",
+      analitika: null,
+    });
+  });
+
+  test("K30: the data state does not change the Početna / Operativa content state or Tim's zones", () => {
+    expect(parsePanelPreview({ stanje: "prazno" })).toMatchObject({ sadrzaj: "paznja", bezZona: false });
+    expect(parsePanelPreview({ stanje: "mirno" })).toMatchObject({ sadrzaj: "mirno", analitika: null });
   });
 
   test("K28: modal, stanje=bez-zona and poziv; unknown values give null / false", () => {

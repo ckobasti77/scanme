@@ -7,14 +7,17 @@
 
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
+import { fixtureIzvestaj, IZLOG_DANAS } from "@/components/menu/fixtures/analitika";
 import { IZLOG_SADA } from "@/components/menu/fixtures/lokal";
 import { fixtureOperacije } from "@/components/menu/fixtures/operativa-panel";
 import { fixturePocetnaInput } from "@/components/menu/fixtures/pocetna";
 import { PocetnaIzlog } from "@/components/menu/izlog/pocetna-izlog";
 import { fmt } from "@/lib/i18n/format";
+import { menuAnalitikaSr } from "@/lib/i18n/sr/menu-analitika";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
 import { menuZajednickoSr } from "@/lib/i18n/sr/menu-zajednicko";
+import { poslednjihDana } from "@/lib/menu/analitika/period";
 import type { MenuTier } from "@/lib/menu/capabilities";
 import { homeSummary, type HomeInput } from "@/lib/menu/home-summary";
 import type { MenuActor } from "@/lib/menu/permissions";
@@ -229,13 +232,39 @@ describe("Pocetna: the one dark card", () => {
     for (const sadrzaj of SADRZAJI) expect(fixtura(sadrzaj, "editor")).not.toContain('data-kartica="istaknuta"');
   });
 
-  test("it says honestly that analytics is coming, with no number", () => {
+  // K30 (intentional): was "it says honestly that analytics is coming, with no number" (an empty "stiže uskoro"
+  // card; the keys t.analitika.prazno and praznoOpis were removed). Now the card is real: without the `analitika`
+  // prop (the report is still loading) it shows the loading state and no digit outside its heading and the
+  // loading sentence; with a report it shows the numbers.
+  test("without a report the card is loading and has no number; with one it shows the numbers", () => {
     for (const sadrzaj of SADRZAJI) {
       const kartica = tekst(blok(fixtura(sadrzaj, "owner"), "analitika"));
-      expect(kartica).toContain(t.analitika.prazno);
+      expect(kartica).toContain(menuAnalitikaSr.pocetna.ucitavanje);
       expect(kartica).toContain(t.analitika.naslov);
-      // The only digit in it is the "7" of "7 dana" in the dictionary's own sentences.
-      expect(kartica.replace(t.analitika.naslov, "").replace(t.analitika.praznoOpis, "")).not.toMatch(/\d/);
+      // K30 (intentional): the only digit in it is the "7" of "7 dana", in the heading and in the loading sentence.
+      expect(kartica.replace(t.analitika.naslov, "").replace(menuAnalitikaSr.pocetna.ucitavanje, "")).not.toMatch(/\d/);
+      expect(blok(fixtura(sadrzaj, "owner"), "analitika")).not.toContain("data-broj=");
+    }
+    for (const sadrzaj of SADRZAJI) {
+      const actor = "owner";
+      const html = renderToStaticMarkup(
+        <Pocetna
+          summary={homeSummary(fixturePocetnaInput({ sadrzaj, plan: "premium", actor }))}
+          actor={actor}
+          nowMs={IZLOG_SADA}
+          hrefs={HREFS}
+          analitika={fixtureIzvestaj({ period: poslednjihDana(IZLOG_DANAS, 7), stanje: "puno", premium: false })}
+        />,
+      );
+      const kartica = blok(html, "analitika");
+      expect(tekst(kartica)).not.toContain(menuAnalitikaSr.pocetna.ucitavanje);
+      expect([...kartica.matchAll(/data-broj="([^"]+)"/g)].map((m) => m[1])).toEqual([
+        "pocetna-otvaranja",
+        "pocetna-detalji",
+        "pocetna-skenovi",
+        "pocetna-najotvaraniji",
+      ]);
+      expect(kartica).toMatch(/<data value="[1-9]\d*" data-broj="pocetna-otvaranja"/);
     }
   });
 });
@@ -685,7 +714,19 @@ describe("fixturePocetnaInput", () => {
         const izlog = renderToStaticMarkup(
           <PocetnaIzlog actor={actor} plan="premium" sadrzaj={sadrzaj} hrefs={HREFS} />,
         );
-        expect(izlog).toBe(fixtura(sadrzaj, actor, "premium"));
+        // K30 (intentional): the izlog now passes the invented report of the last 7 days to the card (fixtures/analitika.ts),
+        // so the same screen is built here with that report; `fixtura` alone leaves the card in its loading state.
+        const ulaz = fixturePocetnaInput({ sadrzaj, plan: "premium", actor });
+        const ocekivano = renderToStaticMarkup(
+          <Pocetna
+            summary={homeSummary(ulaz)}
+            actor={actor}
+            nowMs={ulaz.nowMs}
+            hrefs={HREFS}
+            analitika={fixtureIzvestaj({ period: poslednjihDana(IZLOG_DANAS, 7), stanje: "puno", premium: false })}
+          />,
+        );
+        expect(izlog).toBe(ocekivano);
       }
     }
   });

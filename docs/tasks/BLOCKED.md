@@ -2351,3 +2351,10 @@ Nijedna stavka ne blokira kod. Definicije: `docs/menu/ANALITIKA-DEFINICIJE.md`.
 2. **Interni saobraćaj.** Ne broji se browser sa prijavljenom ScanMe sesijom (vlasnik, menadžer, urednik, admin). Osoblje koje otvara meni bez prijave na nalog (npr. konobar sa svog telefona) broji se kao gost. Skenove štampanih kartica broji postojeći resolver i on prijavljene ne isključuje. Pitanje: u redu?
 3. **Čuvanje.** Sirovi događaji 90 dana, dnevni agregati 24 meseca, otvorene sesije 24 h (master §14.4). Procena prostora za 1.000 lokala: ~6 GB sirovih, ~2 GB agregata (definicije §9). Pitanje: da li troškovna ili pravna provera traži kraće čuvanje sirovih (jedna konstanta)?
 4. **Jedinstveni posetioci se ne mere** (nema ih u §14.2; manje podataka). Pitanje: u redu?
+
+## SCANME MENU V1 — K30 (21. 10. 2026.) — analitika u panelu: tumačenje koje traži potvrdu vlasnika
+
+Ne blokira kod. Definicije: `docs/menu/ANALITIKA-DEFINICIJE.md` §11.
+
+1. **„Procenti tek od 20 relevantnih sesija" (master §14.4).** Run je izabrao strožu varijantu: osnovica celog ekrana su sesije kad se mere, a dok se ne mere (podrazumevano, BLOCKED K29/1) otvaranja menija; ispod 20 panel ne prikazuje **nijedan** procenat i kaže „Još je malo podataka". Iznad toga svaki procenat i dalje traži svoj imenilac od 20 (npr. udeo završenih zahteva tek od 20 poslatih). Pitanje: da li je osnovica dobra dok sesije nisu uključene, ili procente treba vezati samo za svoj imenilac?
+2. **CSV** sadrži zbirne brojke po danu i nazive iz menija (artikli, stranice, QR kartice), bez ijednog podatka o gostu; polja su odvojena sa `;` (Excel sa srpskim podešavanjima). Pitanje: da li ScanMe želi i varijantu sa zarezom za druge programe?

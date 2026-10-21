@@ -14,7 +14,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
-import type { MenuPanelSekcijaUPripremi } from "@/lib/i18n/types";
 import type { MenuTier } from "@/lib/menu/capabilities";
 import {
   klijentskiPanelHref,
@@ -26,7 +25,6 @@ import {
   sekcijaVidljiva,
 } from "@/lib/menu/panel-nav";
 import type { MenuActor } from "@/lib/menu/permissions";
-import { SekcijaUPripremi } from "./sekcija";
 import { MenuPanelShell } from "./shell";
 import {
   PanelBezPristupa,
@@ -100,15 +98,3 @@ export function MenuPanelRuta({ slug, children }: { slug: string; children: Reac
   );
 }
 
-/** A section page whose screen is not built yet (K27–K30 replace these). */
-export function PanelSekcija({ sekcija }: { sekcija: MenuPanelSekcijaUPripremi }) {
-  const { slug, actor, plan } = usePanelKontekst();
-  return (
-    <SekcijaUPripremi
-      sekcija={sekcija}
-      plan={plan}
-      actor={actor}
-      editorHref={sekcijaVidljiva(actor, "editor") ? panelSekcijaHref(slug, "editor") : undefined}
-    />
-  );
-}

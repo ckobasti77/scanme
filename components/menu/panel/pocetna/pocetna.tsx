@@ -6,8 +6,8 @@
 // Analitika 5, the entries in one row; Meni and Analitika are only as tall as
 // their content, not as tall as the block next to them); below that one column
 // in the same order.
-// The Analitika card is the ONE darker card of the screen and shows no number
-// until K30. Each block shows only what the role may open: an Urednik gets
+// The Analitika card is the ONE darker card of the screen; since K30 it shows the
+// last 7 days with the definitions of Analitika (analitika-kartica.tsx). Each block shows only what the role may open: an Urednik gets
 // Pažnja (the menu lines), Meni and the entry to the Editor.
 //
 // Presentational: the route (pocetna-ruta.tsx) and the izlog pass the summary
@@ -18,6 +18,7 @@ import { Activity, ChartColumn, ConciergeBell, QrCode, SquarePen, type LucideIco
 import Link from "next/link";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
+import type { IzvestajAnalitike } from "@/lib/menu/analitika/izvestaj";
 import type { HomeSummary } from "@/lib/menu/home-summary";
 import { roleCan, type MenuActor, type MenuPermission } from "@/lib/menu/permissions";
 import { kadaTekst } from "@/lib/menu/studio/kada";
@@ -25,8 +26,8 @@ import { Dugme } from "../../zajednicko/dugme";
 import { Kartica } from "../../zajednicko/kartica";
 import { OkvirSekcije } from "../../zajednicko/okvir-sekcije";
 import { SavObjave } from "../../zajednicko/sav-objave";
-import { PraznoStanje } from "../../zajednicko/stanja";
 import { ZaglavljeSaStatusom } from "../../zajednicko/zaglavlje-sa-statusom";
+import { AnalitikaKartica } from "./analitika-kartica";
 import { Paznja } from "./paznja";
 import { Sada } from "./sada";
 
@@ -79,17 +80,6 @@ function MeniBlok({ meni, nowMs, editorHref, className }: { meni: HomeSummary["m
   );
 }
 
-/** The one darker card of the screen. Until K30 it says honestly that analytics is coming: no number. */
-function AnalitikaBlok({ className }: { className?: string }) {
-  return (
-    <Kartica ton="istaknuta" data-blok="analitika" className={className}>
-      <OkvirSekcije id="pocetna-analitika" naslov={t.analitika.naslov}>
-        <PraznoStanje nivo={3} ikonica={ChartColumn} naslov={t.analitika.prazno} opis={t.analitika.praznoOpis} className="py-6" />
-      </OkvirSekcije>
-    </Kartica>
-  );
-}
-
 function BrziUlazi({ actor, hrefs, className }: { actor: MenuActor; hrefs: PocetnaHrefs; className?: string }) {
   const ulazi = ULAZI.filter((ulaz) => roleCan(actor, ulaz.dozvola));
   return (
@@ -127,11 +117,14 @@ export function Pocetna({
   actor,
   nowMs,
   hrefs,
+  analitika,
 }: {
   summary: HomeSummary;
   actor: MenuActor;
   nowMs: number;
   hrefs: PocetnaHrefs;
+  /** K30: the last 7 days (menuAnalytics.pregled); undefined while it loads, null when unavailable. */
+  analitika?: IzvestajAnalitike | null;
 }) {
   return (
     <>
@@ -140,7 +133,7 @@ export function Pocetna({
         <Paznja summary={summary} actor={actor} nowMs={nowMs} hrefs={hrefs} className="lg:col-span-7" />
         <MeniBlok meni={summary.meni} nowMs={nowMs} editorHref={hrefs.editor} className="lg:col-span-5 lg:self-start" />
         {summary.sada ? <Sada sada={summary.sada} className="lg:col-span-7" /> : null}
-        {roleCan(actor, "analytics.read") ? <AnalitikaBlok className="lg:col-span-5 lg:self-start" /> : null}
+        {roleCan(actor, "analytics.read") ? <AnalitikaKartica izvestaj={analitika} href={hrefs.analitika} className="lg:col-span-5 lg:self-start" /> : null}
         <BrziUlazi actor={actor} hrefs={hrefs} className="lg:col-span-12" />
       </div>
     </>

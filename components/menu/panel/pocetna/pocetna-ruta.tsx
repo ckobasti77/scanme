@@ -8,13 +8,18 @@
 // (lib/menu/home-summary.ts), every second, so a request crosses the threshold
 // on the screen without a new subscription. The screen itself is presentational
 // (pocetna.tsx); the izlog mounts it over fixtures.
+// K30: the second subscription is the card "Poslednjih 7 dana"
+// (convex/menuAnalytics.ts `pregled`, 7 days, today's Belgrade day from the
+// device), only for a role that may read analytics.
 
 import { useConvexAuth, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "@/convex/_generated/api";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
+import { danUBeogradu } from "@/lib/menu/analitika/vreme";
 import { homeSummary } from "@/lib/menu/home-summary";
 import { konobarskiPanelUlazHref, panelSekcijaHref } from "@/lib/menu/panel-nav";
+import { roleCan } from "@/lib/menu/permissions";
 import { okvirOd } from "../../konobar/rezervacije/okvir-vremena";
 import { useSat } from "../../konobar/use-sat";
 import { GreskaStanje, UcitavanjeStanje } from "../../zajednicko/stanja";
@@ -31,6 +36,10 @@ export function PocetnaRuta() {
   const nowMs = useSat(pocetnoMs);
   const fromMs = okvirOd(nowMs);
   const data = useQuery(api.menuPanel.home, isLoading ? "skip" : { menuServiceId, fromMs });
+  const analitika = useQuery(
+    api.menuAnalytics.pregled,
+    isLoading || !roleCan(actor, "analytics.read") ? "skip" : { menuServiceId, danas: danUBeogradu(nowMs), dana: 7 },
+  );
 
   if (data === undefined) return <UcitavanjeStanje oblik="kartice" oznaka={t.ucitavanje} />;
   if (data === null) return <GreskaStanje naslov={t.greskaNaslov} />;
@@ -43,5 +52,5 @@ export function PocetnaRuta() {
     podesavanja: panelSekcijaHref(slug, "podesavanja"),
     konobar: konobarskiPanelUlazHref(slug),
   };
-  return <Pocetna summary={homeSummary({ nowMs, ...data })} actor={actor} nowMs={nowMs} hrefs={hrefs} />;
+  return <Pocetna summary={homeSummary({ nowMs, ...data })} actor={actor} nowMs={nowMs} hrefs={hrefs} analitika={analitika} />;
 }

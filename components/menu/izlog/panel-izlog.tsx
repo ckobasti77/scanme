@@ -6,7 +6,8 @@
 // sections over invented data (`stanje=paznja|mirno`, `ping=poslat`,
 // `zahtev=rq_XX`, `filteri=1`). K28: Tim i pristupi (`modal=pozivnica|pin|link-panela`,
 // `stanje=bez-zona`) and Podešavanja are real too; `poziv=…` shows the invitation page instead
-// of the panel. Only Analitika stays "u pripremi".
+// of the panel. K30: Analitika is real too (`stanje=malo-podataka|prazno|bez-sesija`), and the
+// Početna card "Poslednjih 7 dana" shows the same invented numbers.
 
 import { fixtureVenue } from "@/components/menu/fixtures";
 import { PodaciLokala } from "@/components/menu/panel/lokal/podaci-lokala";
@@ -34,6 +35,7 @@ import {
   PanelUcitavanje,
   SekcijaZabranjena,
 } from "../panel/stanja-panela";
+import { AnalitikaIzlog } from "./analitika-izlog";
 import { EditorIzlog } from "./editor-izlog";
 import { FunkcionalnostiIzlog } from "./funkcionalnosti-izlog";
 import { LokalIzlog } from "./lokal-izlog";
@@ -58,7 +60,8 @@ type K25K26 =
   | "filteriOtvoreni"
   | "modal"
   | "bezZona"
-  | "poziv";
+  | "poziv"
+  | "analitika";
 export const PANEL_IZLOG_PUTANJA = "/dev/menu-panel-preview";
 
 export function PanelIzlog({
@@ -139,6 +142,7 @@ export function PanelIzlog({
         actor={actor}
         plan={plan}
         sadrzaj={params.sadrzaj ?? "paznja"}
+        analitika={params.analitika ?? null}
         hrefs={{
           editor: href("editor"),
           operativa: href("operativa"),
@@ -196,6 +200,16 @@ export function PanelIzlog({
         povratak={params.povratak ?? null}
         sablon={params.sablon ?? null}
         sabloniPrilagodjeni={params.sabloniPrilagodjeni ?? false}
+      />
+    );
+  } else if (sekcija === "analitika") {
+    // K30: the real Analitika over invented numbers; the period, the trend and the breakdown work.
+    sadrzaj = (
+      <AnalitikaIzlog
+        key={plan}
+        plan={plan}
+        stanje={params.analitika ?? null}
+        paketHref={sekcijaVidljiva(actor, "podesavanja") ? href("podesavanja") : null}
       />
     );
   } else {

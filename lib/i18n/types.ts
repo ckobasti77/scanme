@@ -7359,7 +7359,7 @@ export interface MenuPanelDict {
       nemaZahteva: string;
     };
     meni: { naslov: string; opis: string; nikad: string };
-    analitika: { naslov: string; prazno: string; praznoOpis: string };
+    analitika: { naslov: string };
     brziUlazi: {
       naslov: string;
       editor: { naziv: string; opis: string };
@@ -10190,6 +10190,149 @@ export interface MenuOdgovorDict {
   };
 }
 
+// ScanMe Menu V1 (MENI run, K30) — the Analitika section of the client panel and
+// the "Poslednjih 7 dana" card on Početna (lib/i18n/sr/menu-analitika.ts; master
+// §14). Every explanation is a row of docs/menu/ANALITIKA-DEFINICIJE.md in plain words.
+type MenuAnalitikaStavka = { naziv: string; objasnjenje: string };
+type MenuAnalitikaMnozina = { one: string; few: string; many: string };
+export interface MenuAnalitikaDict {
+  naslov: string;
+  opis: string;
+  ucitavanje: string;
+  greskaNaslov: string;
+  greskaPeriod: string;
+  greskaPovratak: string;
+  staSeBroji: string;
+  meniNaslov: string;
+  kasnjenje: string;
+  period: {
+    oznaka: string;
+    izbori: { d7: string; d30: string; d90: string; izbor: string };
+    od: string;
+    do: string;
+    primeni: string;
+    opseg: string;
+    prikazano: string;
+    zakljucano: string;
+    greske: { neispravan: string; obrnut: string; predug: string; buducnost: string; van_cuvanja: string };
+  };
+  stanja: { praznoNaslov: string; praznoOpis: string; maloNaslov: string; maloOpis: string };
+  premium: { oznaka: string; razlog: string; naslov: string; opis: string; stavke: readonly string[]; paket: string };
+  poredjenje: {
+    vise: string;
+    manje: string;
+    isto: string;
+    procenat: string;
+    objasnjenje: string;
+    nemaPrethodnog: string;
+    zahtevi: string;
+    rezervacije: string;
+  };
+  metrike: Record<"otvaranja" | "detalji" | "skenovi" | "sesije" | "zahtevi" | "rezervacije", MenuAnalitikaStavka>;
+  sesije: { nedostupno: string; neMere: string; nepouzdane: string };
+  trend: { naslov: string; opis: string; izbor: string; tabela: string; kolonaDan: string; grafikon: string; najvise: string; danas: string };
+  zahtevi: {
+    naslov: string;
+    opis: string;
+    kolone: { vrsta: string; poslato: string; prihvaceno: string; zavrseno: string; otkazano: string };
+    objasnjenja: { poslato: string; prihvaceno: string; zavrseno: string; otkazano: string };
+    vrste: { call: string; bill: string; order: string };
+    ukupno: string;
+    udeo: string;
+    udeoObjasnjenje: string;
+    otkazali: string;
+    otkazaliObjasnjenje: string;
+    roomService: string;
+    roomServiceObjasnjenje: string;
+    prazno: string;
+  };
+  rezervacije: {
+    naslov: string;
+    opis: string;
+    stavke: Record<"poslato" | "prihvaceno" | "predlozeno" | "odbijeno" | "realizovano" | "otkazano", MenuAnalitikaStavka>;
+    udeo: string;
+    udeoObjasnjenje: string;
+    otkazali: string;
+    otkazaliObjasnjenje: string;
+    prazno: string;
+  };
+  najotvaraniji: { naslov: string; opis: string; prazno: string; broj: MenuAnalitikaMnozina };
+  kartice: { naslov: string; opis: string; prazno: string; ostale: string; broj: MenuAnalitikaMnozina };
+  tok: {
+    naslov: string;
+    opis: string;
+    koraci: Record<"sesije" | "detalj" | "zahtev" | "porudzbina" | "rezervacija", MenuAnalitikaStavka>;
+    udeo: string;
+    broj: MenuAnalitikaMnozina;
+    nedostupno: string;
+  };
+  raspodela: {
+    naslov: string;
+    opis: string;
+    metrika: string;
+    dimenzija: string;
+    nema: string;
+    dimenzije: Record<"stranica" | "artikal" | "kartica" | "jezik" | "uredjaj" | "sat" | "zahtev" | "kanal" | "ko", string>;
+    metrike: Record<"otvaranja" | "detalji" | "skenovi" | "zahtevi" | "zahteviOtkazani" | "rezervacije", string>;
+    objasnjenje: string;
+    ostalo: string;
+    uklonjeno: string;
+    bezNaziva: string;
+    bezPodatka: string;
+    bezKartice: string;
+    uredjaji: { telefon: string; tablet: string; racunar: string };
+    kanali: { standard: string; room_service: string };
+    ko: { guest: string; staff: string };
+    sat: string;
+    udeo: string;
+    prazno: string;
+    ucitavanje: string;
+  };
+  csv: {
+    dugme: string;
+    opis: string;
+    zakljucano: string;
+    datum: string;
+    ukupno: string;
+    kolone: Record<
+      | "otvaranja"
+      | "detalji"
+      | "skenovi"
+      | "zahtevi"
+      | "porudzbine"
+      | "zahteviPrihvaceni"
+      | "zahteviZavrseni"
+      | "zahteviOtkazani"
+      | "rezervacije"
+      | "rezervacijePrihvacene"
+      | "rezervacijePredlozi"
+      | "rezervacijeOdbijene"
+      | "rezervacijeRealizovane"
+      | "rezervacijeOtkazane"
+      | "sesije"
+      | "sesijeSaDetaljem"
+      | "sesijeSaZahtevom"
+      | "sesijeSaPorudzbinom"
+      | "sesijeSaRezervacijom",
+      string
+    >;
+    fajl: string;
+  };
+  kakoBrojimo: { naslov: string; stavke: readonly string[] };
+  pocetna: {
+    opis: string;
+    otvori: string;
+    najotvaranijiArtikal: string;
+    najotvaranijiObjasnjenje: string;
+    grafikon: string;
+    prazno: string;
+    praznoOpis: string;
+    greska: string;
+    ucitavanje: string;
+  };
+  meseci: readonly string[];
+}
+
 export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
@@ -10239,6 +10382,7 @@ export interface DictBySurface {
   "menu-gost": MenuGostDict;
   "menu-konobar": MenuKonobarDict;
   "menu-odgovor": MenuOdgovorDict;
+  "menu-analitika": MenuAnalitikaDict;
   "ordering-admin": OrderingAdminDict;
   ordering: OrderingDict;
   "ordering-panel": OrderingPanelDict;

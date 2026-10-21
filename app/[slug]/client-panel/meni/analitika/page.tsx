@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
-import { PanelSekcija } from "@/components/menu/panel/ruta";
+import { AnalitikaRuta } from "@/components/menu/panel/analitika/analitika-ruta";
 import { fmt } from "@/lib/i18n/format";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
 
-// Section "analitika" of the ScanMe Menu client panel. Until its screen exists it
-// shows an honest "this is what will be here" state (K08); the shell checks the role.
+// Section "Analitika" of the ScanMe Menu client panel (K30; master §14): how
+// guests used the menu, every number with what it counts
+// (docs/menu/ANALITIKA-DEFINICIJE.md). The shell (layout) checks sign-in and
+// role (analytics.read).
 export const metadata: Metadata = {
   title: fmt(menuPanelSr.meta.naslov, { sekcija: menuPanelSr.sekcije.analitika }),
 };
 
 export default function MenuPanelAnalitikaPage() {
-  return <PanelSekcija sekcija="analitika" />;
+  return <AnalitikaRuta />;
 }

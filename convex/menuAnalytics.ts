@@ -124,12 +124,21 @@ type Dani = {
   raspodele: Map<string, Doc<"menuAnalyticsDailyDims">["po"]>;
 };
 
-async function citajDane(ctx: QueryCtx, menuServiceId: Id<"menuServices">, period: Period, saRaspodelama: boolean): Promise<Dani> {
+async function citajDane(
+  ctx: QueryCtx,
+  menuServiceId: Id<"menuServices">,
+  period: Period,
+  saRaspodelama: boolean,
+  saZbirovima = true,
+): Promise<Dani> {
   const [zbirovi, raspodele] = await Promise.all([
-    ctx.db
-      .query("menuAnalyticsDaily")
-      .withIndex("by_menuServiceId_and_dayKey", (q) => q.eq("menuServiceId", menuServiceId).gte("dayKey", period.od).lte("dayKey", period.do))
-      .take(MAX_DANA_PERIODA + 1),
+    // K30: a breakdown never reads the daily totals (up to 366 rows saved per call).
+    saZbirovima
+      ? ctx.db
+          .query("menuAnalyticsDaily")
+          .withIndex("by_menuServiceId_and_dayKey", (q) => q.eq("menuServiceId", menuServiceId).gte("dayKey", period.od).lte("dayKey", period.do))
+          .take(MAX_DANA_PERIODA + 1)
+      : Promise.resolve([]),
     saRaspodelama
       ? ctx.db
           .query("menuAnalyticsDailyDims")
@@ -392,7 +401,7 @@ export const raspodela = query({
 
     const menuService = access.menuService;
     const dani = daniPerioda(izabran);
-    const citano = await citajDane(ctx, menuService._id, izabran, true);
+    const citano = await citajDane(ctx, menuService._id, izabran, true, false);
     const nizovi = new Map<string, number[]>();
     const dodaj = (vrednost: string, indeks: number, broj: number) => {
       const niz = nizovi.get(vrednost) ?? dani.map(() => 0);

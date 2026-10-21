@@ -8,6 +8,8 @@
 // only Tim i pristupi, Analitika and Podešavanja are still "u pripremi".
 // K28: Tim i pristupi (`modal=`, `stanje=bez-zona`) and Podešavanja are real screens too, and
 // `poziv=` shows the invitation page instead of the panel; only Analitika is still "u pripremi".
+// K30 (intentional): Analitika is a real screen too (`stanje=malo-podataka|prazno|bez-sesija`, Početna's
+// card shows numbers); no section is "u pripremi" any more.
 //
 // The shared next/link stub (vitest.config.ts) keeps only href, children and
 // className, so it drops aria-current. These tests need aria-current, so the
@@ -19,6 +21,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { fixtureVenue, IZLOG_SADA } from "@/components/menu/fixtures/lokal";
 import { fmt, srPluralCategory } from "@/lib/i18n/format";
+import { menuAnalitikaSr } from "@/lib/i18n/sr/menu-analitika";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
 import type { MenuPanelDict } from "@/lib/i18n/types";
@@ -46,8 +49,10 @@ const KONOBAR_PIN = `${KONOBAR_PUTANJA}?ekran=pin`;
 const SVE_SEKCIJE: readonly PanelNavSekcija[] = PANEL_NAV_SEKCIJE;
 // K27: the sections that are still the "u pripremi" card; every other section is a real screen.
 // K28 (intentional): was ["tim", "analitika", "podesavanja"]; now ["analitika"] (Tim and Podešavanja are real).
-const U_PRIPREMI: readonly PanelNavSekcija[] = ["analitika"];
-const STVARNE_SEKCIJE: readonly PanelNavSekcija[] = ["pocetna", "operativa", "funkcionalnosti", "lokal"];
+// K30 (intentional): was ["analitika"]; now [] (Analitika is a real screen, nothing is in preparation).
+const U_PRIPREMI: readonly PanelNavSekcija[] = [];
+// K30 (intentional): was ["pocetna", "operativa", "funkcionalnosti", "lokal"]; Analitika is a real screen mounted by the shell too.
+const STVARNE_SEKCIJE: readonly PanelNavSekcija[] = ["pocetna", "operativa", "funkcionalnosti", "lokal", "analitika"];
 // K27: the blocks of Početna, in the order of the screen, and its quick entries.
 const BLOKOVI_POCETNE = ["paznja", "meni", "sada", "analitika", "brzi-ulazi"] as const;
 const ULAZI_REDOM = ["editor", "operativa", "lokal", "analitika", "konobar"] as const;
@@ -327,16 +332,15 @@ describe("the Editor action, on every section in the izlog", () => {
 
   // K27 (intentional): was "each of the six sections in preparation"; three of them became real screens.
   // K28 (intentional): was "each of the three sections in preparation" (tim, analitika, podesavanja); now only Analitika.
-  test("the one section in preparation (Analitika) offers the Editor, with the sentence, in the card", () => {
-    // K28 (intentional): was ["tim", "analitika", "podesavanja"]; now ["analitika"].
-    expect(SA_EKRANOM).toEqual(["analitika"]);
-    for (const sekcija of SA_EKRANOM) {
+  // K30 (intentional): was "the one section in preparation (Analitika) offers the Editor, with the sentence, in the
+  // card" (SA_EKRANOM was ["analitika"], the card had the Editor link and the "za sada" sentence). Analitika is a real
+  // screen now: nothing is in preparation, so no section shows that card or sentence.
+  test("no section is in preparation any more: none shows the card with the Editor link and the 'za sada' sentence", () => {
+    expect(SA_EKRANOM).toEqual([]);
+    for (const sekcija of SVE_SEKCIJE.filter((kandidat) => kandidat !== "editor")) {
       const main = element(panel({ sekcija }), "main");
-      expect(sidra(main).filter((link) => link.text === esc(t.sekcija.otvoriEditor)).map((link) => link.href)).toEqual([
-        navHref("editor"),
-      ]);
-      expect(main).toContain(`>${esc(t.sekcija.zaSadaEditor)}</p>`);
-      expect(sidra(element(main, "header"))).toEqual([]);
+      expect(main).not.toContain("data-sekcija-u-pripremi");
+      expect(main).not.toContain(esc(t.sekcija.zaSadaEditor));
     }
   });
 
@@ -349,9 +353,13 @@ describe("the Editor action, on every section in the izlog", () => {
 
   test("it keeps the role, the plan and the theme in its link", () => {
     // K28 (intentional): was sekcija "tim"; Tim i pristupi is a real screen without the Editor card, so Analitika carries the check.
-    const html = panel({ sekcija: "analitika", uloga: "menadzer", plan: "premium", tema: "tamna" });
+    // K30 (intentional): was sekcija "analitika"; Analitika is a real screen without the Editor card too, so Početna
+    // (the Meni block's "Otvori Editor" link) carries the check.
+    const html = panel({ sekcija: "pocetna", uloga: "menadzer", plan: "premium", tema: "tamna" });
     const link = sidra(element(html, "main")).filter((sidro) => sidro.text === esc(t.sekcija.otvoriEditor));
-    expect(link.map((sidro) => sidro.href)).toEqual([navHref("editor", "menadzer", "premium", "tamna")]);
+    // K30 (intentional): was exactly one link; Početna has more than one "Otvori Editor" link, all with the same address.
+    expect(link.length).toBeGreaterThan(0);
+    expect(new Set(link.map((sidro) => sidro.href))).toEqual(new Set([navHref("editor", "menadzer", "premium", "tamna")]));
   });
 
   test("a section the role does not see offers no Editor action (only the way back to Početna)", () => {
@@ -464,7 +472,11 @@ describe("uloga=urednik", () => {
     // Not the Sada block and not the "last 7 days" card of Analitika.
     expect(main).not.toContain(esc(t.pocetna.sada.naslov));
     expect(main).not.toContain(esc(t.pocetna.analitika.naslov));
-    expect(main).not.toContain(esc(t.pocetna.analitika.prazno));
+    // K30 (intentional): was `t.pocetna.analitika.prazno` (the key was removed with the "stiže uskoro" card); the real
+    // card's own sentences and its link are not on the editor's page either.
+    expect(main).not.toContain(esc(menuAnalitikaSr.pocetna.opis));
+    expect(main).not.toContain(esc(menuAnalitikaSr.pocetna.otvori));
+    expect(main).not.toContain("data-broj=");
     // Pažnja has the menu line only: no floor lines, no mailbox line.
     expect([...main.matchAll(/data-paznja-stavka="([^"]+)"/g)].map((match) => match[1])).toEqual(["neobjavljeno"]);
     expect(main).not.toContain(esc(t.pocetna.paznja.radnje.operativa));
@@ -622,30 +634,38 @@ describe("plan", () => {
     expect(links.map((link) => link.href)).toEqual(SVE_SEKCIJE.map((sekcija) => navHref(sekcija, "vlasnik", "premium")));
   });
 
-  test("Analitika on Standard shows its two Premium lines locked", () => {
+  // K30 (intentional): was "Analitika on Standard shows its two Premium lines locked" (the 'u pripremi' card: two
+  // lock icons, two sr-only "zaključan" notes, three neutral badges, the Premium note). Analitika is the real screen
+  // now: on Standard the Premium card lists what Premium adds, 90 days / "Drugi period" and the CSV are locked.
+  test("Analitika on Standard shows what Premium adds, locked: the Premium card, 90 days, own period and the CSV", () => {
     const html = panel({ sekcija: "analitika", plan: "standard" });
     const main = element(html, "main");
-    expect(count(main, "lucide-lock")).toBe(2);
+    expect(main).not.toContain("data-sekcija-u-pripremi");
     expect(main).not.toContain("lucide-circle-check");
-    expect(count(main, `<span class="sr-only">, ${esc(t.sekcija.premiumZakljucan)}</span>`)).toBe(2);
-    expect(main).not.toContain(esc(t.sekcija.premiumUkljucen));
-    // the U pripremi status of the header and the two Premium badges
-    expect(count(main, 'data-status-ton="neutralno"')).toBe(3);
-    // the Premium note explains the lock
-    expect(count(main, `>${esc(t.sekcija.premiumNapomena)}</p>`)).toBe(1);
+    expect(blok(main, "premium")).toContain(esc(menuAnalitikaSr.premium.naslov));
+    expect(count(blok(main, "premium"), "<li")).toBe(menuAnalitikaSr.premium.stavke.length);
+    expect(main).toContain('data-csv="zakljucano"');
+    expect(main).not.toContain('data-csv="dostupno"');
+    expect(count(main, "data-zakljucano")).toBe(2);
+    expect(main).toContain(esc(menuAnalitikaSr.period.zakljucano));
+    expect(main).not.toContain('data-blok="tok"');
+    expect(main).not.toContain('data-blok="raspodela"');
     // the account badge of the shell is not there on Standard
     expect(html).not.toContain(znackaPremium);
   });
 
-  test("Analitika on Premium shows the same lines unlocked (a check, no lock, no note), and the account badge", () => {
+  // K30 (intentional): was "Analitika on Premium shows the same lines unlocked (a check, no lock, no note)"; the real
+  // screen on Premium has no Premium card and no lock, the CSV button works, the guest flow and the breakdown show.
+  test("Analitika on Premium has nothing locked: no Premium card, the CSV is available, the flow and the breakdown show, and the account badge", () => {
     const html = panel({ sekcija: "analitika", plan: "premium" });
     const main = element(html, "main");
     expect(main).not.toContain("lucide-lock");
-    expect(count(main, "lucide-circle-check")).toBe(2);
-    expect(count(main, `<span class="sr-only">, ${esc(t.sekcija.premiumUkljucen)}</span>`)).toBe(2);
-    expect(main).not.toContain(esc(t.sekcija.premiumZakljucan));
-    expect(count(main, 'data-status-ton="neutralno"')).toBe(3);
-    expect(main).not.toContain(esc(t.sekcija.premiumNapomena));
+    expect(main).not.toContain('data-blok="premium"');
+    expect(main).not.toContain("data-zakljucano");
+    expect(main).toContain('data-csv="dostupno"');
+    expect(main).toContain('data-blok="tok"');
+    expect(main).toContain('data-blok="raspodela"');
+    expect(main).not.toContain(esc(menuAnalitikaSr.period.zakljucano));
     expect(count(html, znackaPremium)).toBe(1);
   });
 
@@ -755,8 +775,11 @@ describe("stanje: whole-screen states, no shell navigation", () => {
     expect(panel({ stanje: "neaktivno", uloga: "admin" })).toBe(panel({ stanje: "neaktivno" }));
   });
 
+  // K30 (intentional): was `stanje: "malo-podataka"` as the unknown value; it is a data state of Analitika now (Početna's
+  // card shows its little-data numbers), so a value that really is unknown carries the check.
   test("an unknown state is not an error: the default panel is shown", () => {
-    expect(panel({ stanje: "malo-podataka" })).toBe(panel({}));
+    expect(panel({ stanje: "pokvareno" })).toBe(panel({}));
+    expect(panel({ stanje: "puno" })).toBe(panel({}));
   });
 
   // K27: the real sections are mounted by the shell only, so a whole-screen state still replaces them.
@@ -955,7 +978,9 @@ describe("accessibility of the whole panel", () => {
 describe("K27: which sections are real screens", () => {
   // The Editor is left out: it is the heavy real editor, and the sekcija=editor tests render it.
   // K28 (intentional): was "exactly Tim i pristupi, Analitika and Podešavanja are still 'u pripremi'"; now only Analitika.
-  test("exactly Analitika is still 'u pripremi'; every other section is a real screen", () => {
+  // K30 (intentional): was "exactly Analitika is still 'u pripremi'"; Analitika is real too, so every section is a real screen.
+  test("no section is 'u pripremi': every section is a real screen", () => {
+    expect(U_PRIPREMI).toEqual([]);
     for (const sekcija of SVE_SEKCIJE.filter((kandidat) => kandidat !== "editor")) {
       const main = element(panel({ sekcija }), "main");
       expect(main.includes(`data-sekcija-u-pripremi="${sekcija}"`)).toBe(U_PRIPREMI.includes(sekcija));
@@ -1309,6 +1334,92 @@ describe("K28: Tim i pristupi, Podešavanja and the invitation page", () => {
       expect(panel({ poziv: "x" })).toBe(panel({}));
       expect(jeOkvir(panel({ poziv: "x" }))).toBe(true);
     });
+  });
+});
+
+describe("K30: Analitika", () => {
+  const ta = menuAnalitikaSr;
+
+  test("sekcija=analitika is the real section: one h1 'Analitika', the blocks of requests and reservations, no 'u pripremi' card", () => {
+    const html = panel({ sekcija: "analitika" });
+    const main = element(html, "main");
+    expect(count(html, "<h1")).toBe(1);
+    expect(naslovi(main, 1)).toEqual([esc(ta.naslov)]);
+    expect(main).toContain('data-blok="zahtevi"');
+    expect(main).toContain('data-blok="rezervacije"');
+    expect(main).not.toContain("data-sekcija-u-pripremi");
+    expect(main).not.toContain(esc(t.sekcija.uPripremi));
+    expect(main).toContain("data-broj=");
+    expect(navLinks(html).filter((link) => link.current).map((link) => link.sekcija)).toEqual(["analitika"]);
+  });
+
+  test("stanje=malo-podataka shows the message about too little data and no percentage outside the explanations", () => {
+    for (const plan of ["standard", "premium"]) {
+      const main = element(panel({ sekcija: "analitika", stanje: "malo-podataka", plan }), "main");
+      expect(main).toContain('data-stanje="malo-podataka"');
+      expect(main).toContain(esc(ta.stanja.maloNaslov));
+      expect(main).toContain(esc(ta.stanja.maloOpis));
+      expect(main).not.toMatch(/data-broj="[^"]*-udeo"/);
+      expect(main).not.toMatch(/data-broj="[^"]*-promena"/);
+    }
+    expect(element(panel({ sekcija: "analitika" }), "main")).not.toContain('data-stanje="malo-podataka"');
+  });
+
+  test("stanje=prazno and stanje=bez-sesija are the other data states", () => {
+    const prazno = element(panel({ sekcija: "analitika", stanje: "prazno" }), "main");
+    expect(prazno).toContain(esc(ta.stanja.praznoNaslov));
+    expect(prazno).not.toContain("data-broj=");
+    const bezSesija = element(panel({ sekcija: "analitika", stanje: "bez-sesija", plan: "premium" }), "main");
+    expect(bezSesija).toContain(esc(ta.sesije.neMere));
+    expect(bezSesija).toContain(esc(ta.tok.nedostupno));
+  });
+
+  test("plan=premium shows the CSV button as available; Standard shows it locked", () => {
+    expect(element(panel({ sekcija: "analitika", plan: "premium" }), "main")).toContain('data-csv="dostupno"');
+    const standard = element(panel({ sekcija: "analitika", plan: "standard" }), "main");
+    expect(standard).toContain('data-csv="zakljucano"');
+    expect(standard).not.toContain('data-csv="dostupno"');
+  });
+
+  test("the Premium plan shows the breakdown by language from the start, and the plan travels with the Početna link", () => {
+    const main = element(panel({ sekcija: "analitika", plan: "premium" }), "main");
+    expect(main).toContain('data-blok="raspodela"');
+    expect(main).toContain('data-broj="raspodela-sr"');
+  });
+
+  test("Početna in the izlog shows the card 'Poslednjih 7 dana' with numbers, and its link leads to Analitika in the izlog", () => {
+    const main = element(panel({ uloga: "vlasnik", plan: "premium" }), "main");
+    const kartica = blok(main, "analitika");
+    expect(kartica).toContain('data-kartica="istaknuta"');
+    expect([...kartica.matchAll(/data-broj="([^"]+)"/g)].map((match) => match[1])).toEqual([
+      "pocetna-otvaranja",
+      "pocetna-detalji",
+      "pocetna-skenovi",
+      "pocetna-najotvaraniji",
+    ]);
+    expect(kartica).toMatch(/<data value="[1-9]\d*" data-broj="pocetna-otvaranja"/);
+    expect(kartica).not.toContain(esc(ta.pocetna.ucitavanje));
+    const veze = sidra(kartica);
+    expect(veze).toHaveLength(1);
+    expect(veze[0].text).toBe(esc(ta.pocetna.otvori));
+    expect(veze[0].href).toBe(navHref("analitika", "vlasnik", "premium"));
+  });
+
+  test("stanje=prazno and stanje=malo-podataka reach the Početna card too", () => {
+    const prazno = blok(element(panel({ stanje: "prazno" }), "main"), "analitika");
+    expect(prazno).toContain(esc(ta.pocetna.prazno));
+    expect(prazno).not.toContain("data-broj=");
+    const malo = blok(element(panel({ stanje: "malo-podataka" }), "main"), "analitika");
+    expect(malo).toContain('data-broj="pocetna-otvaranja"');
+    expect(malo).not.toContain(esc(ta.pocetna.prazno));
+    // The content state of Početna is the default one: the quiet venue is `stanje=mirno`.
+    expect(element(panel({ stanje: "malo-podataka" }), "main")).toContain('data-paznja="paznja"');
+  });
+
+  test("an Urednik has no Analitika: no section, no card", () => {
+    const html = panel({ sekcija: "analitika", uloga: "urednik" });
+    expect(html).not.toContain("data-broj=");
+    expect(element(panel({ uloga: "urednik", stanje: "malo-podataka" }), "main")).not.toContain('data-blok="analitika"');
   });
 });
 

@@ -114,6 +114,9 @@ export type PanelRezervacije = (typeof PANEL_REZERVACIJE)[number];
 /** K27: the content state of Početna and Operativa (`stanje=paznja|mirno`); absent = something needs attention. */
 export const PANEL_SADRZAJ_STANJA = ["paznja", "mirno"] as const;
 export type PanelSadrzajStanje = (typeof PANEL_SADRZAJ_STANJA)[number];
+/** K30: the data state of Analitika and of the Početna card (`stanje=…`); absent = a venue with enough data. */
+export const PANEL_ANALITIKA_STANJA = ["malo-podataka", "prazno", "bez-sesija"] as const;
+export type PanelAnalitikaStanje = (typeof PANEL_ANALITIKA_STANJA)[number];
 /** K27: a request of the izlog fixtures (`zahtev=rq_05` opens its read-only detail in Operativa). */
 const PANEL_ZAHTEV = /^rq_[a-z0-9]{2,4}$/;
 
@@ -167,6 +170,11 @@ export type PanelPreviewParams = {
   bezZona: boolean;
   /** K28 `poziv=vazeca|istekla|nevazeca|prijava|drugi-nalog|prihvaceno`: the invitation page instead of the panel. */
   poziv: PanelPoziv | null;
+  /**
+   * K30 `stanje=malo-podataka|prazno|bez-sesija` (Analitika and the Početna card): fewer than 20
+   * sessions, nothing counted yet, or sessions not measured; null = enough data.
+   */
+  analitika: PanelAnalitikaStanje | null;
 };
 
 /** K28: a dialog of Tim i pristupi opened by the izlog. */
@@ -200,6 +208,7 @@ export function parsePanelPreview(params: IzlogSearchParams): PanelPreviewParams
     modal: pickOptional(params.modal, PANEL_MODALI),
     bezZona: firstParam(params.stanje) === "bez-zona",
     poziv: pickOptional(params.poziv, PANEL_POZIVI),
+    analitika: pickOptional(params.stanje, PANEL_ANALITIKA_STANJA),
   };
 }
 
