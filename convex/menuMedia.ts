@@ -85,6 +85,24 @@ async function articleForEdit(ctx: MutationCtx, articleId: Id<"menuArticles">) {
   return { article, access };
 }
 
+/** How long a Convex upload URL accepts a file; a blob stored later is not this reservation's. */
+const UPLOAD_URL_LIFETIME_MS = 60 * 60 * 1000;
+
+/**
+ * K34: whether a stored blob is the one this reservation's upload URL received —
+ * stored after the reservation, within the URL's lifetime, and (rows from K34 on)
+ * exactly the declared size. A blob that existed before (another venue's photo or
+ * video) or a concurrent upload of someone else never matches.
+ */
+export function blobOfUpload(
+  upload: Pick<Doc<"menuMediaUploads">, "createdAt" | "declaredSize">,
+  blob: { _creationTime: number; size: number },
+): boolean {
+  if (blob._creationTime < upload.createdAt) return false;
+  if (blob._creationTime > upload.createdAt + UPLOAD_URL_LIFETIME_MS) return false;
+  return upload.declaredSize === undefined || blob.size === upload.declaredSize;
+}
+
 /**
  * The upload, authorized for the caller: the same person who reserved it, still
  * an editor of that menu. Anyone else gets not_found (no existence oracle).
@@ -131,6 +149,7 @@ export const reserveUpload = mutation({
       articleId: article._id,
       userId: access.user._id,
       status: "reserved",
+      declaredSize: args.size,
       createdAt: now,
       updatedAt: now,
     });
@@ -170,6 +189,11 @@ export const uploadContext = mutation({
 
     const meta = await ctx.db.system.get("_storage", args.storageId);
     if (!meta) throw refuse(MENU_MEDIA_ERROR.empty);
+    // K34 (critical): the storageId comes from the caller, and ids of other venues' files
+    // are public (old menus, Venue pages). Only the blob THIS reservation stored is ever
+    // read, copied or deleted: saved after the reservation, while its upload URL lives,
+    // with the byte size declared at reservation. Anything else is wrong_state, untouched.
+    if (!blobOfUpload(upload, meta)) throw refuse(MENU_MEDIA_ERROR.wrongState);
     const now = Date.now();
     const check = checkStoredMenuImage({ contentType: meta.contentType ?? null, size: meta.size });
     if (!check.ok) {

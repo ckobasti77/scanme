@@ -37,10 +37,22 @@ export function menuGatewayConfigured(): boolean {
   return (env.MENU_GATEWAY_SECRET ?? "").trim().length >= MENU_GATEWAY_SECRET_MIN_LENGTH;
 }
 
+// K34: set after the first mismatch warning of this runtime instance, so the log
+// carries one line and not one per call.
+let mismatchWarned = false;
+
 /** The rate-limit key of a call: its own IP hash only when it may be trusted. */
 export function menuIpKey(ipHash: string | undefined, gateway: string | undefined): string {
   if (!ipHash || !MENU_IP_HASH_PATTERN.test(ipHash)) return MENU_SHARED_IP_KEY;
   const expected = (env.MENU_GATEWAY_SECRET ?? "").trim();
   if (expected.length < MENU_GATEWAY_SECRET_MIN_LENGTH) return ipHash;
-  return gateway !== undefined && timingSafeEqualString(gateway, expected) ? ipHash : MENU_SHARED_IP_KEY;
+  if (gateway !== undefined && timingSafeEqualString(gateway, expected)) return ipHash;
+  // K34: a valid-looking hash without the right secret. If the Next handler's MENU_GATEWAY_SECRET differs
+  // from this deployment's (or is missing), every legitimate call of every venue lands in the ONE shared
+  // bucket and starves it; say so once. Only the condition is logged, never the secret or the hash.
+  if (!mismatchWarned) {
+    mismatchWarned = true;
+    console.warn("MENU_GATEWAY_MISMATCH: an IP hash came without the gateway secret; per-IP buckets are shared");
+  }
+  return MENU_SHARED_IP_KEY;
 }

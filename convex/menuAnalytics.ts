@@ -14,6 +14,7 @@ import { rateLimiter } from "./lib/rateLimits";
 import { activeBusinessBySlug, isPubliclyServed } from "./menuPublic";
 import { menuCardRows } from "./menuQr";
 import {
+  DEFINICIJE,
   MAX_DANA_PERIODA,
   MAX_DOGADJAJA_PO_POZIVU,
   METRIKE,
@@ -47,10 +48,13 @@ import { ANALYTICS_ERROR } from "../lib/menu/errors/analytics";
 // ingest   (public; called only by app/api/meni/analitika/route.ts, which
 //          drops bots and signed-in ScanMe users and hashes the IP) — 1–10
 //          events, known kinds and key shapes only, bucket menuAnalyticsIp
-//          per IP hash. Inserts raw rows only: no counter, no fanout. Like the
+//          per IP hash and (K34) menuAnalyticsService per Menu service.
+//          Inserts raw rows only: no counter, no fanout. Like the
 //          card scan counters, a determined caller can inflate these
 //          non-monetary numbers; nothing depends on them for security.
-// pregled  (Standard) the last 7 or 30 days.
+// pregled  (Standard) the last 7 or 30 days. K34: the Premium funnel series
+//          (sessions with an article, a request, an order, a reservation) are
+//          zero here, whoever asks; they travel only with `period`.
 // period   (Premium, advancedAnalytics) a custom period ≤ 366 days within
 //          24 months, the conversion flow and the previous period.
 // raspodela (Premium) one metric by one dimension: the filters.
@@ -91,6 +95,16 @@ export const ingest = mutation({
       count: args.dogadjaji.length,
     });
     if (!limit.ok) return odbijeno;
+    // K34: the venue's own bucket, spent after the address one (an address the IP bucket refuses never
+    // spends the venue's tokens). However many addresses call, one slug now writes at most this much a
+    // minute, so it cannot fill the global rollup alone or run through the venue's per-day dimension
+    // limits at the per-address rate times the number of addresses. Over it the batch is dropped
+    // exactly like the per-IP one.
+    const serviceLimit = await rateLimiter.limit(ctx, "menuAnalyticsService", {
+      key: menuService._id,
+      count: args.dogadjaji.length,
+    });
+    if (!serviceLimit.ok) return odbijeno;
 
     const now = Date.now();
     const vreme = { occurredAt: now, dayKey: danUBeogradu(now), sat: satUBeogradu(now) };
@@ -202,9 +216,20 @@ function zbirDimenzije(dani: Dani, metrika: Metrika, dimenzija: Dimenzija): Map<
 
 type MetrikaNiz = { ukupno: number; poDanu: number[] };
 
-function nizovi(dani: string[], citano: Dani, skenovi: Map<string, Map<Id<"cards">, number>>): Record<Metrika, MetrikaNiz> {
+function nizovi(
+  dani: string[],
+  citano: Dani,
+  skenovi: Map<string, Map<Id<"cards">, number>>,
+  saPremium: boolean,
+): Record<Metrika, MetrikaNiz> {
   const izlaz = {} as Record<Metrika, MetrikaNiz>;
   for (const metrika of METRIKE) {
+    // K34: without the Premium option (`pregled`) a Premium metric - the four funnel steps - is a zero
+    // series, never the stored numbers. The keys stay, so the report keeps its type for every reader.
+    if (!saPremium && DEFINICIJE[metrika].plan === "premium") {
+      izlaz[metrika] = { ukupno: 0, poDanu: dani.map(() => 0) };
+      continue;
+    }
     const poDanu = dani.map((dan) => {
       const uzivo = metrika === "skenovi" ? skenovi.get(dan) : undefined;
       if (uzivo) return [...uzivo.values()].reduce((a, b) => a + b, 0);
@@ -253,7 +278,9 @@ async function izvestaj(
   ]);
   const karticeUsluge = kartice.rows.map((row) => row.card);
   const skenovi = await skenoviUzivo(ctx, karticeUsluge, dani);
-  const metrike = nizovi(dani, citano, skenovi);
+  // K34: the funnel series (Premium metrics) travel only with the Premium option, which `period` sets
+  // after its capability check; `pregled` (Standard) never carries them, like `konverzije`.
+  const metrike = nizovi(dani, citano, skenovi, opcije.konverzije);
   const ukupno = (metrika: Metrika) => metrike[metrika].ukupno;
 
   // Requests by kind and their outcomes; orders by channel.

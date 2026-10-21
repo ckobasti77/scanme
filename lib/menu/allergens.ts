@@ -10,6 +10,8 @@
 // it) plus `other` ("Drugo", described by free text). The Serbian names live
 // in the `menu-domen` dictionary (`allergens[code]`).
 
+import { cleanText } from "./text";
+
 export const MENU_ALLERGEN_CODES = [
   "gluten",
   "crustaceans",
@@ -73,4 +75,23 @@ export function allergenMatch(input: {
   if (input.allergens.contains.some((code) => marked.has(code))) return "contains";
   if (input.allergens.mayContain.some((code) => marked.has(code))) return "may_contain";
   return "not_listed";
+}
+
+/** K34: the editor's allergen record: the shape of `StudioAlergeni` (studio/model), which this file does not import. */
+type AlergeniZapis = { sadrzi: string[]; tragovi: string[]; drugo: string | null };
+
+/**
+ * K34: the stored form of the editor's record: canonical order, a code in both lists only in `sadrzi`,
+ * `drugo` (cleaned) only with `other`, an empty record = no record (null). It lives here, not in the
+ * in-memory izlog module (lib/menu/studio/memorija-detalj re-exports it), so the production editor
+ * does not have to import that module for it.
+ */
+export function kanonskiAlergeni(alergeni: AlergeniZapis | null): AlergeniZapis | null {
+  if (alergeni === null) return null;
+  const sadrzi = MENU_ALLERGEN_CODES.filter((code) => alergeni.sadrzi.includes(code));
+  const tragovi = MENU_ALLERGEN_CODES.filter((code) => alergeni.tragovi.includes(code) && !sadrzi.includes(code));
+  if (sadrzi.length === 0 && tragovi.length === 0) return null;
+  const drugo = cleanText(alergeni.drugo ?? "");
+  const imaDrugo = sadrzi.includes("other") || tragovi.includes("other");
+  return { sadrzi, tragovi, drugo: imaDrugo && drugo !== "" ? drugo : null };
 }

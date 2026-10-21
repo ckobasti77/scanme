@@ -10,6 +10,7 @@
 import Image from "next/image";
 import type { CSSProperties, ReactNode } from "react";
 import type { JavniIzgled } from "@/lib/menu/identity/public-tokens";
+import { smerPisma } from "@/lib/menu/languages";
 import type { JavniLokal } from "@/lib/menu/public-view";
 import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
 import styles from "./javni.module.css";
@@ -59,6 +60,8 @@ export function JavniOkvir({
       className={className ? `${styles.koren} ${className}` : styles.koren}
       style={izgled.tokeni as CSSProperties}
       lang={jezik}
+      // K34: Arabic and Hebrew pages read right to left; every other page keeps the default direction.
+      dir={smerPisma(jezik) === "rtl" ? "rtl" : undefined}
       data-javni-meni=""
       data-paleta={izgled.paletaId}
       data-ton={izgled.ton}

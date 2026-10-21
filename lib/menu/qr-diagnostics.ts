@@ -8,6 +8,12 @@
 //   - an inactive link opens the menu's entry with no page and no position;
 //   - a page that is archived or missing is dropped (the entry opens);
 //   - a position that is archived or missing is dropped — NEVER another one.
+//
+// K34: `status` is the LIVE state of the card, what a scan does. For an adopted
+// card (managedByScanMe) the resolver ignores cards.status and goes by the ScanMe
+// access channel, so convex/menuQr.ts listCards derives `status` from the channel
+// there (a channel ScanMe switched off is "disabled", shown as `iskljucena`).
+// This file reads nothing but that view model, so it never judges by cards.status.
 
 import type { LokalKartica, LokalPozicija, LokalStranica } from "./lokal/model";
 
@@ -35,6 +41,7 @@ export function dijagnozaKartice(
   const nikadSkenirana = card.lastScanAt === null;
   const samoCitanje = card.managedByScanMe;
 
+  // K34: for an adopted card this `status` already is the state of its access channel.
   if (card.status === "disabled") {
     return { stanje: "iskljucena", otvara: null, problemi: [], nikadSkenirana, samoCitanje };
   }

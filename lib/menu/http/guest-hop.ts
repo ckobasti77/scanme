@@ -31,11 +31,19 @@ export type GuestHopMintOutcome =
       slug: string;
       pagePath: string | null;
       session: { guestToken: string; deviceToken: string } | null;
+      /** K34: the card has a position but its per-card bucket was empty (no new session): the old cookie must go. */
+      throttled?: boolean;
     };
 
 export type GuestHopDeps = {
   /** menuGuest.mintFromCard over HTTP; may throw (network). */
-  mint(input: { cardCode: string; ipHash: string; deviceToken?: string }): Promise<GuestHopMintOutcome>;
+  mint(input: {
+    cardCode: string;
+    ipHash: string;
+    deviceToken?: string;
+    /** K34: sent when there is no secret to sign cookies with — only the destination is asked for, no session is opened. */
+    withoutSession?: boolean;
+  }): Promise<GuestHopMintOutcome>;
   /** SCANME_GUEST_SECRET; null = no cookies (the menu opens without a position). */
   secret: string | null;
   /** The salted IP hash of the resolver (resolverIpHash). */
@@ -73,6 +81,9 @@ export async function handleGuestHop(
       cardCode,
       ipHash: deps.ipHash,
       ...(deviceToken ? { deviceToken } : {}),
+      // K34: without the secret no cookie can carry a session, so ask only where the menu is
+      // (otherwise every scan would write a session row and schedule its expiry for nothing).
+      ...(deps.secret ? {} : { withoutSession: true }),
     });
     if (outcome.kind !== "menu") return invalid();
 
@@ -81,11 +92,17 @@ export async function handleGuestHop(
       outcome.pagePath ? `${menuPath}/${outcome.pagePath}` : menuPath,
       request.url,
     ).toString();
-    if (!outcome.session) return redirect(location);
     if (!deps.secret) {
       deps.onMissingSecret?.();
       return redirect(location);
     }
+    // K34: a card WITH a position whose per-card bucket was empty opened no session, so the cookie of the guest's
+    // previous table would keep acting for them: drop it (same name and Path as when it is set). A card without a
+    // position leaves the cookie alone, the guest still sits where they sat.
+    if (outcome.throttled) {
+      return redirect(location, [cookieHeader(MENU_GUEST_SESSION_COOKIE, "", { path: menuPath, maxAgeS: 0 })]);
+    }
+    if (!outcome.session) return redirect(location);
 
     const session = await signCookieValue(
       outcome.session.guestToken,

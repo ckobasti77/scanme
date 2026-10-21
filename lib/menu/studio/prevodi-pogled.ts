@@ -99,5 +99,6 @@ export function kljucPrevoda(stavka: StudioPrevodStavka, jezik: string, polje: M
 /** The Serbian name of a language code ("engleski"); an unknown code is shown uppercased. */
 export function nazivJezika(kod: string): string {
   const nazivi = menuStudioSr.posebno.prevodi.jezici as Record<string, string>;
-  return nazivi[kod] ?? kod.toUpperCase();
+  // K34: own keys only ("constructor" or "toString" must not read Object.prototype).
+  return Object.prototype.hasOwnProperty.call(nazivi, kod) ? nazivi[kod] : kod.toUpperCase();
 }

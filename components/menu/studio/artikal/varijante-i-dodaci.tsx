@@ -264,7 +264,8 @@ function Varijante({
               key={varijanta.id}
               varijanta={varijanta}
               redniBroj={indeks + 1}
-              onemoguceno={!mozeUredjivanje || radi}
+              onemoguceno={!mozeUredjivanje}
+              radi={radi}
               onSacuvaj={(ocekivano, izmena) => izvrsi(() => radnje.izmeniVarijantu(varijanta.id, ocekivano, izmena))}
               onUkloni={() => void izvrsi(() => radnje.obrisiVarijantu(varijanta.id))}
               onGreska={setGreska}
@@ -325,17 +326,28 @@ function Varijante({
   );
 }
 
-function VarijantaRed({
+// K34: exported for the render test.
+export function VarijantaRed({
   varijanta,
   redniBroj,
   onemoguceno,
+  radi,
   onSacuvaj,
   onUkloni,
   onGreska,
 }: {
   varijanta: StudioVarijanta;
   redniBroj: number;
+  /** The role may not edit: the fields and the button are disabled. */
   onemoguceno: boolean;
+  /**
+   * K34: a save is running. Leaving a field saves it, so the next field (or the remove button) has just
+   * got the focus when this turns true: nothing may turn `disabled` then, or the browser drops the focus
+   * to the body. The fields keep taking input (a read-only field would swallow the first keystrokes of
+   * a price); a clash with the save in flight is the server's compare-and-set. The remove button
+   * ignores clicks (`aria-disabled`) and keeps the focus.
+   */
+  radi: boolean;
   onSacuvaj: (ocekivano: { naziv?: string; cena?: number | null }, izmena: { naziv?: string; cena?: number | null }) => Promise<boolean>;
   onUkloni: () => void;
   onGreska: (greska: string | null) => void;
@@ -388,7 +400,8 @@ function VarijantaRed({
           ikonica={Trash2}
           oznaka={fmt(t.varijante.ukloni, { naziv: varijanta.naziv })}
           disabled={onemoguceno}
-          onClick={onUkloni}
+          aria-disabled={radi || undefined}
+          onClick={radi ? undefined : onUkloni}
         />
       </div>
       {varijanta.cena === null ? <p className="text-xs text-[var(--mp-tekst-sporedni)]">{t.varijante.bezCene}</p> : null}

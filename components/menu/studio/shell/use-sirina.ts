@@ -3,7 +3,8 @@
 // ScanMe Menu V1 — which editor layout the window width asks for (K10,
 // MENU-UX §8; the break is the window width, not the device):
 //   desktop  ≥ 1280: structure | work | live preview
-//   siroko   1024–1279: structure | work, preview as an overlay
+//   siroko   1024–1279: work, structure in a drawer, preview as an overlay (K34: a tablet, master
+//            §13.4; until K34 the structure was a column here); Izgled keeps its side preview
 //   usko     768–1023: work, structure in a drawer, preview as an overlay
 //   telefon  < 768: one pane, `Struktura / Uredi / Pregled`
 // Only the chosen layout is mounted, so a 400-article page is rendered once.

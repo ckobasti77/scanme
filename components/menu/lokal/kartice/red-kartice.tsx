@@ -129,7 +129,8 @@ export function RedKartice({
             {t.radnje.poveziOznaka}
           </Dugme>
         )}
-        {samoCitanje ? null : iskljucena ? (
+        {/* K34: only a card whose destination is the Menu is switched here (menuQr.setCardActive refuses others). */}
+        {samoCitanje || !kartica.opensMenu ? null : iskljucena ? (
           <Dugme
             vrsta="sekundarno"
             velicina="kompaktna"

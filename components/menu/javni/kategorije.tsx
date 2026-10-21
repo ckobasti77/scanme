@@ -75,11 +75,11 @@ export function Kategorije({
               <li key={kartica.key}>
                 <a className={styles.plocica} href={`#${sidroKategorije(kartica.key)}`} tabIndex={tabIndex}>
                   <span className={styles.medij} aria-hidden="true">
+                    {/* K34: a photo lies over the tile's glyph; one that fails to load reveals it. The menu-wide "Bez" hides the box in CSS (data-mediji). */}
+                    <JavniGlif iconKey={kartica.iconKey} className={styles.glif} />
                     {kartica.slika ? (
                       <Image src={kartica.slika.thumbUrl} alt="" width={360} height={270} loading="lazy" unoptimized />
-                    ) : (
-                      <JavniGlif iconKey={kartica.iconKey} className={styles.glif} />
-                    )}
+                    ) : null}
                   </span>
                   <span className={`${styles.naslov} ${styles.plocicaNaziv}`}>{kartica.naziv}</span>
                   <span className={styles.plocicaBroj}>

@@ -169,11 +169,14 @@ async function articleInRoomService(
   return row !== null;
 }
 
+type CategoryTranslations = NonNullable<Doc<"menuRoomServiceCategories">["translations"]>;
+
 async function insertCategory(
   ctx: MutationCtx,
   menuServiceId: Id<"menuServices">,
   name: string,
   lastOrder: number | null,
+  translations?: CategoryTranslations,
 ) {
   const now = Date.now();
   const key = newMenuKey("roomServiceCategory");
@@ -184,8 +187,31 @@ async function insertCategory(
     order: orderAfter(lastOrder),
     createdAt: now,
     updatedAt: now,
+    ...(translations ? { translations } : {}),
   });
   return { categoryId, key };
+}
+
+/**
+ * K34: the translations a Room service category takes from the section it is made from
+ * ("Preuzmi ceo meni"). A category has one translated field, `name`, and its name IS the
+ * section's name, so the confirmed name of each language and its source hash (`nameHash`, the
+ * hash of that very text) stay valid: the language keeps its done / stale state. Not carried:
+ * the description fields (a category has none) and AI suggestions (a suggestion is no
+ * translation until the owner confirms it).
+ */
+function categoryTranslationsOf(section: Doc<"menuSections">): CategoryTranslations | undefined {
+  if (!section.translations) return undefined;
+  const copied: CategoryTranslations = {};
+  for (const [lang, entry] of Object.entries(section.translations)) {
+    if (entry.status !== "confirmed" || !entry.name || entry.name.trim() === "") continue;
+    copied[lang] = {
+      status: "confirmed",
+      name: entry.name,
+      ...(entry.nameHash !== undefined ? { nameHash: entry.nameHash } : {}),
+    };
+  }
+  return Object.keys(copied).length > 0 ? copied : undefined;
 }
 
 async function insertItem(
@@ -559,10 +585,11 @@ export const addItems = mutation({
 /**
  * "Preuzmi ceo meni" (K01 OTV 6): a ONE-TIME copy of the visible content of
  * "Kompletan meni" — each visible section becomes a Room service category
- * (an existing category with the same name is re-used), each visible article
- * an item. Articles already in Room service are skipped. Later changes to the
- * main menu are not mirrored; `get.notInRoomService` tells the editor what is
- * missing.
+ * (an existing category with the same name is re-used, also one created
+ * earlier in the same import), each visible article an item. A new category
+ * takes the confirmed name translations of its section (K34). Articles already
+ * in Room service are skipped. Later changes to the main menu are not
+ * mirrored; `get.notInRoomService` tells the editor what is missing.
  */
 export const importWholeMenu = mutation({
   args: { menuServiceId: v.id("menuServices") },
@@ -597,7 +624,7 @@ export const importWholeMenu = mutation({
 
     const inRoomService = new Set((await itemsOf(ctx, menuServiceId)).map((item) => item.articleId));
     const categories = await categoriesOf(ctx, menuServiceId);
-    const categoryByName = new Map(categories.map((category) => [category.name, category]));
+    const categoryByName = new Map(categories.map((category) => [category.name, category._id]));
     let categoryCount = categories.length;
     let lastCategoryOrder = categories.length > 0 ? categories[categories.length - 1].order : null;
 
@@ -619,14 +646,23 @@ export const importWholeMenu = mutation({
       }
       if (fresh.length === 0) continue;
 
-      let categoryId = categoryByName.get(section.name)?._id;
+      let categoryId = categoryByName.get(section.name);
       let order: number | null = null;
       if (categoryId) {
         order = await lastItemOrder(ctx, categoryId);
       } else {
         if (categoryCount >= MENU_MAX_ROOM_SERVICE_CATEGORIES) throw refuse(MENU_ERROR.limitReached);
-        const created = await insertCategory(ctx, menuServiceId, section.name, lastCategoryOrder);
+        // K34: the category takes the section's confirmed name translations, and a later section
+        // of the same name in this import re-uses it (as it does an existing category).
+        const created = await insertCategory(
+          ctx,
+          menuServiceId,
+          section.name,
+          lastCategoryOrder,
+          categoryTranslationsOf(section),
+        );
         categoryId = created.categoryId;
+        categoryByName.set(section.name, categoryId);
         lastCategoryOrder = orderAfter(lastCategoryOrder);
         categoryCount += 1;
         categoriesCreated += 1;

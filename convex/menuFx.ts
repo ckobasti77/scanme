@@ -91,15 +91,22 @@ export const refreshRate = internalAction({
     const source = fxSource();
     if (!source) return "disabled";
     let json: unknown;
+    // K34: AbortController + setTimeout like every other outbound call in convex/ (menuAiTranslate,
+    // menuMailProviders); `AbortSignal.timeout` may be missing in the runtime, and its TypeError would
+    // be swallowed below so the rate would never refresh. The timer covers the body read as well.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
       const response = await fetch(source, {
         headers: { accept: "application/json" },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        signal: controller.signal,
       });
       if (!response.ok) return "error";
       json = await response.json();
     } catch {
       return "error";
+    } finally {
+      clearTimeout(timer);
     }
     const kurs = parseNbsMiddleRate(json);
     if (!kurs) return "invalid";

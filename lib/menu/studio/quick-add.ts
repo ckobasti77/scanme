@@ -34,6 +34,25 @@ export function jePrazanRed(unos: { naziv: string; cena: string }): boolean {
 
 export type TabelaRed = { naziv: string; cena: string; sekcijaId: string };
 
+/**
+ * K34: the option a select really stands on, to show AND to submit. A dialog can be mounted before
+ * the page content arrives, so its state holds only what the owner chose ("" = nothing yet) and the
+ * rest follows the props at every render: the owner's choice, else the default the props give now,
+ * else the first option ("" when there are none).
+ */
+export function izabranaVrednost(izbor: string, podrazumevana: string | null, opcije: readonly { id: string }[]): string {
+  return izbor || podrazumevana || opcije[0]?.id || "";
+}
+
+/** K34: the table rows with the section each one goes to: a row nobody chose a section for ("") takes the default of now. */
+export function redoviSaSekcijom(
+  redovi: readonly TabelaRed[],
+  podrazumevana: string | null,
+  sekcije: readonly { id: string }[],
+): TabelaRed[] {
+  return redovi.map((red) => ({ ...red, sekcijaId: izabranaVrednost(red.sekcijaId, podrazumevana, sekcije) }));
+}
+
 export type TabelaProvera =
   | { ok: true; redovi: { indeks: number; naziv: string; cena: number | null; sekcijaId: string }[] }
   | {

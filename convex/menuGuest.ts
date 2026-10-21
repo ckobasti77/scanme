@@ -104,6 +104,13 @@ export type MenuGuestHopOutcome =
        * the guest still reaches the menu, just without a position.
        */
       session: { guestToken: string; deviceToken: string } | null;
+      /**
+       * K34: true ONLY when the card has a position but its per-card bucket was
+       * empty, so no session was opened. The handler then also drops the guest's
+       * cookie of the previous table; a card without a position leaves it alone
+       * (the guest still sits where they sat). Absent in every other outcome.
+       */
+      throttled?: true;
     };
 
 async function scheduleExpiry(
@@ -133,6 +140,9 @@ export const mintFromCard = mutation({
     // The raw device token from the HttpOnly cookie smm_d (Path=/r), already
     // verified by the handler; anything malformed starts a new device.
     deviceToken: v.optional(v.string()),
+    // K34: the handler has no SCANME_GUEST_SECRET, so no cookie could carry a
+    // session: it asks only WHERE the menu is. Nothing is opened or scheduled.
+    withoutSession: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<MenuGuestHopOutcome> => {
     const ipKey = menuIpKey(args.ipHash, args.gateway);
@@ -158,16 +168,21 @@ export const mintFromCard = mutation({
     const pagePath = link?.pagePath ?? null;
     if (!link?.position) return { kind: "menu", slug: business.slug, pagePath, session: null };
 
-    const perCard = await rateLimiter.limit(ctx, "menuGuestHopCard", { key: card._id });
-    if (!perCard.ok) return { kind: "menu", slug: business.slug, pagePath, session: null };
+    // K34: without a session to open there is nothing to throttle; the destination below is the same.
+    let session: { guestToken: string; deviceToken: string } | null = null;
+    if (!args.withoutSession) {
+      const perCard = await rateLimiter.limit(ctx, "menuGuestHopCard", { key: card._id });
+      // K34: say that this is the bucket (not a card without a position), so the handler can drop the old session cookie.
+      if (!perCard.ok) return { kind: "menu", slug: business.slug, pagePath, session: null, throttled: true };
 
-    const session = await openSession(ctx, {
-      menuService: link.menuService,
-      position: link.position,
-      cardId: card._id,
-      deviceToken: isMenuToken(args.deviceToken) ? args.deviceToken : null,
-      now: Date.now(),
-    });
+      session = await openSession(ctx, {
+        menuService: link.menuService,
+        position: link.position,
+        cardId: card._id,
+        deviceToken: isMenuToken(args.deviceToken) ? args.deviceToken : null,
+        now: Date.now(),
+      });
+    }
     // K21: a room card without its own page opens Room service when the room can order from it.
     if (pagePath === null && link.position.kind === "room") {
       const { actions } = await guestActionsOf(ctx, { business, menuService: link.menuService, position: link.position });

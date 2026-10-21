@@ -14,6 +14,16 @@ import { klasaUredjaja } from "./uredjaj";
 /** The largest body the route reads (10 events with every field is far below). */
 export const MAX_TELO_BAJTOVA = 8 * 1024;
 
+/**
+ * K34: true when the declared Content-Length alone puts the body over MAX_TELO_BAJTOVA, so the route
+ * drops the request without reading the body at all. A missing or malformed header means "unknown":
+ * the body is read as before and the size check on the text decides.
+ */
+export function teloPrevelikoPoZaglavlju(contentLength: string | null): boolean {
+  if (contentLength === null || !/^\d+$/.test(contentLength.trim())) return false;
+  return Number(contentLength) > MAX_TELO_BAJTOVA;
+}
+
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const POLJA = ["vrsta", "stranica", "artikal", "kartica", "jezik", "korak", "sesija"] as const;
 

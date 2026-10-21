@@ -15,7 +15,7 @@ const TONOVI: Record<KarticaTon, string> = {
     "border [--border:var(--mp-ivica)] bg-[var(--mp-istaknuto)] text-[var(--mp-na-istaknutom)]",
     "[--mp-tekst:var(--mp-na-istaknutom)] [--mp-tekst-sporedni:var(--mp-na-istaknutom-sporedni)]",
     "[--mp-ivica:rgb(242_244_238/0.14)] [--mp-povrsina:rgb(242_244_238/0.06)] [--mp-povrsina-utisana:rgb(242_244_238/0.1)]",
-    "[--mp-mastilo:var(--mp-akcent)] [--mp-na-mastilu:var(--mp-na-akcentu)] [--mp-ivica-kontrole:#8a918b]",
+    "[--mp-mastilo:var(--mp-akcent)] [--mp-na-mastilu:var(--mp-na-akcentu)] [--mp-ivica-kontrole:var(--mp-ivica-kontrole-na-istaknutom)]",
     "[--mp-fokus:var(--mp-akcent)] [--focus-ring:var(--mp-akcent)]",
   ].join(" "),
 };

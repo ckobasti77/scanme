@@ -4257,6 +4257,9 @@ export default defineSchema({
     status: v.union(v.literal("reserved"), v.literal("processed"), v.literal("failed")),
     storageId: v.optional(v.id("_storage")),
     mediaId: v.optional(v.id("mediaAssets")),
+    // K34: the byte size the browser declared at reservation; the claimed blob must have it
+    // (binds the blob to this reservation; absent on rows from before K34).
+    declaredSize: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

@@ -572,3 +572,27 @@ describe("requestedTimeProblem", () => {
     expect(checked).toBeGreaterThan(40);
   });
 });
+
+// K34: openDates stops at the first slot of a day instead of building the whole grid (the
+// reservation form asks for 61 days); the answer must stay exactly the days slotsFor fills.
+describe("K34: openDates equals the days with a slot", () => {
+  const reference = (hours: WorkingHours, now: number) => {
+    const out: string[] = [];
+    for (let offset = 0; offset <= RESERVATION_MAX_DAYS_AHEAD; offset += 1) {
+      const dateKey = addDays(belgradeDateKey(now), offset);
+      if (slotsFor(dateKey, hours, now).length > 0) out.push(dateKey);
+    }
+    return out;
+  };
+  const cases: Array<[string, WorkingHours, number]> = [
+    ["every day 08–23, at 10:07", everyDay("08:00", "23:00"), local("2026-10-21T10:07")],
+    ["every day 08–23, after closing", everyDay("08:00", "23:00"), local("2026-10-21T23:30")],
+    ["past midnight 18–02, at 01:30", everyDay("18:00", "02:00"), local("2026-10-22T01:30")],
+    ["two intervals on some days, on the DST change", week({ [SAT]: [open("10:00", "14:00"), open("18:00", "23:00")], [SUN]: [open("02:00", "04:00")] }), local("2026-10-24T22:00")],
+    ["a single 15-minute slot on Monday", week({ [MON]: [open("12:00", "12:15")] }), local("2026-10-19T11:59")],
+    ["closed every day", emptyWorkingHours(), local("2026-10-21T10:00")],
+  ];
+  test.each(cases)("%s", (_ime, hours, now) => {
+    expect(openDates(hours, now)).toEqual(reference(hours, now));
+  });
+});

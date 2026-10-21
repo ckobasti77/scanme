@@ -12,6 +12,7 @@ import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
 import { MENU_TEXT } from "@/lib/menu/limits";
 import type { StudioArtikal, StudioIshod, StudioSekcija } from "@/lib/menu/studio/model";
 import { parseCenaUnos } from "@/lib/menu/studio/price-input";
+import { izabranaVrednost } from "@/lib/menu/studio/quick-add";
 import { cleanText, foldSerbian } from "@/lib/menu/text";
 import { cn } from "@/lib/utils";
 import { Dugme } from "../../zajednicko/dugme";
@@ -40,7 +41,10 @@ export function NoviKombo({
   const id = useId();
   const [naziv, setNaziv] = useState("");
   const [cena, setCena] = useState("");
-  const [sekcijaId, setSekcijaId] = useState(podrazumevanaSekcija ?? sekcije[0]?.id ?? "");
+  // K34: this dialog is mounted before the page content arrives, so the state is only the owner's pick
+  // ("" = none); the section that is shown and sent follows the props at every render.
+  const [izabranaSekcija, setIzabranaSekcija] = useState("");
+  const sekcijaId = izabranaVrednost(izabranaSekcija, podrazumevanaSekcija, sekcije);
   const [izabrani, setIzabrani] = useState<string[]>([]);
   const [upit, setUpit] = useState("");
   const [greske, setGreske] = useState<{ naziv?: string; cena?: string; sastojci?: string; opste?: string }>({});
@@ -151,7 +155,7 @@ export function NoviKombo({
             </label>
             <label className="grid content-start gap-1.5">
               <span className="text-sm font-semibold">{t.kombo.sekcija}</span>
-              <select className={cn(poljeKlase, "pr-8")} value={sekcijaId} onChange={(event) => setSekcijaId(event.target.value)}>
+              <select className={cn(poljeKlase, "pr-8")} value={sekcijaId} onChange={(event) => setIzabranaSekcija(event.target.value)}>
                 {sekcije.map((sekcija) => (
                   <option key={sekcija.id} value={sekcija.id}>
                     {sekcija.naziv}

@@ -245,7 +245,8 @@ export const menuPanelSr = {
         few: "{n} zahteva gostiju čekaju duže od {prag} min",
         many: "{n} zahteva gostiju čeka duže od {prag} min",
       },
-      bezOsoblja: "Gosti šalju zahteve, a niko od osoblja nije prijavljen u konobarski panel.",
+      // K34: counts PIN sessions only; an Owner or Manager in the panel with an account is not counted (BLOCKED K27/1).
+      bezOsoblja: "Gosti šalju zahteve, a nijedan konobar nije prijavljen PIN-om u konobarski panel.",
       rezervacijeKasne: {
         one: "{n} rezervacija: gosti nisu stigli ni posle vremena zadržavanja stola",
         few: "{n} rezervacije: gosti nisu stigli ni posle vremena zadržavanja stola",

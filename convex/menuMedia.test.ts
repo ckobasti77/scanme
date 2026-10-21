@@ -10,6 +10,7 @@ import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { blobOfUpload } from "./menuMedia";
 import schema from "./schema";
 import { MENU_ERROR } from "../lib/menu/errors/core";
 import { MENU_MEDIA_ERROR } from "../lib/menu/errors/media";
@@ -148,6 +149,15 @@ async function claimed(t: T, userId: Id<"users">, articleId: Id<"menuArticles">)
   });
   if (ctxResult.status !== "ready") throw new Error(`expected ready, got ${ctxResult.status}`);
   return { uploadId, storageId };
+}
+
+/** K34: makes the reservation strictly younger than the given blobs (as if reserved a second after they were stored). */
+async function reservedAfter(t: T, uploadId: Id<"menuMediaUploads">, blobs: Id<"_storage">[]) {
+  await t.run(async (ctx) => {
+    let newest = 0;
+    for (const id of blobs) newest = Math.max(newest, (await ctx.db.system.get("_storage", id))!._creationTime);
+    await ctx.db.patch(uploadId, { createdAt: Math.floor(newest) + 1000 });
+  });
 }
 
 function claim(t: T, userId: Id<"users">, uploadId: Id<"menuMediaUploads">, storageId: Id<"_storage">, secret = SECRET) {
@@ -354,7 +364,8 @@ describe("menuMedia.uploadContext", () => {
 
   test("a good blob is claimed: ready, signed original URL, 2400 px, three upload URLs, storageId set", async () => {
     const { t, w, articleId } = await setup();
-    const { uploadId } = await reserve(t, w.ownerId, articleId);
+    // K34 (intentional): the reservation declares the size of the file it will store (as the browser does).
+    const { uploadId } = await reserve(t, w.ownerId, articleId, 2048, "image/png");
     const storageId = await storeBlob(t, 2048, "image/png");
     const result = await claim(t, w.ownerId, uploadId, storageId);
     if (result.status !== "ready") throw new Error(`expected ready, got ${result.status}`);
@@ -406,6 +417,9 @@ describe("menuMedia.uploadContext", () => {
     });
     expect((await uploadRow(t, uploadId))?.status).toBe("failed");
     expect(await blobExists(t, storageId)).toBe(false);
+    // A failed upload cannot be claimed again (moved here in K34 from the over-10-MB test).
+    const fresh = await storeBlob(t, 1000);
+    await expect(claim(t, w.ownerId, uploadId, fresh)).rejects.toThrow(MENU_MEDIA_ERROR.wrongState);
   });
 
   test("a stored HEIC blob answers media/heic", async () => {
@@ -417,27 +431,95 @@ describe("menuMedia.uploadContext", () => {
     expect(await blobExists(t, storageId)).toBe(false);
   });
 
-  test("a stored blob over 10 MB is refused, the upload fails and the blob is deleted", async () => {
+  // K34 (intentional): a blob of another size than declared is not this reservation's blob (a
+  // reservation cannot declare more than 10 MB or 0 bytes), so it is never touched: wrong_state,
+  // the blob stays, the upload stays reserved. Before K34 such a blob was deleted, whoever's it was.
+  test("a stored blob over 10 MB (not the declared size) is wrong_state and never deleted", async () => {
     const { t, w, articleId } = await setup();
     const { uploadId } = await reserve(t, w.ownerId, articleId, 1000);
     const storageId = await storeBlob(t, MENU_IMAGE_MAX_BYTES + 1);
-    expect(await claim(t, w.ownerId, uploadId, storageId)).toEqual({
-      status: "refused",
-      code: MENU_MEDIA_ERROR.tooLarge,
-    });
-    expect((await uploadRow(t, uploadId))?.status).toBe("failed");
-    expect(await blobExists(t, storageId)).toBe(false);
-    // A failed upload cannot be claimed again.
-    const fresh = await storeBlob(t, 100);
-    await expect(claim(t, w.ownerId, uploadId, fresh)).rejects.toThrow(MENU_MEDIA_ERROR.wrongState);
+    await expect(claim(t, w.ownerId, uploadId, storageId)).rejects.toThrow(MENU_MEDIA_ERROR.wrongState);
+    expect(await uploadRow(t, uploadId)).toMatchObject({ status: "reserved" });
+    expect((await uploadRow(t, uploadId))?.storageId).toBeUndefined();
+    expect(await blobExists(t, storageId)).toBe(true);
   });
 
-  test("an empty stored blob is refused as media/empty", async () => {
+  test("an empty stored blob is wrong_state on a K34 row, and media/empty on a row without a declared size", async () => {
     const { t, w, articleId } = await setup();
     const { uploadId } = await reserve(t, w.ownerId, articleId);
     const storageId = await storeBlob(t, 0);
+    await expect(claim(t, w.ownerId, uploadId, storageId)).rejects.toThrow(MENU_MEDIA_ERROR.wrongState);
+    expect(await blobExists(t, storageId)).toBe(true);
+    // A row from before K34 has no declared size: the stored-blob checks answer as before.
+    await t.run(async (ctx) => await ctx.db.patch(uploadId, { declaredSize: undefined }));
     expect(await claim(t, w.ownerId, uploadId, storageId)).toEqual({ status: "refused", code: MENU_MEDIA_ERROR.empty });
     expect((await uploadRow(t, uploadId))?.status).toBe("failed");
+  });
+
+  // K34 (critical, HARDENING B7 re-rated): the storageId comes from the browser and ids of other
+  // venues' files are public (old menus, Venue pages). Only the blob this reservation stored may
+  // be read, copied or deleted.
+  test("K34: another venue's existing image is never read, copied or deleted through a fresh reservation", async () => {
+    const { t, w, articleId } = await setup();
+    // Venue B's published image (any blob stored BEFORE the reservation), of the declared size even.
+    const victim = await storeBlob(t, 1000);
+    const victimAsset = await insertAsset(t, w.b.businessId);
+    // mediaAssets keeps the ref as a plain string (other providers); here it is a Convex storage id.
+    const victimRef = (await t.run(async (ctx) => (await ctx.db.get(victimAsset))!.variants.webp.ref)) as Id<"_storage">;
+    const { uploadId } = await reserve(t, w.ownerId, articleId, 1000);
+    await reservedAfter(t, uploadId, [victim, victimRef]);
+    for (const storageId of [victim, victimRef]) {
+      await expect(claim(t, w.ownerId, uploadId, storageId)).rejects.toThrow(MENU_MEDIA_ERROR.wrongState);
+      expect(await blobExists(t, storageId)).toBe(true);
+    }
+    // Nothing was claimed, nothing failed, no image was made.
+    expect(await uploadRow(t, uploadId)).toMatchObject({ status: "reserved" });
+    expect((await uploadRow(t, uploadId))?.storageId).toBeUndefined();
+    expect(await assetCount(t)).toBe(1);
+    // The upload still takes its own file (stored after the reservation, of the declared size).
+    const own = await storeBlob(t, 1000);
+    await t.run(async (ctx) => {
+      const blob = await ctx.db.system.get("_storage", own);
+      await ctx.db.patch(uploadId, { createdAt: Math.floor(blob!._creationTime) });
+    });
+    expect((await claim(t, w.ownerId, uploadId, own)).status).toBe("ready");
+  });
+
+  test("K34: blobOfUpload binds by time window and declared size", () => {
+    const upload = { createdAt: 1_000_000, declaredSize: 2048 };
+    expect(blobOfUpload(upload, { _creationTime: 1_000_000, size: 2048 })).toBe(true);
+    expect(blobOfUpload(upload, { _creationTime: 1_000_000 + 60 * 60 * 1000, size: 2048 })).toBe(true);
+    expect(blobOfUpload(upload, { _creationTime: 999_999.5, size: 2048 })).toBe(false);
+    expect(blobOfUpload(upload, { _creationTime: 1_000_000 + 60 * 60 * 1000 + 1, size: 2048 })).toBe(false);
+    expect(blobOfUpload(upload, { _creationTime: 1_000_500, size: 2047 })).toBe(false);
+    // A row from before K34 (no declared size) is bound by time only.
+    expect(blobOfUpload({ createdAt: 1_000_000, declaredSize: undefined }, { _creationTime: 1_000_500, size: 1 })).toBe(true);
+  });
+
+  test("K34: a wrong-type file of someone else is not deleted either (the refused branch is behind the same check)", async () => {
+    const { t, w, articleId } = await setup();
+    const video = await storeBlob(t, 4096, "video/mp4");
+    const { uploadId } = await reserve(t, w.ownerId, articleId, 4096);
+    await reservedAfter(t, uploadId, [video]);
+    await expect(claim(t, w.ownerId, uploadId, video)).rejects.toThrow(MENU_MEDIA_ERROR.wrongState);
+    expect(await blobExists(t, video)).toBe(true);
+    expect((await uploadRow(t, uploadId))?.status).toBe("reserved");
+  });
+
+  test("K34: a concurrent upload of another size, or a blob stored after the upload URL expired, is wrong_state", async () => {
+    const { t, w, articleId } = await setup();
+    const { uploadId } = await reserve(t, w.ownerId, articleId, 1000);
+    const someoneElse = await storeBlob(t, 1234);
+    await expect(claim(t, w.ownerId, uploadId, someoneElse)).rejects.toThrow(MENU_MEDIA_ERROR.wrongState);
+    expect(await blobExists(t, someoneElse)).toBe(true);
+    // The reservation is older than an upload URL lives: a blob stored now is not its blob.
+    const late = await storeBlob(t, 1000);
+    await t.run(async (ctx) => {
+      const blob = await ctx.db.system.get("_storage", late);
+      await ctx.db.patch(uploadId, { createdAt: blob!._creationTime - 60 * 60 * 1000 - 1 });
+    });
+    await expect(claim(t, w.ownerId, uploadId, late)).rejects.toThrow(MENU_MEDIA_ERROR.wrongState);
+    expect(await blobExists(t, late)).toBe(true);
   });
 
   test("a missing blob throws media/empty", async () => {

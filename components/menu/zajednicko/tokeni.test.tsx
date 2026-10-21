@@ -148,6 +148,8 @@ const GRAPHIC_PAIRS: [string, string][] = [
   ["--mp-info", "--mp-info-meko"],
   ["--mp-ivica-kontrole", "--mp-okvir"],
   ["--mp-ivica-kontrole", "--mp-povrsina"],
+  // K34: the control boundary the istaknuta card sets for its controls (kartica.tsx).
+  ["--mp-ivica-kontrole-na-istaknutom", "--mp-istaknuto"],
   ["--mp-fokus", "--mp-okvir"],
   ["--mp-fokus", "--mp-povrsina"],
   ["--mp-vrsta-poziv", "--mp-vrsta-poziv-meko"],
@@ -187,6 +189,24 @@ describe("contrast floors of the Menu panel tokens (WCAG 2.1 AA)", () => {
   test("targets: 44 px in the panel, 48 px in the waiter panel", () => {
     expect(moduleLight["--mp-meta"]).toBe("2.75rem");
     expect(waiterLight["--mp-meta"]).toBe("3rem");
+  });
+});
+
+describe("K34: fields on a touch screen are at least 16 px (MENU-UX §3, iOS zoom)", () => {
+  const blok = /@media \(pointer: coarse\) \{([\s\S]*?)\n\}/.exec(MODULE)?.[1] ?? "";
+
+  test("one coarse-pointer block raises the small size tokens of input, select and textarea to 1rem", () => {
+    expect(blok).toMatch(/\.povrsina\s+:is\(input, select, textarea\)/);
+    for (const token of ["text-xs", "text-sm", "text-[0.8125rem]", "text-[0.9375rem]"]) {
+      expect(blok).toContain(`[class~="${token}"]`);
+    }
+    expect(blok).toMatch(/font-size: 1rem;/);
+  });
+
+  test("the editor's field recipe uses one of those tokens, so it is covered", () => {
+    const polja = readFileSync(path.join(ROOT, "components/menu/studio/artikal/polja.tsx"), "utf8");
+    const recept = /export const POLJE_KLASA =\s*"([^"]*)"/.exec(polja)?.[1] ?? "";
+    expect(recept.split(/\s+/)).toContain("text-[0.9375rem]");
   });
 });
 

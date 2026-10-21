@@ -68,6 +68,30 @@ async function checkedComponents(
   return checked;
 }
 
+/**
+ * K34: an article is a component of at most MENU_MAX_COMBOS_PER_COMPONENT combos. The price-change
+ * and deletion hooks (convex/lib/menuArticleHooks.ts) read exactly that many rows, so one more combo
+ * would never get the "check the combo price" flag and a deleted article would leave a dangling
+ * component row. One bounded indexed read per article that is NEW to the combo; `current` = the
+ * component rows the combo already has (those articles are not counted again). Refused with
+ * `menu/limit_reached`.
+ */
+async function assertRoomInCombos(
+  ctx: MutationCtx,
+  components: readonly ComponentInput[],
+  current: readonly Doc<"menuComboComponents">[] = [],
+): Promise<void> {
+  const already = new Set(current.map((row) => row.componentArticleId));
+  for (const component of components) {
+    if (already.has(component.articleId)) continue;
+    const rows = await ctx.db
+      .query("menuComboComponents")
+      .withIndex("by_componentArticleId", (q) => q.eq("componentArticleId", component.articleId))
+      .take(MENU_MAX_COMBOS_PER_COMPONENT);
+    if (rows.length >= MENU_MAX_COMBOS_PER_COMPONENT) throw refuse(MENU_ERROR.limitReached);
+  }
+}
+
 async function insertComponents(
   ctx: MutationCtx,
   menuServiceId: Id<"menuServices">,
@@ -130,6 +154,7 @@ export const createCombo = mutation({
     if (page.placementCount >= MENU_MAX_PLACEMENTS_PER_PAGE) {
       throw refuse(MENU_ERROR.limitReached);
     }
+    await assertRoomInCombos(ctx, components);
 
     const now = Date.now();
     const key = newMenuKey("article");
@@ -190,6 +215,7 @@ export const setComboComponents = mutation({
       .withIndex("by_comboArticleId_and_order", (q) => q.eq("comboArticleId", combo._id))
       .take(MENU_MAX_COMBO_COMPONENTS + 1);
     if (sameComponents(rows, components)) return { ok: true as const };
+    await assertRoomInCombos(ctx, components, rows);
 
     for (const row of rows) await ctx.db.delete(row._id);
     await insertComponents(ctx, combo.menuServiceId, combo._id, components);

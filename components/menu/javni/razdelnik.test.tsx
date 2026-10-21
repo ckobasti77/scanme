@@ -135,7 +135,10 @@ describe("JavniIzlog stanje=razdelnik (primer restoran)", () => {
     for (const link of sidra(nav)) expect(link.tag).not.toContain("data-bez-medija");
     expect(prva).toContain("<img");
     expect(attr(/<img\b[^>]*>/.exec(prva)?.[0] ?? "", "alt")).toBe("");
-    expect(prva).not.toContain("<svg");
+    // K34 (intentional): the cover lies over the page's glyph (a cover that fails to load reveals it,
+    // MENU-UX 1.2), so the box carries the svg too, under the image.
+    expect(prva.indexOf("<svg")).toBeGreaterThanOrEqual(0);
+    expect(prva.indexOf("<svg")).toBeLessThan(prva.indexOf("<img"));
     expect(druga).toContain("<svg");
     expect(druga).not.toContain("<img");
     expect(Object.values(prikaz.naslovne).filter((slika) => slika !== null)).toHaveLength(1);

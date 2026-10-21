@@ -76,7 +76,8 @@ export function Dugme({
 }: DugmeProps) {
   const klase = cn(dugmeKlase({ vrsta, velicina }), className);
   if (asChild) {
-    return <Slot className={klase} {...rest}>{children}</Slot>;
+    // K34: onClick goes to the child too (Slot runs the child's own handler first, then this one).
+    return <Slot className={klase} onClick={onClick} {...rest}>{children}</Slot>;
   }
   return (
     <button

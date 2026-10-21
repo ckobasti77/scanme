@@ -567,6 +567,8 @@ function postaviAktivnost(stanje: LokalMemorija, cardId: string, aktivna: boolea
   const kartica = nadjiKarticu(stanje, cardId);
   if (!kartica) return odbij(stanje, MENU_ERROR.notFound);
   if (kartica.managedByScanMe) return odbij(stanje, FLOOR_ERROR.cardReadOnly);
+  // K34: as the server (menuQr.setCardActive): only a card whose destination is the Menu.
+  if (!kartica.opensMenu) return odbij(stanje, FLOOR_ERROR.cardNotMenu);
   const izmenjena: LokalKartica = { ...kartica, status: aktivna ? "active" : "disabled" };
   return gotovo(stanje, { cards: cards.map((k) => (k.id === cardId ? izmenjena : k)) });
 }

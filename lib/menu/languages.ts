@@ -41,6 +41,14 @@ export type MenuTranslationLanguage = (typeof MENU_TRANSLATION_LANGUAGES)[number
 
 const KNOWN: ReadonlySet<string> = new Set(MENU_TRANSLATION_LANGUAGES);
 
+// K34: the languages of the list above that are written right to left.
+const DESNO_NA_LEVO: ReadonlySet<string> = new Set<MenuTranslationLanguage>(["ar", "he"]);
+
+/** The writing direction of a menu language: the public menu sets `dir="rtl"` on its root for "rtl". */
+export function smerPisma(kod: string): "rtl" | "ltr" {
+  return DESNO_NA_LEVO.has(kod) ? "rtl" : "ltr";
+}
+
 export type LanguageChangeResult =
   | { ok: true }
   | { ok: false; reason: "invalid" | "limit" };

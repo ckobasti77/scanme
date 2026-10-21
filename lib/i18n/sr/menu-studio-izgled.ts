@@ -168,6 +168,8 @@ export const menuStudioIzgledSr = {
     pretragaOpis: "Gost traži po nazivu i opisu, i bez kvačica („cevapi” nalazi „Ćevapi”).",
     filteri: "Filteri po oznakama",
     filteriOpis: "Na primer Vegansko ili Akcija. Prikazuju se samo oznake koje artikli na stranici stvarno imaju.",
+    filteriKoji: "Koje filtere gost može da bira",
+    filteriKojiOpis: "Isključite oznaku koju ne želite kao filter. Kad isključite sve, filteri se gase.",
     valuta: "Cene i u evrima",
     valutaOpis: "Evro cena se prikazuje samo kad imamo ažuran srednji kurs NBS. Važeća cena je uvek u dinarima.",
   },

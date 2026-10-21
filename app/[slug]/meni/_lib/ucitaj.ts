@@ -1,7 +1,8 @@
 // ScanMe Menu V1 (K13, plan K12 §2.1) — the server loader of the public menu.
 // Three reads in parallel, all of the PUBLISHED version only (convex/menuPublic.ts):
 // the page (or the splitter), the live layer and the page images; K14 adds the
-// latest EUR rate (convex/menuFx.ts), used when the venue shows the EUR switch. The clock
+// latest EUR rate (convex/menuFx.ts), used when the venue shows the EUR switch (K34: the rate
+// and the guest session are optional extras, either failing serves the menu without it). The clock
 // is read here, not in a render (K12-12), and the venue's tokens are computed
 // here, so the colour library never reaches the guest's phone (K12-4).
 // cache() shares one load between generateMetadata, generateViewport and the page.
@@ -124,6 +125,21 @@ export async function gostZaStranicu(
   };
 }
 
+/**
+ * K34: an optional read of the page (the EUR rate, the guest's session). If it
+ * cannot be had, the menu is served without it rather than not at all, as
+ * `ucitajUlazRezervacije` does; the page itself still fails hard. Only the
+ * kind of failure reaches the log.
+ */
+async function neobavezno<T>(oznaka: string, citanje: () => Promise<T>): Promise<T | null> {
+  try {
+    return await citanje();
+  } catch (error) {
+    console.error(oznaka, error instanceof Error ? error.name : typeof error);
+    return null;
+  }
+}
+
 export const ucitajJavno = cache(
   async (slug: string, pageSlug: string | undefined, jezik: string | undefined): Promise<JavnoUcitano | null> => {
     const args = { slug, ...(pageSlug !== undefined ? { pageSlug } : {}), ...(jezik ? { lang: jezik } : {}) };
@@ -131,8 +147,8 @@ export const ucitajJavno = cache(
       fetchQuery(api.menuPublic.page, args),
       fetchQuery(api.menuPublic.live, { slug }),
       fetchQuery(api.menuPublic.pageMedia, args),
-      fetchQuery(api.menuFx.current, {}),
-      ucitajGostSesiju(slug),
+      neobavezno("MENU_FX_RATE_FAILED", () => fetchQuery(api.menuFx.current, {})),
+      neobavezno("MENU_GUEST_SESSION_FAILED", () => ucitajGostSesiju(slug)),
     ]);
     if (!page || !live) return null;
     // K14: the rate (one indexed read, in parallel rather than after the page) is used

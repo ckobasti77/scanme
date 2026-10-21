@@ -11,6 +11,7 @@
 | Podela menija | **Stranice menija** (jedna: „stranica“) | odredišta, destinacije, ekrani menija |
 | Podela stranice | **Sekcija** | kategorija (osim alergena i „Kategorije“ kao naziv layouta), grupa |
 | Jelo ili piće | **Artikal** (mn. „artikli“) | stavka, proizvod, jelo (osim u primeru) |
+| Artikli koje lokal već ima | **postojeća ponuda**, „artikli menija“ | biblioteka, katalog (master §5.2: biblioteka postoji samo u pozadini) |
 | Poseban modul | **Posebne usluge** (grupa), **Room service** (naziv) | Sobna usluga, Posluživanje u sobi |
 | Podrazumevana stranica | **Kompletan meni** — samo u editoru | „Kompletan meni“ u javnom meniju i panelu |
 | Zahtev gosta | **Poziv konobara**, **Zahtev za račun**, **Porudžbina**, **Rezervacija** | Narudžbina, Narudžba, Booking, Račun zahtev |

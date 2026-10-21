@@ -22,6 +22,7 @@ import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
 import { clockTime } from "@/lib/menu/elapsed-time";
+import { telHref } from "@/lib/menu/phone";
 import { canBindPosition, isOpenReservationStatus } from "@/lib/menu/reservation-status";
 import { Dugme } from "../../zajednicko/dugme";
 import { PraznoStanje, UcitavanjeStanje } from "../../zajednicko/stanja";
@@ -73,9 +74,9 @@ export type DetaljRezervacijeProps = {
   pocetno?: { otvoreno?: Otvoreno };
 };
 
-/** `tel:` target of a phone number: digits and a leading plus only. */
+/** `tel:` target of a phone number: digits and a leading plus only (K34: the one rule, lib/menu/phone.ts). */
 export function telefonHref(telefon: string): string {
-  return `tel:${telefon.replace(/[^\d+]/g, "")}`;
+  return telHref(telefon) ?? `tel:${telefon.replace(/\D/g, "")}`;
 }
 
 /**

@@ -82,6 +82,22 @@ async function lastScanAtOf(ctx: DatabaseCtx, cardId: Id<"cards">): Promise<numb
   return last?.occurredAt ?? null;
 }
 
+/**
+ * K34: the state a scan sees, which is what "Lokal i QR" must show. A legacy
+ * card is switched by `cards.status`. An adopted card (ScanMe access channel,
+ * ADMIN-12) ignores `cards.status`: the resolver (convex/cards.ts
+ * resolveAndRecord) refuses it unless its channel has `redirectEnabled` and
+ * `state === "active"`, and a missing channel is a broken mapping (also refused).
+ * One get per adopted card. The channel's `state` already holds the resolver's
+ * other checks (health, QC, destination): ScanMe's writers and the resolver sync
+ * it (syncChannel), so they are not re-derived here.
+ */
+async function liveStatusOfCard(ctx: DatabaseCtx, card: Doc<"cards">): Promise<Doc<"cards">["status"]> {
+  if (!card.accessChannelId) return card.status;
+  const channel = await ctx.db.get(card.accessChannelId);
+  return channel && channel.redirectEnabled && channel.state === "active" ? "active" : "disabled";
+}
+
 /** The ACTIVE page of the service, or FLOOR_ERROR.pageUnavailable (archived or unknown key). */
 async function loadActivePage(
   ctx: DatabaseCtx,
@@ -153,7 +169,8 @@ export const listCards = query({
         id: card._id,
         cardCode: card.cardCode,
         label: card.label,
-        status: card.status,
+        // K34: the LIVE state (what a scan does), not `cards.status` for adopted cards.
+        status: await liveStatusOfCard(ctx, card),
         managedByScanMe: !!card.accessChannelId,
         opensMenu,
         link: link
@@ -365,12 +382,19 @@ export const linkCard = mutation({
 
 // -----------------------------------------------------------------------------
 // setCardActive — switch a card off (it stops opening anything) or on again.
+// K34: Menu cards only, like linkCard; a Memories, Links or ordering card of the
+// same venue is not the Menu's to switch.
 // -----------------------------------------------------------------------------
 
 export const setCardActive = mutation({
   args: { cardId: v.id("cards"), active: v.boolean() },
   handler: async (ctx, args) => {
     const { card, access } = await loadCardForEdit(ctx, args.cardId);
+
+    // K34: the card's CURRENT destination must be the Menu, exactly as linkCard checks.
+    const target = await currentTargetOfCard(ctx, card);
+    if (target?.kind !== "menu") throw new ConvexError(FLOOR_ERROR.cardNotMenu);
+
     const status = args.active ? "active" : "disabled";
     if (card.status === status) return null; // no-op: nothing to write, nothing to audit
 

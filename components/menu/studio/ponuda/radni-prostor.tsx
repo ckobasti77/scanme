@@ -150,6 +150,8 @@ export function PonudaRadniProstor({
   const [brziUnosU, setBrziUnosU] = useState<string | null>(null);
   const [novaSekcija, setNovaSekcija] = useState(false);
   const [brisanje, setBrisanje] = useState<StudioSekcija | null>(null);
+  // K34: why the last attempt to delete the section failed; the dialog stays open and says so.
+  const [brisanjeGreska, setBrisanjeGreska] = useState<string | null>(null);
   const [radi, setRadi] = useState(false);
   const [poruka, setPoruka] = useState<string | null>(null);
   // K11
@@ -394,6 +396,12 @@ export function PonudaRadniProstor({
     setIzabrani(new Set());
   };
 
+  // K34: every opening starts without the text of an earlier attempt (one can end after the dialog was closed).
+  const otvoriBrisanje = (sekcija: StudioSekcija) => {
+    setBrisanjeGreska(null);
+    setBrisanje(sekcija);
+  };
+
   const naTaster = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Escape" || !izborAktivan) return;
     const meta = event.target as HTMLElement;
@@ -575,7 +583,7 @@ export function PonudaRadniProstor({
               onDodaj={radnje.brziUnos}
               onDodajPostojeci={radnje.dodajPostojeci}
               onPreimenuj={radnje.preimenujSekciju}
-              onObrisi={setBrisanje}
+              onObrisi={otvoriBrisanje}
               onPremesti={(s) => setPremesti({ vrsta: "sekcija", sekcija: s })}
               prevlacenje={prevlacenje}
               sekcijaSePrevlaci={dnd.aktivno?.vrsta === "sekcija"}
@@ -652,8 +660,14 @@ export function PonudaRadniProstor({
               onClick={async () => {
                 if (!brisanje) return;
                 setRadi(true);
-                await radnje.obrisiSekciju(brisanje.id);
+                setBrisanjeGreska(null);
+                const ishod = await radnje.obrisiSekciju(brisanje.id);
                 setRadi(false);
+                // K34: closes only when the section is really gone; a refusal or a lost connection stays on screen.
+                if (!ishod.ok) {
+                  setBrisanjeGreska(tekstNeuspeha(ishod));
+                  return;
+                }
                 setBrisanje(null);
               }}
             >
@@ -663,6 +677,11 @@ export function PonudaRadniProstor({
         }
       >
         <p className="text-[0.9375rem] leading-relaxed">{t.sekcija.potvrdaBrisanjaOpis}</p>
+        {brisanjeGreska ? (
+          <p role="alert" className="mt-3 text-sm font-medium text-[var(--mp-opasnost)]">
+            {brisanjeGreska}
+          </p>
+        ) : null}
       </StudioDijalog>
 
       <PremestiDijalog cilj={premesti} sekcije={sekcijePrikaz} onPremesti={premestiDijalogom} onZatvori={zatvoriPremesti} />

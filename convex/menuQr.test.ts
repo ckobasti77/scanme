@@ -1033,14 +1033,29 @@ describe("menuQr.setCardActive", () => {
     expect(await revisionOf(t, w.a.menuServiceId)).toBe(revisionBefore);
   });
 
-  test("works for any card of the business, not only Menu cards; repeating it is a no-op", async () => {
+  // K34 (intentional): this test used to assert that setCardActive "works for any
+  // card of the business, not only Menu cards". That let a Menu manager switch off
+  // (or on) a Memories, Links or ordering card of the venue through the Menu API.
+  // Now only a card whose CURRENT destination is the Menu switches (as linkCard
+  // checks); any other card is floor/card_not_menu and keeps its status.
+  test("switches Menu cards only: any other destination is floor/card_not_menu and unchanged; repeating it is a no-op", async () => {
     const t = newTest();
     const w = await world(t);
     const url = await plainCard(t, w, { cardCode: "URLONLY1", label: "Sajt", kind: "url" });
+    const none = await plainCard(t, w, { cardCode: "NOTARGT1", label: "Bez odredišta", kind: null });
+    const menu = await plainCard(t, w, { cardCode: "OLDMENU1", label: "Stari meni", kind: "menu" });
 
-    await as(t, w.ownerId).mutation(api.menuQr.setCardActive, { cardId: url, active: false });
-    expect((await cardOf(t, url)).status).toBe("disabled");
-    await as(t, w.ownerId).mutation(api.menuQr.setCardActive, { cardId: url, active: false });
+    for (const cardId of [url, none]) {
+      await expect(
+        as(t, w.ownerId).mutation(api.menuQr.setCardActive, { cardId, active: false }),
+      ).rejects.toThrow(FLOOR_ERROR.cardNotMenu);
+      expect((await cardOf(t, cardId)).status).toBe("active");
+    }
+    expect(await auditOf(t, w.a.menuServiceId, "qr.card_status")).toHaveLength(0);
+
+    await as(t, w.ownerId).mutation(api.menuQr.setCardActive, { cardId: menu, active: false });
+    expect((await cardOf(t, menu)).status).toBe("disabled");
+    await as(t, w.ownerId).mutation(api.menuQr.setCardActive, { cardId: menu, active: false });
     expect(await auditOf(t, w.a.menuServiceId, "qr.card_status")).toHaveLength(1);
   });
 

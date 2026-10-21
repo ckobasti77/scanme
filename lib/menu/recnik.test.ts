@@ -36,6 +36,8 @@ const ZABRANJENO: Array<[RegExp, string]> = [
   [/panel konobara/i, "„Konobarski panel“"],
   [/\btiket/i, "„Radni red“ / „zahtev“"],
   [/sklonio meni|skloni\b/i, "„Sakrij“"],
+  // K34: the shared library exists only in the backend (master §5.2); the client never reads about it.
+  [/bibliotek/i, "„postojeća ponuda“ / „artikli menija“"],
   [/\bnull\b|\bundefined\b|\bmutation\b|\bexception\b|\bfailed\b/i, "poruka bez programerskog jezika"],
 ];
 

@@ -7,6 +7,11 @@
 // The izlog passes `izlogOd`: its clock starts at a fixed instant (stable
 // snapshots) and then runs at real speed, so a Playwright fake clock can move
 // it (08:12 → 08:13).
+//
+// K34: request times (`createdAt`) are the SERVER's, so the clock they are read
+// against must be too. The live route (ruta.tsx) measures how far the device
+// clock is from the server's once, when the page loads, and gives it to every
+// `useSat` below it through PomakSataKontekst (see `clockOffset`).
 
 import { createContext, useContext, useState, useSyncExternalStore } from "react";
 
@@ -53,12 +58,22 @@ export function useSatLista(zaPropu: number): number {
   return useContext(SatKontekst) ?? zaPropu;
 }
 
+/**
+ * K34: how far this device's clock is from the server's (ms, whole seconds), measured ONCE when the page
+ * loads. It is a context and not a measurement inside `useSat`: the PIN screen and the panel both call
+ * `useSat`, but the panel can mount minutes after the page loaded, and a measurement taken then would
+ * count that wait as clock skew. 0 = no correction (the izlog; the owner's pages read the device clock).
+ */
+export const PomakSataKontekst = createContext(0);
+
 /** The current second (epoch ms, floored), stable between ticks. */
 export function useSat(pocetnoMs: number, opcije: { izlogOd?: number } = {}): number {
   const izlogOd = opcije.izlogOd;
+  const pomakStranice = useContext(PomakSataKontekst);
   // The izlog's offset from the real clock, fixed when the panel mounts and kept to whole
   // seconds, so the izlog's seconds turn exactly when the shared tick fires.
-  const [pomak] = useState(() => (izlogOd === undefined ? 0 : izlogOd - naSekundu(Date.now())));
+  const [izlogPomak] = useState(() => (izlogOd === undefined ? 0 : izlogOd - naSekundu(Date.now())));
+  const pomak = izlogOd === undefined ? pomakStranice : izlogPomak;
   return useSyncExternalStore(
     pretplati,
     () => naSekundu(Date.now() + pomak),

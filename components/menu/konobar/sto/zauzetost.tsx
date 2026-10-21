@@ -18,11 +18,12 @@ import { Check, Eraser, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
-import { clockTime } from "@/lib/menu/elapsed-time";
+import { clockTimeOrDate } from "@/lib/menu/elapsed-time";
 import { OCCUPANCY_STATES, type OccupancyState, type OccupancyView } from "@/lib/menu/occupancy";
 import { cn } from "@/lib/utils";
 import { Dugme } from "../../zajednicko/dugme";
 import { ZAUZETOST } from "../sala/zauzetost-oznaka";
+import { useSat } from "../use-sat";
 
 const t = menuKonobarSr.sto;
 const reci = menuKonobarSr.zauzetost;
@@ -38,15 +39,23 @@ export type ZauzetostStolaProps = {
   iskljuceno: boolean;
   /** null = back to neutral. */
   onPromena(stanje: OccupancyState | null): void;
+  /**
+   * K34: the panel clock, to tell a mark of today from an older one. Without it the shared panel clock is
+   * read (the table detail does not hand its own down).
+   */
+  sadaMs?: number;
 };
 
-/** "Zauzet · od 14:27 · Milan" (without the name when nobody is recorded), or "Bez oznake — Sto nije označen." */
-function trenutnoTekst(stanje: OccupancyView, meta: ZauzetostStolaProps["meta"]): string {
+/**
+ * "Zauzet · od 14:27 · Milan" (without the name when nobody is recorded), or "Bez oznake — Sto nije označen."
+ * K34: a mark never expires, so one from an earlier Belgrade day carries its date: "od 20. 10. 21:03".
+ */
+function trenutnoTekst(stanje: OccupancyView, meta: ZauzetostStolaProps["meta"], sadaMs: number): string {
   if (stanje === "neutral") return `${t.neutralno} — ${t.neutralnoOpis}`;
   if (!meta) return fmt(t.statusTrenutno, { stanje: reci[stanje] });
   return fmt(meta.updatedBy ? t.statusPromenio : t.statusPromenioBezImena, {
     stanje: reci[stanje],
-    vreme: clockTime(meta.updatedAt),
+    vreme: clockTimeOrDate(meta.updatedAt, sadaMs),
     ime: meta.updatedBy ?? "",
   });
 }
@@ -59,7 +68,11 @@ const PLOCICA = [
   "disabled:cursor-not-allowed aria-disabled:cursor-wait",
 ].join(" ");
 
-export function ZauzetostStola({ stanje, meta, radi, iskljuceno, onPromena }: ZauzetostStolaProps) {
+export function ZauzetostStola({ stanje, meta, radi, iskljuceno, onPromena, sadaMs }: ZauzetostStolaProps) {
+  // K34: on the server and while hydrating the shared clock stands at the mark's own instant (so never a date there),
+  // then it follows the panel's; a clock handed in wins.
+  const zivoMs = useSat(meta?.updatedAt ?? 0);
+  const sada = sadaMs ?? zivoMs;
   const [pritisnuto, setPritisnuto] = useState<OccupancyState | "ukloni" | null>(null);
   const naslovRef = useRef<HTMLHeadingElement>(null);
   const prethodno = useRef<OccupancyView>(stanje);
@@ -91,7 +104,7 @@ export function ZauzetostStola({ stanje, meta, radi, iskljuceno, onPromena }: Za
       </div>
 
       <p data-zauzetost-trenutno={stanje} className="text-base font-semibold text-[var(--mp-tekst)]">
-        {trenutnoTekst(stanje, meta)}
+        {trenutnoTekst(stanje, meta, sada)}
       </p>
 
       <div role="group" aria-labelledby="sto-status" className="grid grid-cols-2 gap-2 sm:grid-cols-4">

@@ -9048,6 +9048,9 @@ export interface MenuStudioIzgledDict {
     pretragaOpis: string;
     filteri: string;
     filteriOpis: string;
+    /** K34: the choice of which filters guests get (master §7.2). */
+    filteriKoji: string;
+    filteriKojiOpis: string;
     valuta: string;
     valutaOpis: string;
   };

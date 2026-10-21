@@ -339,6 +339,20 @@ export function StudioEditor({
     }),
     [red, radnje, onCena, onPonovo, onZadrziMoju, onUzmiSacuvanu, aktivnaStranica, podaci.jezici],
   );
+  // K34 (REVIZIJA N17): the article detail calls these writes directly; tracked here like the list's,
+  // so the save state reads "Čuva se…" while they run and closing the tab warns (use-autosave).
+  const radnjeDetalja = useMemo<StudioRadnje>(
+    () => ({
+      ...radnje,
+      ukloniSaStranice: (prikazIds) => red.prati(() => radnje.ukloniSaStranice(prikazIds)),
+      dodajPostojeci: (sekcijaId, artikalId) => red.prati(() => radnje.dodajPostojeci(sekcijaId, artikalId)),
+      premestiPrikaz: (prikazId, uSekciju, prePrikaza) => red.prati(() => radnje.premestiPrikaz(prikazId, uSekciju, prePrikaza)),
+      primeniGrupuNa: (grupaId, artikalIds) => red.prati(() => radnje.primeniGrupuNa(grupaId, artikalIds)),
+      zadrziCenuKomboa: (artikalId) => red.prati(() => radnje.zadrziCenuKomboa(artikalId)),
+      postaviSastav: (artikalId, sastav) => red.prati(() => radnje.postaviSastav(artikalId, sastav)),
+    }),
+    [red, radnje],
+  );
   const druge = useMemo(
     () => (stranice ?? []).filter((s) => !s.arhivirana && s.id !== aktivnaStranica).map((s) => ({ id: s.id, naziv: s.naziv })),
     [stranice, aktivnaStranica],
@@ -601,7 +615,7 @@ export function StudioEditor({
             nedostupni={nedostupni}
             kontekst={kontekst}
             red={red}
-            radnje={radnje}
+            radnje={radnjeDetalja}
             naslovId={detaljNaslovId}
             pocetno={detaljPocetno}
             sada={sadaSat}
@@ -803,18 +817,18 @@ export function StudioEditor({
         className={cn(
           "grid items-start gap-5",
           !izgledTab && sirina === "desktop" && "grid-cols-[17rem_minmax(0,1fr)_24rem] gap-6",
-          !izgledTab && sirina === "siroko" && "grid-cols-[17rem_minmax(0,1fr)]",
           izgledTab && sirina === "desktop" && "grid-cols-[minmax(0,35rem)_minmax(0,1fr)] gap-6",
           izgledTab && sirina === "siroko" && "grid-cols-[minmax(0,1fr)_21rem]",
         )}
       >
-        {sirina === "usko" || izgledTab ? null : (
+        {/* K34 (master §13.4): a tablet (768–1279 px) keeps the structure in the drawer; only the desktop has the column. */}
+        {sirina !== "desktop" || izgledTab ? null : (
           <aside className="sticky top-36 max-h-[calc(100dvh-10rem)] overflow-y-auto rounded-[var(--mp-radius-kartica)] border bg-[var(--mp-povrsina)] p-3 [--border:var(--mp-ivica)] shadow-[var(--mp-senka-xs)]">
             {struktura}
           </aside>
         )}
         <div id={panelId} role="tabpanel" aria-labelledby={`studio-tab-${tab}`} className="grid min-w-0 gap-4">
-          {sirina === "usko" && !izgledTab ? (
+          {sirina !== "desktop" && !izgledTab ? (
             <Fioka
               naslov={t.stranice.naslov}
               strana="levo"

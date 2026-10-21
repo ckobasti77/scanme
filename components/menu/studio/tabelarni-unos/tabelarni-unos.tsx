@@ -21,6 +21,7 @@ import type {
 import {
   MENU_STUDIO_MAX_QUICK_ROWS,
   proveriTabelu,
+  redoviSaSekcijom,
   type TabelaProvera,
   type TabelaRed,
 } from "@/lib/menu/studio/quick-add";
@@ -58,8 +59,9 @@ export function TabelarniUnos({
   onDodato: (broj: number) => void;
 }) {
   const id = useId();
-  const pocetna = podrazumevanaSekcija ?? sekcije[0]?.id ?? "";
-  const [redovi, setRedovi] = useState<TabelaRed[]>(() => prazniRedovi(pocetna, POCETNO_REDOVA));
+  // K34: this dialog is mounted before the page content arrives, so a row only holds the section the
+  // owner picked ("" = not picked); the section it goes to follows the props (see `redoviSaSekcijama`).
+  const [redovi, setRedovi] = useState<TabelaRed[]>(() => prazniRedovi("", POCETNO_REDOVA));
   const [provera, setProvera] = useState<TabelaProvera | null>(null);
   const [slicno, setSlicno] = useState<Slicno[] | null>(null);
   const [odluke, setOdluke] = useState<Record<number, TabelaOdluka>>({});
@@ -67,7 +69,7 @@ export function TabelarniUnos({
   const [greska, setGreska] = useState<string | null>(null);
 
   const resetuj = () => {
-    setRedovi(prazniRedovi(pocetna, POCETNO_REDOVA));
+    setRedovi(prazniRedovi("", POCETNO_REDOVA));
     setProvera(null);
     setSlicno(null);
     setOdluke({});
@@ -88,9 +90,11 @@ export function TabelarniUnos({
   };
 
   const greskeReda = new Map(provera && !provera.ok ? provera.greske.map((g) => [g.indeks, g]) : []);
+  // K34: the rows as they are shown AND as they are checked and sent.
+  const redoviSaSekcijama = redoviSaSekcijom(redovi, podrazumevanaSekcija, sekcije);
 
   const posalji = async () => {
-    const p = proveriTabelu(redovi, new Set(sekcije.map((sekcija) => sekcija.id)));
+    const p = proveriTabelu(redoviSaSekcijama, new Set(sekcije.map((sekcija) => sekcija.id)));
     setProvera(p);
     setGreska(null);
     if (!p.ok) return;
@@ -217,7 +221,7 @@ export function TabelarniUnos({
                     />
                     <select
                       aria-label={fmt(t.tabela.sekcijaReda, { n })}
-                      value={red.sekcijaId}
+                      value={redoviSaSekcijama[indeks].sekcijaId}
                       aria-invalid={g?.sekcija ? true : undefined}
                       onChange={(event) => izmeni(indeks, "sekcijaId", event.target.value)}
                       className={cn(poljeKlase, "col-span-1 pr-8")}
@@ -283,7 +287,7 @@ export function TabelarniUnos({
             ikonica={Plus}
             className="justify-self-start"
             disabled={redovi.length >= MENU_STUDIO_MAX_QUICK_ROWS}
-            onClick={() => setRedovi((pre) => [...pre, ...prazniRedovi(pre.at(-1)?.sekcijaId ?? pocetna, 1)])}
+            onClick={() => setRedovi((pre) => [...pre, ...prazniRedovi(pre.at(-1)?.sekcijaId ?? "", 1)])}
           >
             {t.tabela.dodajRed}
           </Dugme>

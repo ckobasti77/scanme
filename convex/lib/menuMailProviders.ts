@@ -73,7 +73,12 @@ export interface MenuMailProvider {
     codeVerifier: string;
   }): Promise<MenuMailTokens>;
   refresh(args: { fetchImpl: FetchImpl; clientId: string; clientSecret: string; refreshToken: string }): Promise<MenuMailTokens>;
-  /** The verified address of the mailbox the person signed in with. */
+  /**
+   * The address of the mailbox the person signed in with. Google: only a verified one
+   * (`email_verified`). Microsoft: the `email` claim of /oidc/userinfo, which Entra does not
+   * guarantee to be verified (K34) — it only labels the connection; mail is always sent from
+   * the signed-in mailbox (/me/sendMail).
+   */
   userEmail(args: { fetchImpl: FetchImpl; accessToken: string }): Promise<string>;
   send(args: { fetchImpl: FetchImpl; accessToken: string; message: MenuMailMessage }): Promise<{ providerMessageId: string | null }>;
   /** Best effort; never throws. */

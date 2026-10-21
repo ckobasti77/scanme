@@ -8,6 +8,7 @@
 
 import { X } from "lucide-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { naZatvaranje } from "../javni/dijalog-zatvaranje";
 import styles from "./gost.module.css";
 
 export function GostList({
@@ -48,7 +49,7 @@ export function GostList({
       ref={ref}
       className={styles.list}
       aria-labelledby={naslovId}
-      onClose={onZatvori}
+      onClose={naZatvaranje(onZatvori)}
       onClick={(event) => {
         if (event.target === event.currentTarget) event.currentTarget.close();
       }}

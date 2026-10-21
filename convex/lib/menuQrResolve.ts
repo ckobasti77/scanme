@@ -106,6 +106,28 @@ export async function currentTargetOfCard(
 }
 
 /**
+ * K34: whether a scan of the card opens the Menu now, by the resolver's rule (convex/cards.ts
+ * resolveAndRecord): a card adopted by ADMIN-12 (`accessChannelId`) is switched by its access
+ * channel (`redirectEnabled` and `state === "active"`; a missing channel is a broken mapping)
+ * and its destination lives on the access subject; `cards.status` counts only for a legacy card.
+ */
+export async function cardOpensMenu(
+  ctx: DatabaseCtx,
+  card: Doc<"cards">,
+  businessId: Id<"businesses">,
+): Promise<boolean> {
+  if (card.businessId !== businessId) return false;
+  if (card.accessChannelId) {
+    const channel = await ctx.db.get(card.accessChannelId);
+    if (!channel || !channel.redirectEnabled || channel.state !== "active") return false;
+  } else if (card.status !== "active") {
+    return false;
+  }
+  const target = await currentTargetOfCard(ctx, card);
+  return target?.kind === "menu";
+}
+
+/**
  * Whether an ACTIVE QR card stands on the position (master §9.2): the link row
  * is active, the card belongs to the business, is active and still opens the
  * Menu. Such a position cannot be archived (K19-12), like a page with a QR.
@@ -125,11 +147,8 @@ export async function positionHasActiveQr(
   for (const link of links) {
     if (!link.active || link.menuServiceId !== input.menuServiceId) continue;
     const card = await ctx.db.get(link.cardId);
-    if (!card || card.businessId !== input.businessId) continue;
-    // Adopted cards are switched by their access channel, not cards.status (the resolver rule).
-    if (!card.accessChannelId && card.status !== "active") continue;
-    const target = await currentTargetOfCard(ctx, card);
-    if (target?.kind === "menu") return true;
+    // K34: adopted cards are switched by their access channel (before, any adopted card counted).
+    if (card && (await cardOpensMenu(ctx, card, input.businessId))) return true;
   }
   return false;
 }

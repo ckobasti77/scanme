@@ -273,6 +273,7 @@ export function DetaljStola({
           radi={radiZauzetost}
           iskljuceno={radnjeIskljucene}
           onPromena={onZauzetost}
+          sadaMs={sadaMs}
         />
       ) : null}
     </section>

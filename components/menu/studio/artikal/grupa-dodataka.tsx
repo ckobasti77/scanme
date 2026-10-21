@@ -217,7 +217,7 @@ export function GrupaDodataka({
                 key={opcija.id}
                 opcija={opcija}
                 redniBroj={indeks + 1}
-                onemoguceno={radi}
+                radi={radi}
                 onSacuvaj={(ocekivano, izmena) => izvrsi(() => radnje.izmeniOpciju(opcija.id, ocekivano, izmena, samoZa))}
                 onUkloni={() => void izvrsi(() => radnje.obrisiOpciju(opcija.id, samoZa))}
               />
@@ -288,16 +288,24 @@ export function GrupaDodataka({
   );
 }
 
-function OpcijaRed({
+// K34: exported for the render test.
+export function OpcijaRed({
   opcija,
   redniBroj,
-  onemoguceno,
+  radi,
   onSacuvaj,
   onUkloni,
 }: {
   opcija: StudioOpcijaDodatka;
   redniBroj: number;
-  onemoguceno: boolean;
+  /**
+   * K34: a save is running. Leaving a field saves it, so the next field (or the remove button) has just
+   * got the focus when this turns true: nothing may turn `disabled` then, or the browser drops the focus
+   * to the body. The fields keep taking input (a read-only field would swallow the first keystrokes of
+   * a surcharge); a clash with the save in flight is the server's compare-and-set. The remove button
+   * ignores clicks (`aria-disabled`) and keeps the focus.
+   */
+  radi: boolean;
   onSacuvaj: (ocekivano: { naziv?: string; doplata?: number }, izmena: { naziv?: string; doplata?: number }) => Promise<boolean>;
   onUkloni: () => void;
 }) {
@@ -336,7 +344,6 @@ function OpcijaRed({
         <input
           value={naziv ?? opcija.naziv}
           autoComplete="off"
-          disabled={onemoguceno}
           aria-label={fmt(d.dodatakOznaka, { n: redniBroj })}
           onChange={(event) => setNaziv(event.target.value)}
           onBlur={sacuvajNaziv}
@@ -345,13 +352,17 @@ function OpcijaRed({
         <input
           value={doplata ?? formatCenaPolje(opcija.doplata)}
           inputMode="numeric"
-          disabled={onemoguceno}
           aria-label={fmt(d.doplataOznaka, { naziv: opcija.naziv })}
           onChange={(event) => setDoplata(event.target.value)}
           onBlur={sacuvajDoplatu}
           className={cn(POLJE_KLASA, "h-[var(--mp-meta)] text-right tabular-nums")}
         />
-        <IkonicaDugme ikonica={Trash2} oznaka={fmt(d.ukloniDodatak, { naziv: opcija.naziv })} disabled={onemoguceno} onClick={onUkloni} />
+        <IkonicaDugme
+          ikonica={Trash2}
+          oznaka={fmt(d.ukloniDodatak, { naziv: opcija.naziv })}
+          aria-disabled={radi || undefined}
+          onClick={radi ? undefined : onUkloni}
+        />
       </div>
       {greska ? (
         <p role="alert" className="text-sm font-medium text-[var(--mp-opasnost)]">

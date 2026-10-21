@@ -15,7 +15,7 @@
 
 import Link from "next/link";
 import { ChevronLeft, CircleAlert, Minus, Plus } from "lucide-react";
-import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuGostSr } from "@/lib/i18n/sr/menu-gost";
 import {
@@ -128,9 +128,10 @@ export function RezervacijaForma({
   }, [fokusSazetka]);
 
   // The days and terms the venue offers right now; a choice that is gone (the day passed) falls away.
-  const datumi = opcijeDatuma(radnoVreme, sada);
+  // K34: memoized — they change with the minute clock and the chosen day, not on every keystroke.
+  const datumi = useMemo(() => opcijeDatuma(radnoVreme, sada), [radnoVreme, sada]);
   const datum = datumi.some((opcija) => opcija.vrednost === vrednosti.datum) ? vrednosti.datum : (datumi[0]?.vrednost ?? "");
-  const termini = datum ? opcijeVremena(datum, radnoVreme, sada) : [];
+  const termini = useMemo(() => (datum ? opcijeVremena(datum, radnoVreme, sada) : []), [datum, radnoVreme, sada]);
   const vreme = termini.some((opcija) => opcija.vrednost === vrednosti.vreme) ? vrednosti.vreme : "";
 
   const promeni = (promena: Partial<VrednostiForme>) => setVrednosti((tekuce) => ({ ...tekuce, ...promena }));

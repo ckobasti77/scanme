@@ -34,6 +34,8 @@
   --mp-istaknuto: #202221;
   --mp-na-istaknutom: #f2f4ee;
   --mp-na-istaknutom-sporedni: #b0b6af;
+  /* A control boundary inside that card (dark in both themes; K34: a token, not a hex in kartica.tsx) */
+  --mp-ivica-kontrole-na-istaknutom: #8a918b;
 
   /* ScanMe green: a fill, never text on a light surface (2.08:1) */
   --mp-akcent: var(--admin-accent, #6fc05d);
@@ -161,6 +163,21 @@
   --mp-okvir: #161917;
   --mp-povrsina: #202422;
   --mp-ivica: rgb(242 244 238 / 0.18);
+}
+
+/* K34: on a touch screen a Menu field is never under 16 px, or iOS Safari zooms the page when
+   the field gets focus (MENU-UX §3). Only the small size tokens are raised; a field with its own
+   larger size keeps it. The panel's fields already use text-base under 640 px. */
+@media (pointer: coarse) {
+  .povrsina
+    :is(input, select, textarea):is(
+      [class~="text-xs"],
+      [class~="text-sm"],
+      [class~="text-[0.8125rem]"],
+      [class~="text-[0.9375rem]"]
+    ) {
+    font-size: 1rem;
+  }
 }
 
 /* Skeleton: one quiet shimmer; it stands still with reduced motion */

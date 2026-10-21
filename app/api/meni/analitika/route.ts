@@ -3,7 +3,7 @@ import { fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import { resolverIpHash } from "@/lib/card-resolver-http";
 import { analitikaRezim } from "@/lib/menu/analitika/saglasnost";
-import { MAX_TELO_BAJTOVA, pripremiUlaz } from "@/lib/menu/analitika/ulaz";
+import { MAX_TELO_BAJTOVA, pripremiUlaz, teloPrevelikoPoZaglavlju } from "@/lib/menu/analitika/ulaz";
 import { menuGatewayArg } from "@/lib/menu/http/gateway";
 
 // ScanMe Menu V1 (K29) — POST /api/meni/analitika: the public menu's analytics
@@ -20,6 +20,8 @@ export const dynamic = "force-dynamic";
 const PRAZNO = () => new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
 
 export async function POST(request: Request) {
+  // K34: a body that declares itself over the limit is dropped without reading it.
+  if (teloPrevelikoPoZaglavlju(request.headers.get("content-length"))) return PRAZNO();
   const tekst = await request.text().catch(() => "");
   if (!tekst || tekst.length > MAX_TELO_BAJTOVA) return PRAZNO();
   let telo: unknown;

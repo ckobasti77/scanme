@@ -343,7 +343,8 @@ describe("the hop (menuGuest.mintFromCard) and the guest session", () => {
       if (last.kind === "menu" && last.session) withSession += 1;
     }
     expect(withSession).toBe(30);
-    expect(last).toEqual({ kind: "menu", slug: SLUG_A, pagePath: null, session: null });
+    // K34 (intentional): the throttled outcome says it is the card's bucket (`throttled`), so the hop can drop the old cookie.
+    expect(last).toEqual({ kind: "menu", slug: SLUG_A, pagePath: null, session: null, throttled: true });
   });
 
   test("expiry is materialized and the sweep deletes day-old sessions", async () => {

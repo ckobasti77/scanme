@@ -576,7 +576,10 @@ describe("Kategorije (primer restoran)", () => {
       const id = artikli[index].media.imageMediaId;
       const imaSliku = id !== null && slika.slike[id] !== undefined;
       expect(row.markup.includes("<img"), `${artikli[index].name} image`).toBe(imaSliku);
-      expect(bezNedostupnog(row.markup).includes("<svg"), `${artikli[index].name} icon`).toBe(!imaSliku);
+      // K34 (intentional): a photo lies over the glyph the row shows without one (a photo that fails
+      // to load reveals it, MENU-UX 1.2), so every row carries the svg; in a photo row it comes first.
+      expect(bezNedostupnog(row.markup).includes("<svg"), `${artikli[index].name} icon`).toBe(true);
+      if (imaSliku) expect(row.markup.indexOf("<svg"), artikli[index].name).toBeLessThan(row.markup.indexOf("<img"));
       expect(attr(prviTag(row.markup), "data-medij"), artikli[index].name).toBe(imaSliku ? "slika" : "ikonica");
     });
     // The fourth article of the fixture has no resolved image: the icon shows instead.

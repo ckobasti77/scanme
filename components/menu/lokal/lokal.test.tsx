@@ -564,6 +564,9 @@ describe("Kartice", () => {
     expect(ugasena).not.toContain(">Isključi<");
     // A card that opens something else cannot be connected to a page or a position.
     expect(redKartice(html, "c-stara")).not.toContain(">Poveži<");
+    // K34: nor switched on or off from the Menu (menuQr.setCardActive is for Menu cards only).
+    expect(redKartice(html, "c-stara")).not.toContain(">Isključi<");
+    expect(redKartice(html, "c-stara")).not.toContain(">Uključi<");
   });
 
   test("toolbar: make cards for positions without one, a card for a page, print chosen and all", () => {

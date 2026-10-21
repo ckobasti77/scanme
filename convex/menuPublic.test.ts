@@ -823,7 +823,8 @@ describe("menuPublic.page — languages", () => {
 
     const splitter = asSplitter(await readPage(t, { slug: SLUG_A, lang: "en" }));
     expect(splitter.lang).toBe("en");
-    expect(splitter.pages.map((page) => page.title)).toEqual(["Our menu", null]);
+    // K34 (intentional): the wine list is called by its name; without an English title the source shows (was null).
+    expect(splitter.pages.map((page) => page.title)).toEqual(["Our menu", "Vinska karta"]);
     const wines = asPage(await readPage(t, { slug: SLUG_A, pageSlug: wine.slug, lang: "en" }));
     expect(wines.lang).toBe("en");
   });
@@ -1366,4 +1367,62 @@ describe("menuPublic — read budget", () => {
     },
     300_000,
   );
+});
+
+// K34: a standard page reaches guests under its own name. Before, no writer set publicTitle,
+// so every extra page read "Meni" on the splitter (and the editor preview showed the name).
+describe("K34: the public title of a standard page", () => {
+  test("the splitter and the page call the wine list by its name; the default page stays untitled", async () => {
+    const { t, w } = await setup();
+    await menuContent(t, w);
+    const wine = await as(t, w.ownerId).mutation(api.menuPages.add, {
+      menuServiceId: w.a.menuServiceId,
+      name: "Vinska karta",
+    });
+    const wineSection = await addSection(t, w.ownerId, wine.pageId, "Vina");
+    await addArticle(t, w.ownerId, wineSection.sectionId, "Vranac", 900);
+    await publishNow(t, w.ownerId, w.a.menuServiceId);
+
+    const splitter = asSplitter(await readPage(t, { slug: SLUG_A }));
+    expect(splitter.pages.map((page) => page.title)).toEqual([null, "Vinska karta"]);
+    expect(JSON.stringify(splitter)).not.toContain(INTERNAL_PAGE_NAME);
+    const wines = asPage(await readPage(t, { slug: SLUG_A, pageSlug: wine.slug }));
+    expect(wines.page.title).toBe("Vinska karta");
+  });
+
+  test("a rename follows into the title; renaming the default page never gives it one", async () => {
+    const { t, w } = await setup();
+    await menuContent(t, w);
+    const owner = as(t, w.ownerId);
+    const wine = await owner.mutation(api.menuPages.add, { menuServiceId: w.a.menuServiceId, name: "Vinska karta" });
+    const wineSection = await addSection(t, w.ownerId, wine.pageId, "Vina");
+    await addArticle(t, w.ownerId, wineSection.sectionId, "Vranac", 900);
+    await owner.mutation(api.menuPages.rename, { pageId: wine.pageId, name: "Vina i rakije", expectedName: "Vinska karta" });
+    await owner.mutation(api.menuPages.rename, {
+      pageId: w.a.defaultPageId,
+      name: "Glavni meni",
+      expectedName: INTERNAL_PAGE_NAME,
+    });
+    await publishNow(t, w.ownerId, w.a.menuServiceId);
+
+    const splitter = asSplitter(await readPage(t, { slug: SLUG_A }));
+    expect(splitter.pages.map((page) => page.title)).toEqual([null, "Vina i rakije"]);
+    expect(JSON.stringify(splitter)).not.toContain("Glavni meni");
+  });
+
+  test("a page row from before K34 (no public title) is called by its name", async () => {
+    const { t, w } = await setup();
+    await menuContent(t, w);
+    const wine = await as(t, w.ownerId).mutation(api.menuPages.add, {
+      menuServiceId: w.a.menuServiceId,
+      name: "Vinska karta",
+    });
+    await t.run(async (ctx) => await ctx.db.patch(wine.pageId, { publicTitle: undefined }));
+    const wineSection = await addSection(t, w.ownerId, wine.pageId, "Vina");
+    await addArticle(t, w.ownerId, wineSection.sectionId, "Vranac", 900);
+    await publishNow(t, w.ownerId, w.a.menuServiceId);
+
+    const splitter = asSplitter(await readPage(t, { slug: SLUG_A }));
+    expect(splitter.pages.map((page) => page.title)).toEqual([null, "Vinska karta"]);
+  });
 });

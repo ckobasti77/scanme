@@ -929,6 +929,10 @@ describe("setCardActive", () => {
     odbijeno(osnovno(), { vrsta: "setCardActive", cardId: "k-c", active: false }, FLOOR_ERROR.cardReadOnly);
     odbijeno(osnovno(), { vrsta: "setCardActive", cardId: "k-nema", active: false }, MENU_ERROR.notFound);
   });
+
+  test("K34: a card that opens something else than the Menu is refused, as on the server", () => {
+    odbijeno(osnovno(), { vrsta: "setCardActive", cardId: "k-d", active: false }, FLOOR_ERROR.cardNotMenu);
+  });
 });
 
 // --- Purity and the adapter -----------------------------------------------------------------

@@ -37,22 +37,25 @@ export function Medij({
   izbor,
   px,
   rezerva = null,
+  iconKey = null,
   className,
 }: {
   izbor: IzborMedija;
   px: number;
   /** The section's icon, when the article's own key is not in the icon set. */
   rezerva?: string | null;
+  /** K34: the article's own icon key, for the glyph under its photo. */
+  iconKey?: string | null;
   className?: string;
 }) {
   if (izbor.vrsta === "bez") return null;
   return (
     <span className={className ? `${styles.medij} ${className}` : styles.medij} aria-hidden="true">
+      {/* K34: a photo lies over the glyph the row shows without one; a photo that fails to load reveals it (MENU-UX 1.2). */}
+      <JavniGlif iconKey={izbor.vrsta === "slika" ? iconKey : izbor.iconKey} rezerva={rezerva} className={styles.glif} />
       {izbor.vrsta === "slika" ? (
         <Image src={izbor.slika.thumbUrl} alt="" width={px * 2} height={px * 2} loading="lazy" unoptimized />
-      ) : (
-        <JavniGlif iconKey={izbor.iconKey} rezerva={rezerva} className={styles.glif} />
-      )}
+      ) : null}
     </span>
   );
 }
@@ -202,7 +205,7 @@ export function ArtikalRed({ article, layout, slike, sadaMs, nedostupan, sekcija
       data-nedostupno={nedostupan ? "" : undefined}
       data-upozorenje={upozorenje?.vrsta}
     >
-      <Medij izbor={izbor} px={96} rezerva={sekcijaIkonica} />
+      <Medij izbor={izbor} px={96} rezerva={sekcijaIkonica} iconKey={article.media.iconKey} />
       <div className={styles.redTelo}>
         <Naziv article={article} onOtvori={onOtvori} className={styles.nazivArtikla} />
         {article.description ? <p className={styles.opis}>{article.description}</p> : null}
@@ -228,7 +231,7 @@ export function ArtikalKartica({ article, layout, slike, sadaMs, nedostupan, sek
       data-nedostupno={nedostupan ? "" : undefined}
       data-upozorenje={upozorenje?.vrsta}
     >
-      <Medij izbor={izbor} px={88} rezerva={sekcijaIkonica} />
+      <Medij izbor={izbor} px={88} rezerva={sekcijaIkonica} iconKey={article.media.iconKey} />
       <div className={styles.karticaTelo}>
         <Naziv article={article} onOtvori={onOtvori} className={styles.nazivArtikla} />
         {article.description ? <p className={styles.opis}>{article.description}</p> : null}

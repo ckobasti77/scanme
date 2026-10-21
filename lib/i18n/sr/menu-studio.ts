@@ -243,7 +243,8 @@ export const menuStudioSr = {
     desktop: "Desktop",
     sirina: "{uredjaj}, {px} px",
     uvecaj: "Uvećaj pregled",
-    napomena: "Pregled prikazuje nacrt. Gosti vide objavljenu verziju dok ne objavite.",
+    napomena:
+      "Pregled prikazuje nacrt: raspored, nazive, osnovne cene i dostupnost. Slike, cene varijanti, akcije, oznake i alergeni se ovde ne vide; proverite ih u detalju artikla. Gosti vide objavljenu verziju dok ne objavite.",
     zatvori: "Zatvori pregled",
     prazno: "Dodajte prvi artikal da vidite pregled.",
     okvir: "Pregled stranice {naziv}",

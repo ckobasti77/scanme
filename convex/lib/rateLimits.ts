@@ -141,6 +141,18 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // full hall behind one NAT and bounds what one address can write. Over it the
   // events are dropped silently (an undercount, never an error for the guest).
   menuAnalyticsIp: { kind: "token bucket", rate: 300, period: MINUTE, capacity: 300 },
+  // K34 (REVIZIJA N5): menuAnalyticsService — the same ingest, per Menu SERVICE (the
+  // key is the service id), one token per event, spent after menuAnalyticsIp.
+  // The address bucket alone lets a few addresses fill the one global rollup
+  // (about 42,000 events an hour for ALL venues) or one venue's per-day dimension
+  // limits. A real venue sends a few hundred events a day; 600 a minute still
+  // takes two full halls behind two NATs at once (2 x 300) and caps what any one
+  // venue can write at 36,000 an hour - under the rollup's 42,000, so no single
+  // slug can fill it alone. `shards: 4` splits the venue's bucket in
+  // four rows (150 each, a call costs at most 10) so a flood on one slug does not
+  // pile every write onto one hot row. Near the limit a sharded bucket is
+  // approximate; over it the events are dropped silently like menuAnalyticsIp.
+  menuAnalyticsService: { kind: "token bucket", rate: 600, period: MINUTE, capacity: 600, shards: 4 },
   // ScanMe Menu V1 (K33, security review B5, B8, B9). menuInquiryItem: the old
   // public item inquiry (menuInquiryEmails.sendItemInquiry, no identity) sends
   // the owner an e-mail; per menu item, 3 an hour, and menuInquiryBusiness per

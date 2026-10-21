@@ -267,7 +267,8 @@ describe("list", () => {
         key: wine.key,
         slug: "vinska-karta",
         name: "Vinska karta",
-        publicTitle: null,
+        // K34 (intentional): a standard page's name is its public title (was null: guests read "Meni").
+        publicTitle: "Vinska karta",
         isDefault: false,
         order: 2 * ORDER_STEP,
         visibility: "visible",
@@ -360,7 +361,8 @@ describe("add", () => {
       updatedByUserId: w.ownerId,
     });
     expect(page?.archivedAt).toBeUndefined();
-    expect(page?.publicTitle).toBeUndefined();
+    // K34 (intentional): the public title mirrors the name of a standard page (was undefined).
+    expect(page?.publicTitle).toBe("Vinska karta");
     // The default page is untouched.
     const defaultPage = await pageOf(t, w.a.defaultPageId);
     expect(defaultPage).toMatchObject({ isDefault: true, order: ORDER_STEP });
@@ -657,6 +659,25 @@ describe("duplicate", () => {
       "Vinska karta (kopija)",
       "Vinska karta (kopija)",
     ]);
+  });
+
+  // K34: before, the copy lost every translation of the page and its sections.
+  test("K34: the copy keeps the translations of the page and of its sections", async () => {
+    const t = newTest();
+    const w = await world(t);
+    const wine = await as(t, w.ownerId).mutation(api.menuPages.add, {
+      menuServiceId: w.a.menuServiceId,
+      name: "Vinska karta",
+    });
+    const section = await as(t, w.ownerId).mutation(api.menuCatalog.addSection, { pageId: wine.pageId, name: "Crvena" });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(wine.pageId, { translations: { en: { publicTitle: "Wine list", status: "confirmed" } } });
+      await ctx.db.patch(section.sectionId, { translations: { en: { name: "Red", status: "confirmed" } } });
+    });
+    const copy = await as(t, w.ownerId).mutation(api.menuPages.duplicate, { pageId: wine.pageId });
+    expect((await pageOf(t, copy.pageId))?.translations).toEqual({ en: { publicTitle: "Wine list", status: "confirmed" } });
+    const copiedSections = await sectionsOf(t, copy.pageId);
+    expect(copiedSections.map((row) => row.translations)).toEqual([{ en: { name: "Red", status: "confirmed" } }]);
   });
 
   test("a name at the length limit is shortened so the copy name still fits", async () => {
@@ -1096,6 +1117,77 @@ describe("remove", () => {
         pageHasActiveQr(ctx, w.a.menuServiceId, w.a.businessId, otherKey),
       ),
     ).toBe(false);
+  });
+
+  // K34: an adopted (ADMIN-12) card is judged like the resolver judges it: its access channel
+  // switches it and its destination lives on the access subject; the legacy cards.status and
+  // currentTargetId are stale for it. Before K34 the page check read only the legacy fields.
+  test("K34: pageHasActiveQr judges an adopted card by its channel and subject, like the resolver", async () => {
+    const t = newTest();
+    const w = await world(t);
+    const key = await keyOf(t, w.a.defaultPageId);
+    const probe = async () =>
+      await t.run(async (ctx) => pageHasActiveQr(ctx, w.a.menuServiceId, w.a.businessId, key));
+    const { cardId, targetId } = await t.run(async (ctx) =>
+      seedQrLink(ctx, {
+        menuServiceId: w.a.menuServiceId,
+        businessId: w.a.businessId,
+        pageKey: key,
+        createdByUserId: w.ownerId,
+        cardCode: "ADOPT001",
+        cardStatus: "disabled",
+      }),
+    );
+    expect(await probe()).toBe(false);
+    // Adopted: the channel is active and the subject still opens the Menu → the page is live.
+    const { subjectId, channelId } = await t.run(async (ctx) => {
+      const now = Date.now();
+      const subjectId = await ctx.db.insert("accessSubjects", {
+        accountId: w.a.accountId,
+        businessId: w.a.businessId,
+        destinationKind: "legacy",
+        currentTargetId: targetId,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const channelId = await ctx.db.insert("accessChannels", {
+        accountId: w.a.accountId,
+        businessId: w.a.businessId,
+        subjectId,
+        cardId,
+        resolverCode: "ADOPT001",
+        kind: "qr",
+        state: "active",
+        redirectEnabled: true,
+        health: "healthy",
+        binding: "digital",
+        searchText: "adopt001",
+        totalScans: 0,
+        lastActor: { kind: "system", source: "menuPages.test" },
+        lastReason: "test",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.patch(cardId, { accessChannelId: channelId });
+      return { subjectId, channelId };
+    });
+    expect(await probe()).toBe(true);
+    // ScanMe switches the channel off: scans go nowhere, the page no longer counts as linked.
+    await t.run(async (ctx) => await ctx.db.patch(channelId, { redirectEnabled: false }));
+    expect(await probe()).toBe(false);
+    // Channel on again, but ScanMe sends the card elsewhere (the subject's target): not linked either.
+    await t.run(async (ctx) => {
+      await ctx.db.patch(channelId, { redirectEnabled: true });
+      const urlTarget = await ctx.db.insert("cardTargets", {
+        cardId,
+        kind: "url",
+        url: "https://example.com",
+        createdByUserId: w.ownerId,
+        createdAt: Date.now(),
+      });
+      await ctx.db.patch(subjectId, { currentTargetId: urlTarget });
+    });
+    expect(await probe()).toBe(false);
   });
 
   test("deleting the default page moves the default flag to the next active page", async () => {

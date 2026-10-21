@@ -290,3 +290,20 @@ describe("filtrirajStranicu", () => {
     expect(ulaz).toEqual(pre);
   });
 });
+
+// K34 (master §7.2): the venue chooses which supported filters guests get.
+describe("prebaciFilter", () => {
+  test("switches one code on or off and keeps the canonical order", async () => {
+    const { prebaciFilter: prebaci, MENU_FILTER_CODES: kodovi } = await import("./filters");
+    expect(prebaci(["promo"], "vegan", true)).toEqual(["vegan", "promo"]);
+    expect(prebaci(["vegan", "promo"], "vegan", false)).toEqual(["promo"]);
+    expect(prebaci([...kodovi], "spicy", false)).toEqual(kodovi.filter((kod) => kod !== "spicy"));
+  });
+
+  test("is idempotent and drops unknown or price codes it finds", async () => {
+    const { prebaciFilter: prebaci } = await import("./filters");
+    expect(prebaci(["vegan"], "vegan", true)).toEqual(["vegan"]);
+    expect(prebaci([], "promo", false)).toEqual([]);
+    expect(prebaci(["price_range", "vegan", "nepoznato"], "promo", true)).toEqual(["vegan", "promo"]);
+  });
+});

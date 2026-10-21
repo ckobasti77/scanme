@@ -85,7 +85,8 @@ export function PregledNacrta({
       <p data-sirina-uredjaja="" className="-mt-2 text-right text-[0.8125rem] tabular-nums text-[var(--mp-tekst-sporedni)]">
         {fmt(t.pregled.sirina, { uredjaj: oznakaUredjaja, px: SIRINA_UREDJAJA[uredjaj] })}
       </p>
-      <p id="studio-pregled-napomena" className="text-sm leading-snug text-[var(--mp-tekst-sporedni)]">
+      {/* K34: a data attribute, not an id: two previews can be on screen (column and "Uvećaj pregled"). */}
+      <p data-pregled-napomena="" className="text-sm leading-snug text-[var(--mp-tekst-sporedni)]">
         {t.pregled.napomena}
       </p>
       <div

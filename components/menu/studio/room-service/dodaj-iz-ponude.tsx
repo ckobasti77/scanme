@@ -11,6 +11,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { fmt, srPluralCategory } from "@/lib/i18n/format";
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
 import type { StudioIshod, StudioKandidat } from "@/lib/menu/studio/model";
+import { izabranaVrednost } from "@/lib/menu/studio/quick-add";
 import { cn } from "@/lib/utils";
 import { Dugme, IkonicaDugme } from "../../zajednicko/dugme";
 import { PoljePotvrde } from "../../zajednicko/prekidac";
@@ -44,7 +45,10 @@ export function DodajIzPonude({
   najavi: (tekst: string) => void;
 }) {
   const id = useId();
-  const [kategorija, setKategorija] = useState(pocetnaKategorija ?? kategorije[0]?.id ?? "");
+  // K34: this dialog is mounted before the categories arrive, so the state is only the owner's pick
+  // ("" = none); the category that is shown and sent follows the props at every render.
+  const [izabranaKategorija, setIzabranaKategorija] = useState("");
+  const kategorija = izabranaVrednost(izabranaKategorija, pocetnaKategorija, kategorije);
   const [upit, setUpit] = useState("");
   const [rezultati, setRezultati] = useState<StudioKandidat[] | null>(null);
   const [trazi, setTrazi] = useState(false);
@@ -138,7 +142,7 @@ export function DodajIzPonude({
         <div className="grid gap-4" data-rs-dodaj="">
           <label className="grid gap-1.5">
             <span className={OZNAKA_KLASA}>{d.kategorija}</span>
-            <select className={cn(POLJE_KLASA, "h-[var(--mp-meta)] pr-8")} value={kategorija} onChange={(event) => setKategorija(event.target.value)}>
+            <select className={cn(POLJE_KLASA, "h-[var(--mp-meta)] pr-8")} value={kategorija} onChange={(event) => setIzabranaKategorija(event.target.value)}>
               {kategorije.map((k) => (
                 <option key={k.id} value={k.id}>
                   {k.naziv}

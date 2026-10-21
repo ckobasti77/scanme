@@ -31,6 +31,14 @@ export function normalizujFiltere(values: readonly string[]): MenuFilterCode[] {
   return MENU_FILTER_CODES.filter((code) => chosen.has(code));
 }
 
+/** K34: the venue's filter list with one code switched on or off (master §7.2), in canonical order. */
+export function prebaciFilter(trenutni: readonly string[], kod: MenuFilterCode, ukljuceno: boolean): MenuFilterCode[] {
+  const izabrani = new Set<string>(normalizujFiltere(trenutni));
+  if (ukljuceno) izabrani.add(kod);
+  else izabrani.delete(kod);
+  return MENU_FILTER_CODES.filter((code) => izabrani.has(code));
+}
+
 /** The filter codes an article carries at `sadaMs`: its tags, "Preporuka" from a running promotion, `promo`. */
 export function filteriArtikla(article: Pick<PublicArticle, "tags" | "promo">, sadaMs: number): Set<string> {
   const kodovi = new Set<string>(article.tags);

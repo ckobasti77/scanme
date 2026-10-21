@@ -17,11 +17,16 @@
 // `menuReservations.forPanel`, with `fromMs` from the device (the start of the
 // current Belgrade hour minus 12 h, so the argument changes once an hour), and
 // the detail only while a reservation is open (`menuReservations.detail`).
+//
+// K34: the device clock is moved to server time (`clockOffset`, measured once when
+// the page loads and handed to the PIN screen and the panel through
+// PomakSataKontekst), for the timers and for that reservations window.
 
 import { useConvexConnectionState, useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { clockOffset } from "@/lib/menu/elapsed-time";
 import type { StaffSessionBody } from "@/lib/menu/http/staff-session";
 import type { MenuRequestStatus } from "@/lib/menu/request-status";
 import type { MenuReservationStatus } from "@/lib/menu/reservation-status";
@@ -31,6 +36,7 @@ import type { KonobarIshod, KonobarRadnje, KonobarRezervacije, KonobarRezIshod, 
 import { KonobarPanel } from "./panel";
 import { PinEkran } from "./pin/pin-ekran";
 import { msDoSledecegSata, okvirOd } from "./rezervacije/okvir-vremena";
+import { PomakSataKontekst } from "./use-sat";
 
 export type KonobarRutaProps = {
   slug: string;
@@ -46,7 +52,27 @@ function sesijaPutanja(slug: string, panelCode: string) {
   return `/${slug}/konobar/${panelCode}/sesija`;
 }
 
-export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken, pocetnoMs }: KonobarRutaProps) {
+export function KonobarRuta(props: KonobarRutaProps) {
+  // K34: how far this device's clock is from the server's, measured once, here, when the page loads (not in the
+  // PIN screen or the panel, which can mount minutes later). `pocetnoMs` is the server's instant of this render.
+  // The clocks below add it, so a device minutes off does not show new requests as late (or late ones as calm).
+  const [pomak] = useState(() => clockOffset(props.pocetnoMs, Date.now()));
+  return (
+    <PomakSataKontekst.Provider value={pomak}>
+      <KonobarRutaUnutra {...props} pomak={pomak} />
+    </PomakSataKontekst.Provider>
+  );
+}
+
+function KonobarRutaUnutra({
+  slug,
+  panelCode,
+  lokal,
+  pinDostupan,
+  pocetniToken,
+  pocetnoMs,
+  pomak,
+}: KonobarRutaProps & { pomak: number }) {
   const [token, setToken] = useState<string | null>(pocetniToken);
   const [nalogom, setNalogom] = useState(false);
   const [izabranId, setIzabranId] = useState<string | null>(null);
@@ -61,7 +87,8 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
   useEffect(() => {
     let tajmer: ReturnType<typeof setTimeout> | undefined;
     const pomeri = () => {
-      const sada = Date.now();
+      // K34: server time (the window is compared with the server's reservation times), like `pocetnoMs` above.
+      const sada = Date.now() + pomak;
       setOkvirMs(okvirOd(sada));
       tajmer = setTimeout(pomeri, msDoSledecegSata(sada) + 50);
     };
@@ -69,7 +96,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
     return () => {
       if (tajmer !== undefined) clearTimeout(tajmer);
     };
-  }, []);
+  }, [pomak]);
 
   const prijava = token !== null ? { slug, panelCode, sessionToken: token } : nalogom ? { slug, panelCode } : null;
   const me = useQuery(api.menuWaiter.me, prijava ?? "skip");
@@ -156,7 +183,7 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
       case "staff/wrong_pin":
         return { ok: false, stanje: { kind: "pogresan", attemptsLeft: telo.attemptsLeft ?? 0 } };
       case "staff/locked":
-        return { ok: false, stanje: { kind: "blokada", lockedUntil: telo.lockedUntil ?? Date.now() } };
+        return { ok: false, stanje: { kind: "blokada", lockedUntil: telo.lockedUntil ?? Date.now() + pomak } };
       case "staff/rate_limited":
         return { ok: false, stanje: { kind: "previse" } };
       case "staff/pin_unavailable":

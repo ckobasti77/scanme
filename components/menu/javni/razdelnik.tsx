@@ -77,11 +77,9 @@ export function JavniRazdelnik({
                   >
                     {bezMedija ? null : (
                       <span className={styles.medij} aria-hidden="true">
-                        {naslovna ? (
-                          <Image src={naslovna.thumbUrl} alt="" width={112} height={112} unoptimized />
-                        ) : (
-                          <JavniGlif iconKey={stranica.iconKey} className={styles.glif} />
-                        )}
+                        {/* K34: the cover lies over the page's glyph; a cover that fails to load reveals it. */}
+                        <JavniGlif iconKey={stranica.iconKey} className={styles.glif} />
+                        {naslovna ? <Image src={naslovna.thumbUrl} alt="" width={112} height={112} unoptimized /> : null}
                       </span>
                     )}
                     <span className={`${styles.naslov} ${styles.stranicaNaziv}`}>{naslovStraniceJavno(stranica)}</span>

@@ -22,6 +22,37 @@ export function clockTimeWithSeconds(epoch: number): string {
   return `${two(parts.hour)}:${two(parts.minute)}:${two(parts.second)}`;
 }
 
+/**
+ * K34: `18:43` when `epoch` falls on the same Belgrade date as `now`, else the date in front of it
+ * (`20. 10. 18:43`, numbers only). For a mark that never expires (a table's occupancy), where a bare
+ * hour would read as fresh the day after.
+ */
+export function clockTimeOrDate(epoch: number, now: number): string {
+  const parts = belgradeParts(epoch);
+  const today = belgradeParts(now);
+  const sameDay = parts.year === today.year && parts.month === today.month && parts.day === today.day;
+  return sameDay ? clockTime(epoch) : `${parts.day}. ${parts.month}. ${clockTime(epoch)}`;
+}
+
+/** K34: a device clock this close to the server's is the page's delivery time, not a skew. */
+export const CLOCK_SKEW_MIN_MS = 60 * 1000;
+/** K34: a difference above this is not a clock skew (a stale page, a device set to a wrong date); it is left alone. */
+export const CLOCK_SKEW_MAX_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * K34: how far to move the device clock to read server time (`serverMs - deviceMs`), in whole seconds so the
+ * corrected second still turns when the shared tick fires. Request times are the server's: a device 20 minutes
+ * ahead would show every new request as 20 minutes late, one behind would never turn a late one red. 0 when
+ * the two are within a minute (delivery) or more than 12 hours apart (not a skew). Measure it ONCE per page load.
+ */
+export function clockOffset(serverMs: number, deviceMs: number): number {
+  const difference = serverMs - deviceMs;
+  const size = Math.abs(difference);
+  // Written so that NaN and the infinities (comparisons all false) end up as no correction.
+  if (!(size >= CLOCK_SKEW_MIN_MS && size <= CLOCK_SKEW_MAX_MS)) return 0;
+  return Math.round(difference / 1000) * 1000;
+}
+
 /** Whole seconds from `since` to `now`; never negative (a device clock a little behind the server). */
 export function elapsedSeconds(since: number, now: number): number {
   return Math.max(0, Math.floor((now - since) / 1000));

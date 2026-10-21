@@ -22,6 +22,7 @@ import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuJavniSr } from "@/lib/i18n/sr/menu-javni";
 import type { UpozorenjeAlergena } from "@/lib/menu/allergen-warnings";
 import { MENU_ALLERGEN_CODES, type MenuAllergenCode } from "@/lib/menu/allergens";
+import { naZatvaranje } from "./dijalog-zatvaranje";
 import styles from "./javni.module.css";
 
 const t = menuJavniSr;
@@ -78,7 +79,6 @@ export function AlergeniDugme({ broj, onOtvori }: { broj: number; onOtvori: () =
       type="button"
       className={styles.alatDugme}
       aria-haspopup="dialog"
-      aria-pressed={broj > 0 ? "true" : "false"}
       onClick={onOtvori}
       data-alergeni-dugme=""
     >
@@ -122,7 +122,7 @@ export function AlergeniFioka({
       className={styles.detalj}
       aria-labelledby="javni-alergeni-naslov"
       data-alergeni-fioka=""
-      onClose={onZatvori}
+      onClose={naZatvaranje(onZatvori)}
       onClick={(event) => {
         if (event.target === event.currentTarget) event.currentTarget.close();
       }}

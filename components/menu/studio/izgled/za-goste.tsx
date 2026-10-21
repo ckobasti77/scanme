@@ -7,8 +7,9 @@
 // never a price-range filter (master §20).
 
 import { menuStudioSr } from "@/lib/i18n/sr/menu-studio";
-import { MENU_FILTER_CODES } from "@/lib/menu/filters";
-import { Prekidac } from "../../zajednicko/prekidac";
+import { MENU_FILTER_CODES, prebaciFilter } from "@/lib/menu/filters";
+import { nazivFiltera } from "../../javni/alati";
+import { PoljePotvrde, Prekidac } from "../../zajednicko/prekidac";
 
 const t = menuStudioSr.izgled.zaGoste;
 
@@ -40,6 +41,22 @@ export function ZaGoste({
         disabled={onemoguceno}
         onChange={(event) => onFilteri(event.target.checked ? [...MENU_FILTER_CODES] : [])}
       />
+      {filteri.length > 0 ? (
+        // K34 (master §7.2): the venue chooses WHICH supported filters guests get, not only whether.
+        <fieldset data-filteri-izbor="" className="grid gap-0 pb-2 pl-[3.75rem]">
+          <legend className="text-sm font-semibold text-[var(--mp-tekst)]">{t.filteriKoji}</legend>
+          <p className="text-sm text-[var(--mp-tekst-sporedni)]">{t.filteriKojiOpis}</p>
+          {MENU_FILTER_CODES.map((kod) => (
+            <PoljePotvrde
+              key={kod}
+              naziv={nazivFiltera(kod)}
+              checked={filteri.includes(kod)}
+              disabled={onemoguceno}
+              onChange={(event) => onFilteri(prebaciFilter(filteri, kod, event.target.checked))}
+            />
+          ))}
+        </fieldset>
+      ) : null}
       <Prekidac naziv={t.valuta} opis={t.valutaOpis} checked={valuta} disabled={onemoguceno} onChange={(event) => onValuta(event.target.checked)} />
     </div>
   );

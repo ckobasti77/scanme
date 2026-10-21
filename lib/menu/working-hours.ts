@@ -155,13 +155,30 @@ export function slotsFor(dateKey: string, hours: WorkingHours, now: number): num
   return [...out].sort((a, b) => a - b);
 }
 
+/**
+ * K34: whether the opening day `dateKey` has at least one slot — the same rule as `slotsFor`,
+ * but it stops at the first slot (openDates asks it for 61 days on every render of the form;
+ * every grid point costs Belgrade-time conversions).
+ */
+function hasSlot(dateKey: string, hours: WorkingHours, now: number): boolean {
+  const latest = now + RESERVATION_MAX_DAYS_AHEAD * DAY_MS;
+  for (const interval of hours.days[weekdayOf(dateKey)] ?? []) {
+    const first = Math.ceil(interval.start / RESERVATION_SLOT_MIN) * RESERVATION_SLOT_MIN;
+    for (let minutes = first; minutes < interval.end; minutes += RESERVATION_SLOT_MIN) {
+      const epoch = epochAt(dateKey, minutes);
+      if (epoch !== null && epoch > now && epoch <= latest) return true;
+    }
+  }
+  return false;
+}
+
 /** The opening days (`YYYY-MM-DD`) from today on that still have a free slot, at most 60 days ahead. */
 export function openDates(hours: WorkingHours, now: number): string[] {
   const today = belgradeDateKey(now);
   const out: string[] = [];
   for (let offset = 0; offset <= RESERVATION_MAX_DAYS_AHEAD; offset += 1) {
     const dateKey = addDays(today, offset);
-    if (slotsFor(dateKey, hours, now).length > 0) out.push(dateKey);
+    if (hasSlot(dateKey, hours, now)) out.push(dateKey);
   }
   return out;
 }

@@ -273,7 +273,7 @@ export const menuStudioPosebnoSr = {
     },
     dodajDijalog: {
       naslov: "Dodaj iz postojeće ponude",
-      opis: "Pretražite artikle menija i izaberite one koje nudite u sobe. Biblioteka artikala se ne prikazuje cela.",
+      opis: "Pretražite artikle menija i izaberite one koje nudite u sobe.",
       kategorija: "U kategoriju",
       pretraga: "Pretraži artikle",
       pomoc: "Upišite bar dva slova naziva.",

@@ -12,7 +12,7 @@
 // Every function returns the next state and the outcome; nothing is mutated.
 
 import { normalizeAddonRules } from "../addons";
-import { MENU_ALLERGEN_CODES } from "../allergens";
+import { MENU_ALLERGEN_CODES, kanonskiAlergeni } from "../allergens";
 import type { CasValue } from "../cas";
 import { nextComboPriceCheck } from "../combo";
 import { ARTICLE_ERROR } from "../errors/article";
@@ -30,7 +30,7 @@ import { checkPromo, isPromoScheduled, type MenuPromo } from "../promo";
 import { isValidRsd } from "../rsd";
 import type { MenuDraftSnapshot, SnapshotAddonGroup, SnapshotArticle } from "../snapshot";
 import { normalizeTags } from "../tags";
-import { cleanText, foldSerbian, normalizeArticleName, optionalText, requiredText } from "../text";
+import { foldSerbian, normalizeArticleName, optionalText, requiredText } from "../text";
 import { greska, kljuc, konflikt, nacrt, type MemorijaKorak, type MemorijaStanje } from "./memorija";
 import type {
   StudioAlergeni,
@@ -546,16 +546,9 @@ export function traziArtikle(stanje: MemorijaStanje, upit: string): MemorijaKora
 // Allergens and tags (menuArticleDetails)
 // -----------------------------------------------------------------------------
 
-/** The stored form: canonical order, a code in both lists only in `sadrzi`, empty = no record (null). */
-export function kanonskiAlergeni(alergeni: StudioAlergeni | null): StudioAlergeni | null {
-  if (alergeni === null) return null;
-  const sadrzi = MENU_ALLERGEN_CODES.filter((code) => alergeni.sadrzi.includes(code));
-  const tragovi = MENU_ALLERGEN_CODES.filter((code) => alergeni.tragovi.includes(code) && !sadrzi.includes(code));
-  if (sadrzi.length === 0 && tragovi.length === 0) return null;
-  const drugo = cleanText(alergeni.drugo ?? "");
-  const imaDrugo = sadrzi.includes("other") || tragovi.includes("other");
-  return { sadrzi, tragovi, drugo: imaDrugo && drugo !== "" ? drugo : null };
-}
+// K34: the stored form (`kanonskiAlergeni`) lives in ../allergens, so the production editor imports it from
+// there and not from this in-memory module; it is re-exported here so the existing imports keep working.
+export { kanonskiAlergeni };
 
 const kljucAlergena = (alergeni: StudioAlergeni | null) => (alergeni === null ? null : JSON.stringify(alergeni));
 

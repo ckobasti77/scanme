@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import { fmt } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
+import { mailtoLink, SCANME_KONTAKT_EMAIL } from "@/lib/menu/kontakt";
 import type { MenuMode } from "@/lib/menu/modes";
 import { cn } from "@/lib/utils";
 import { dugmeKlase } from "../../zajednicko/dugme";
@@ -21,14 +22,9 @@ import { StatusOznaka } from "../../zajednicko/status-oznaka";
 
 const t = menuPanelSr.podesavanja.brend;
 
-/** Where a request to change the mode goes. */
-export const ADRESA_ZA_PROMENU_REZIMA = "office@scanme.rs";
-
-/** The prepared e-mail asking ScanMe to change the mode of `lokal`. */
+/** The prepared e-mail asking ScanMe (its one public address, lib/menu/kontakt.ts) to change the mode of `lokal`. */
 export function zatraziPromenuHref(lokal: string): string {
-  const predmet = encodeURIComponent(fmt(t.zatraziPredmet, { lokal }));
-  const telo = encodeURIComponent(fmt(t.zatraziTelo, { lokal }));
-  return `mailto:${ADRESA_ZA_PROMENU_REZIMA}?subject=${predmet}&body=${telo}`;
+  return mailtoLink(SCANME_KONTAKT_EMAIL, fmt(t.zatraziPredmet, { lokal }), fmt(t.zatraziTelo, { lokal }));
 }
 
 export type BrendNalogProps = {

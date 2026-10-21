@@ -9,6 +9,7 @@ import {
   type MenuAccess,
 } from "./lib/menuAccess";
 import { auditActorKind, touchDraft, writeMenuAudit } from "./lib/menuDraft";
+import { cardOpensMenu } from "./lib/menuQrResolve";
 import { MENU_ERROR } from "../lib/menu/errors/core";
 import { checkCas } from "../lib/menu/cas";
 import { newMenuKey } from "../lib/menu/keys";
@@ -71,6 +72,14 @@ async function loadPageForEdit(
   return { page, access };
 }
 
+/**
+ * K34: a standard page's public title mirrors its name (the editor offers one name; only the
+ * default page's name is internal). True while the title is unset or still equal to the name.
+ */
+function titleMirrorsName(page: Doc<"menuPages">): boolean {
+  return !page.isDefault && (page.publicTitle === undefined || page.publicTitle === page.name);
+}
+
 function assertNotArchived(page: Doc<"menuPages">): void {
   if (page.archivedAt !== undefined) throw new ConvexError(MENU_ERROR.pageArchived);
 }
@@ -117,10 +126,9 @@ export async function pageHasActiveQr(
   for (const link of links) {
     if (!link.active) continue;
     const card = await ctx.db.get(link.cardId);
-    if (!card || card.status !== "active" || card.businessId !== businessId) continue;
-    if (!card.currentTargetId) continue;
-    const target = await ctx.db.get(card.currentTargetId);
-    if (target?.kind === "menu") return true;
+    // K34: by the resolver's rule (convex/lib/menuQrResolve.ts cardOpensMenu); before, an adopted
+    // card was judged by its stale legacy cards.status and currentTargetId.
+    if (card && (await cardOpensMenu(ctx, card, businessId))) return true;
   }
   return false;
 }
@@ -197,6 +205,9 @@ export const add = mutation({
       key,
       slug,
       name,
+      // K34: a standard page's name is what guests read on the splitter and the page
+      // (only "Kompletan meni" is internal); mirrored so it can be translated.
+      publicTitle: name,
       isDefault: false,
       order: orderAfter(pages.length > 0 ? pages[pages.length - 1].order : null),
       visibility: "visible",
@@ -232,6 +243,8 @@ export const rename = mutation({
 
     await ctx.db.patch(page._id, {
       name,
+      // K34: the public title follows the name while it mirrors it (never on the default page).
+      ...(titleMirrorsName(page) ? { publicTitle: name } : {}),
       updatedAt: Date.now(),
       updatedByUserId: access.user._id,
     });
@@ -279,11 +292,14 @@ export const duplicate = mutation({
       key: newMenuKey("page"),
       slug,
       name,
-      ...(page.publicTitle !== undefined ? { publicTitle: page.publicTitle } : {}),
+      // K34: the copy is a standard page; its title mirrors its own name unless the source had a title of its own.
+      publicTitle: titleMirrorsName(page) || page.publicTitle === undefined ? name : page.publicTitle,
       isDefault: false,
       order: orderAfter(pages.length > 0 ? pages[pages.length - 1].order : null),
       visibility: page.visibility,
       ...(page.iconKey !== undefined ? { iconKey: page.iconKey } : {}),
+      // K34: the copy keeps the translations (a title that now differs from its source shows as stale).
+      ...(page.translations !== undefined ? { translations: page.translations } : {}),
       navigation: page.navigation,
       placementCount: copiedPlacements.length,
       createdAt: now,
@@ -300,6 +316,8 @@ export const duplicate = mutation({
         name: section.name,
         ...(section.description !== undefined ? { description: section.description } : {}),
         ...(section.iconKey !== undefined ? { iconKey: section.iconKey } : {}),
+        // K34: the same name, so its translations stay valid for the copy.
+        ...(section.translations !== undefined ? { translations: section.translations } : {}),
         order: section.order,
         visibility: section.visibility,
         createdAt: now,

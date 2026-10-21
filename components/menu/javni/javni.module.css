@@ -329,6 +329,12 @@
   height: 46%;
 }
 
+/* K34: a photo lies over the stand-in glyph in the same cell; if it fails to load, the glyph shows through. */
+.medij > .glif,
+.medij > img {
+  grid-area: 1 / 1;
+}
+
 /* --- shared article row (Tok, Kompaktno) and its detail button ------------- */
 
 .otvori {
@@ -1067,13 +1073,33 @@
   cursor: pointer;
 }
 
-.detaljSlika {
-  display: block;
+/* K34: the hero photo lies over a glyph on the tint of the media boxes; one that fails to load leaves the glyph, not an empty block. */
+.detaljMedij {
+  display: grid;
+  place-items: center;
   width: 100%;
-  height: auto;
   aspect-ratio: 16 / 10;
   /* On short wide screens the hero must not take half of the sheet: it is cropped, not squeezed. */
   max-height: 36dvh;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--menu-accent) 12%, var(--menu-surface));
+  color: var(--menu-accent-text);
+}
+
+.detaljMedij > .glif,
+.detaljMedij > .detaljSlika {
+  grid-area: 1 / 1;
+}
+
+.detaljMedij .glif {
+  width: 22%;
+  height: 22%;
+}
+
+.detaljSlika {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
@@ -1365,6 +1391,8 @@
 }
 
 .eur::before {
+  /* K34: the plain declaration first for browsers without the alt-text syntax (Safari < 17.4, Firefox < 128), which drop the second one. */
+  content: "~ ";
   content: "~ " / "";
 }
 
@@ -1835,6 +1863,17 @@
 .koren[data-varijanta="lista"] .plocicaNaziv,
 .koren[data-varijanta="lista"] .plocicaBroj {
   padding: 0;
+}
+
+/* K34: the menu-wide "Bez" (data-mediji="none", MENU-UX 1.2 "samo tekst") covers the category tiles too:
+   a tile is its name and count, with no media box (not even the stand-in glyph). */
+.koren[data-mediji="none"] .plocica .medij {
+  display: none;
+}
+
+.koren[data-varijanta="lista"][data-mediji="none"] .plocica {
+  grid-template-columns: minmax(0, 1fr);
+  padding-left: 14px;
 }
 
 @media (min-width: 768px) {

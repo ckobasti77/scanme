@@ -640,10 +640,13 @@ export function compileArticle(
 }
 
 function pageMeta(page: SnapshotPage, lang: string, sourceLang: string): PublicPageMeta {
+  // K34: a standard page without its own title is called by its name (the default page's
+  // name, "Kompletan meni", stays internal); before this every extra page read "Meni".
+  const publicTitle = page.publicTitle ?? (page.isDefault ? null : page.name);
   return {
     key: page.key,
     slug: page.slug,
-    title: localized(page.publicTitle, page.translations, lang, sourceLang, "publicTitle"),
+    title: localized(publicTitle, page.translations, lang, sourceLang, "publicTitle"),
     isDefault: page.isDefault,
     navigation: page.navigation,
     iconKey: page.iconKey,

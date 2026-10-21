@@ -29,6 +29,8 @@ import type { PublicAddonGroup, PublicArticle } from "@/lib/menu/snapshot";
 import { formatRsd } from "../menu-view";
 import { Upozorenje } from "./alergeni";
 import { Cena, Nedostupno, Oznake } from "./artikal";
+import { naZatvaranje } from "./dijalog-zatvaranje";
+import { JavniGlif } from "./glif";
 import { EurIznos } from "./jezik-valuta";
 import { useJavniIzbor, useUpozorenje } from "./kontekst";
 import styles from "./javni.module.css";
@@ -86,15 +88,19 @@ export function DetaljSadrzaj({
   return (
     <>
       {izbor.vrsta === "slika" ? (
-        <Image
-          className={styles.detaljSlika}
-          src={izbor.slika.url}
-          alt=""
-          width={izbor.slika.width}
-          height={izbor.slika.height}
-          sizes="(max-width: 767px) 100vw, 576px"
-          unoptimized
-        />
+        <div className={styles.detaljMedij}>
+          {/* K34: the stand-in glyph lies under the photo; one that fails to load shows it, not an empty block. */}
+          <JavniGlif iconKey={article.media.iconKey} className={styles.glif} />
+          <Image
+            className={styles.detaljSlika}
+            src={izbor.slika.url}
+            alt=""
+            width={izbor.slika.width}
+            height={izbor.slika.height}
+            sizes="(max-width: 767px) 100vw, 576px"
+            unoptimized
+          />
+        </div>
       ) : null}
       <div className={styles.detaljTelo} data-nedostupno={nedostupan ? "" : undefined}>
         <div>
@@ -240,7 +246,7 @@ export function DetaljArtikla({
       ref={ref}
       className={styles.detalj}
       aria-labelledby={naslovId}
-      onClose={onZatvori}
+      onClose={naZatvaranje(onZatvori)}
       onClick={(event) => {
         // A click on the backdrop (the dialog element itself, outside its content) closes it.
         if (event.target === event.currentTarget) event.currentTarget.close();
