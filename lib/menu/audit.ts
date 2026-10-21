@@ -87,6 +87,12 @@ export const MENU_AUDIT_ACTIONS = [
   "reservation.mode_changed",
   /** The venue's working hours changed (Podešavanja). */
   "settings.working_hours_changed",
+  // K26 — the venue's business mailbox (Podešavanja). Replies themselves are
+  // rows of menuReservationReplies (kind, channel, outcome; never the text).
+  /** A mailbox was connected through OAuth (provider and address, never a token). */
+  "mail.connected",
+  /** The mailbox connection was ended (its tokens deleted). */
+  "mail.disconnected",
 ] as const;
 
 export type MenuAuditAction = (typeof MENU_AUDIT_ACTIONS)[number];

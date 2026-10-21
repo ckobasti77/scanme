@@ -26,7 +26,7 @@
 // (forPanel) feeds all of it; the detail subscription lives only while one is open.
 
 import { Grid2x2, ListChecks, OctagonAlert, RotateCw } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fmt, srPluralCategory } from "@/lib/i18n/format";
 import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
 import { menuKonobarSr } from "@/lib/i18n/sr/menu-konobar";
@@ -131,6 +131,9 @@ export type KonobarPanelProps = {
   detaljRezervacije?: KonobarRezervacijaDetalj | null;
   /** Izlog: the filter the queue starts on ("rezervacije" shows the reservations). */
   pocetniFilterReda?: QueueFilter;
+  // K26 — the reply to the guest
+  /** The sheet "Obavesti gosta" of the open reservation (the live route and the izlog wire it). */
+  odgovorGostu?(rezervacijaId: string, detalj: KonobarRezervacijaDetalj): ReactNode;
 };
 
 type Greska = { id: string | null; tekst: string; ponovo: boolean };
@@ -174,6 +177,7 @@ export function KonobarPanel({
   onIzaberiRezervaciju,
   detaljRezervacije,
   pocetniFilterReda,
+  odgovorGostu,
 }: KonobarPanelProps) {
   const sadaMs = useSat(pocetnoMs, { izlogOd });
   const siroko = useSiroko();
@@ -688,6 +692,7 @@ export function KonobarPanel({
                     if (status) gostiStigli({ id: rezId, status });
                   }}
                   onOtvoriDrugu={(id) => otvoriRez(id)}
+                  odgovor={odgovorGostu && detaljRezervacije ? odgovorGostu(rezId, detaljRezervacije) : undefined}
                   nazadNa={
                     izabranoMesto
                       ? { oznaka: izabranoMesto.label, citac: fmt(t.sto.nazadNaStoCitac, { sto: izabranoMesto.label }) }

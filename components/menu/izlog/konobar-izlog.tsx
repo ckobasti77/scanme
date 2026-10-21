@@ -52,6 +52,7 @@ import type {
 } from "@/components/menu/konobar/model";
 import { KonobarPanel } from "@/components/menu/konobar/panel";
 import { PinEkran } from "@/components/menu/konobar/pin/pin-ekran";
+import { OdgovorIzlog } from "./odgovor-izlog";
 import { primeniRezervaciju, type RezMemorija, type RezNaredba } from "@/components/menu/konobar/rezervacije/memorija";
 import type { KonobarPreviewParams } from "@/lib/menu/izlog-params";
 import {
@@ -340,6 +341,26 @@ export function KonobarIzlog({ params }: { params: KonobarPreviewParams }) {
       izabranaRezervacijaId={rezId}
       onIzaberiRezervaciju={setRezId}
       detaljRezervacije={rezervacijaDetalj}
+      odgovorGostu={(id, d) => (
+        <OdgovorIzlog
+          key={id}
+          rezervacija={{
+            status: d.reservation.status,
+            guestName: d.reservation.guestName,
+            partySize: d.reservation.partySize,
+            requestedAt: d.reservation.requestedAt,
+            proposedAt: d.reservation.proposedAt,
+            proposalNote: d.reservation.proposalNote,
+            contactEmail: d.reservation.contactEmail,
+            contactPhone: d.reservation.contactPhone,
+          }}
+          posta={params.posta}
+          odgovor={params.odgovor}
+          slanje={params.slanje}
+          ishodPoziva={params.ishodPoziva}
+          offline={!naMrezi}
+        />
+      )}
       pocetniFilterReda={params.ekran === "rezervacije" ? "rezervacije" : undefined}
     />
   );

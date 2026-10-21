@@ -9584,6 +9584,125 @@ export interface MenuKonobarDict {
   };
 }
 
+// ScanMe Menu V1 (MENI run, K26) — the reply to a guest about a reservation
+// (lib/i18n/sr/menu-odgovor.ts; master §11.4): the sheet "Obavesti gosta", the
+// venue's mailbox and the reply templates in Podešavanja, the mail/* errors.
+type MenuOdgovorSablon = { subject: string; body: string };
+export interface MenuOdgovorDict {
+  vrste: { accept: string; decline: string; propose: string; other: string };
+  podrazumevano: {
+    accept: MenuOdgovorSablon;
+    decline: MenuOdgovorSablon;
+    propose: MenuOdgovorSablon;
+    other: MenuOdgovorSablon;
+    potpis: string;
+    gostiju: MenuStudioMnozina;
+    predlozeno: string;
+  };
+  obavesti: {
+    naslov: string;
+    naslovVrste: string;
+    vrsta: string;
+    kome: string;
+    predmet: string;
+    tekst: string;
+    posalji: string;
+    saljeSa: string;
+    salje: string;
+    poslato: string;
+    otvori: string;
+    otvoriCitac: string;
+    pozovi: string;
+    pozoviCitac: string;
+    skraceno: string;
+    napomenaSkraceno: string;
+    bezEmaila: string;
+    bezKontakta: string;
+    postaNijePovezana: string;
+    postaNedostupna: string;
+    postaGreska: string;
+    prazno: string;
+    ponovo: string;
+  };
+  ishod: {
+    naslov: string;
+    opis: string;
+    reached: string;
+    no_answer: string;
+    left_message: string;
+    zabelezi: string;
+    zabelezeno: string;
+  };
+  istorija: {
+    naslov: string;
+    red: string;
+    kanal: { mailbox: string; mailto: string; phone: string };
+    status: { sending: string; sent: string; failed: string; logged: string };
+  };
+  posta: {
+    naslov: string;
+    opis: string;
+    bezLozinke: string;
+    provajder: { gmail: string; microsoft: string };
+    povezana: string;
+    povezanaOd: string;
+    poveziGmail: string;
+    poveziMicrosoft: string;
+    povezujem: string;
+    prekini: string;
+    prekiniPotvrda: string;
+    prekiniDa: string;
+    odustani: string;
+    prekinuta: string;
+    nedostupno: string;
+    greska: string;
+    uspeh: string;
+    neuspeh: string;
+  };
+  sabloni: {
+    naslov: string;
+    opis: string;
+    predmet: string;
+    tekst: string;
+    zamene: string;
+    zameneOpis: {
+      ime: string;
+      lokal: string;
+      datum: string;
+      vreme: string;
+      brojGostiju: string;
+      predlozenoVreme: string;
+      poruka: string;
+      potpis: string;
+    };
+    potpis: string;
+    potpisOpis: string;
+    sacuvaj: string;
+    cuva: string;
+    sacuvano: string;
+    vrati: string;
+    prilagodjen: string;
+    podrazumevani: string;
+    pregled: string;
+    pregledOpis: string;
+    primer: { ime: string; lokal: string; predlog: string };
+    predugo: string;
+  };
+  /** Keyed by the codes of lib/menu/errors/mail.ts (kept literal: this file imports no values). */
+  greske: {
+    "mail/not_configured": string;
+    "mail/provider_unavailable": string;
+    "mail/state_invalid": string;
+    "mail/scope_missing": string;
+    "mail/not_connected": string;
+    "mail/reconnect_required": string;
+    "mail/no_recipient": string;
+    "mail/send_failed": string;
+    "mail/rate_limited": string;
+    "mail/invalid_input": string;
+  };
+}
+
 export interface DictBySurface {
   "event-map": EventMapDict;
   "fair-map": FairMapDict;
@@ -9632,6 +9751,7 @@ export interface DictBySurface {
   "menu-lokal": MenuLokalDict;
   "menu-gost": MenuGostDict;
   "menu-konobar": MenuKonobarDict;
+  "menu-odgovor": MenuOdgovorDict;
   "ordering-admin": OrderingAdminDict;
   ordering: OrderingDict;
   "ordering-panel": OrderingPanelDict;

@@ -170,7 +170,19 @@ export const menuServiceSettingsValidator = v.object({
   // reservation settings (the form's contact, the external link, the hold).
   workingHours: v.optional(menuWorkingHoursValidator),
   reservation: v.optional(menuReservationSettingsValidator),
+  // K26 — the venue's signature under every reply to a guest (≤ 500
+  // characters, plan K24-19). Absent = "Srdačno, <venue>".
+  replySignature: v.optional(v.string()),
 });
+
+// K26 — the reply to a guest (master §11.4; plan docs/meni/planovi/K24.md §3.2).
+export const menuMailProviderValidator = v.union(v.literal("gmail"), v.literal("microsoft"));
+export const menuMailConnectionStatusValidator = v.union(v.literal("active"), v.literal("error"), v.literal("revoked"));
+export const menuReplyTemplateKindValidator = v.union(v.literal("accept"), v.literal("decline"), v.literal("propose"));
+export const menuReplyKindValidator = v.union(v.literal("accept"), v.literal("decline"), v.literal("propose"), v.literal("other"));
+export const menuReplyChannelValidator = v.union(v.literal("mailbox"), v.literal("mailto"), v.literal("phone"));
+export const menuReplyStatusValidator = v.union(v.literal("sending"), v.literal("sent"), v.literal("failed"), v.literal("logged"));
+export const menuPhoneOutcomeValidator = v.union(v.literal("reached"), v.literal("no_answer"), v.literal("left_message"));
 
 export const menuRoomServiceMarkupScopeValidator = v.union(
   v.literal("all"),

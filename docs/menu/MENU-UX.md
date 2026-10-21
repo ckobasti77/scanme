@@ -311,6 +311,15 @@ Plan `docs/meni/planovi/K24.md` §2; master §10.3–§10.4, §11.
 - **Sala**: vezan sto pokazuje značku rezervacije od 120 min pre termina do dolaska ili otkazivanja; tabela ima kolonu `Rezervacija`, legenda stavku; detalj stola pokazuje današnje rezervacije stola i `Poveži rezervaciju` (prihvaćene bez stola). Sto postaje „Zauzet" samo kad osoblje označi dolazak, sto je vezan i lokal koristi modul zauzetosti.
 - **Panel** (Funkcionalnosti › Rezervacije, Podešavanja › Radno vreme i Zadržavanje): izbor `Isključeno · ScanMe forma · Vaš sistem`; uz formu samo izbor kontakta i rečenica šta gost popunjava; uz „Vaš sistem" samo link; forma je zaključana uz razlog dok radno vreme nije uneto; nema polja za trajanje, rok, sto ni zvuk.
 
+### 5.13 Odgovor gostu (K26)
+
+Plan `docs/meni/planovi/K24.md` §3; master §11.4.
+
+- **List „Obavesti gosta"** (u detalju rezervacije konobara, ispod „Javite gostu"): izbor vrste `Prihvatanje · Odbijanje · Predlog izmene · Druga poruka` (počinje vrstom odluke koja je doneta: prihvaćena → prihvatanje, odbijena → odbijanje, predlog → predlog); `Kome` je uvek gostova adresa iz rezervacije i ne menja se; predmet i tekst su popunjeni šablonom i mogu se menjati pre slanja. Glavna radnja `Pošalji iz pošte lokala` postoji samo kad je pošta povezana i gost je ostavio e-poštu, uz „Šalje se sa <adresa>"; stanja `Šalje se…` (aria-busy), „Poruka je poslata sa …" (`role="status"`), greška rečima (`role="alert"`). Bez pošte: jedna mirna rečenica zašto (nije uključeno · nije povezano · veza istekla — „vlasnik ili menadžer je ponovo povezuje u Podešavanjima").
+- **Rezerva uvek postoji**: `Otvori u e-pošti` (`mailto:` sa istim predmetom i tekstom; preduga poruka se skraćuje uz napomenu) i `Pozovi` (`tel:`). `Zabeleži ishod poziva` je sklopljeno i nije obavezno (Razgovarali smo · Ne javlja se · Ostavljena poruka). „Do sada" pokazuje odgovore (vreme · kanal · vrsta · ko), nikad tekst poruke.
+- **Podešavanja › Pošta lokala**: šta povezivanje radi i da ScanMe ne vidi lozinku (prijava ide kod Google-a ili Microsoft-a, traži se samo slanje); dugmad samo za dostupne provajdere; povezano: adresa, provajder i datum + `Prekini vezu` uz potvrdu; isteklo: upozorenje i ponovno povezivanje. Kad funkcija nije uključena na serveru, blok to kaže jednom rečenicom i nema dugmadi.
+- **Podešavanja › Šabloni odgovora**: tri šablona (oznaka Podrazumevani/Prilagođen), predmet i tekst, `Sačuvaj`, `Vrati podrazumevani` samo za prilagođen; spisak zamena (`{ime}` …) kao običan tekst; živi pregled sa izmišljenim gostom; jedan potpis za ceo lokal.
+
 ## 6. Ikonice
 
 - Samo `lucide-react`, linija 1,75 (statusi 2), 20 px u dugmetu, 16 px u oznaci, 24 px u konobarskom panelu i praznim stanjima.

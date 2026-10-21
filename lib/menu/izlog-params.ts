@@ -111,6 +111,16 @@ export const PANEL_ULOGA_AKTER = {
 export const PANEL_REZERVACIJE = ["forma", "eksterni", "iskljuceno"] as const;
 export type PanelRezervacije = (typeof PANEL_REZERVACIJE)[number];
 
+/** K26: the venue mailbox in the izlog (`posta=…`): connected, not connected, the feature switched off, an expired connection. */
+export const IZLOG_POSTA = ["povezana", "nije", "nedostupna", "greska"] as const;
+export type IzlogPosta = (typeof IZLOG_POSTA)[number];
+/** K26: a reply template kind in the izlog (`odgovor=…`, `sablon=…`). */
+export const IZLOG_ODGOVORI = ["prihvatanje", "odbijanje", "predlog", "druga"] as const;
+export type IzlogOdgovor = (typeof IZLOG_ODGOVORI)[number];
+/** K26: where a send from the mailbox stands (`slanje=…`). */
+export const IZLOG_SLANJA = ["salje", "poslato", "greska"] as const;
+export type IzlogSlanje = (typeof IZLOG_SLANJA)[number];
+
 export type PanelPreviewParams = {
   tema: IzlogTema | null;
   sekcija: PanelSekcija;
@@ -127,6 +137,13 @@ export type PanelPreviewParams = {
   rezervacije: PanelRezervacije | null;
   /** K25 `radno-vreme=prazno`: the venue has not entered its working hours yet (the form is locked). */
   bezRadnogVremena: boolean;
+  /** K26 `posta=povezana|nije|nedostupna|greska` (with sekcija=podesavanja); default: available, not connected. */
+  posta: IzlogPosta;
+  /** K26 `povratak=povezano|greska`: what the OAuth callback reported. */
+  povratak: "povezano" | "greska" | null;
+  /** K26 `sablon=prihvatanje|odbijanje|predlog`: the template open first; `sabloni=1` shows custom templates and a signature. */
+  sablon: Exclude<IzlogOdgovor, "druga"> | null;
+  sabloniPrilagodjeni: boolean;
 };
 
 export function parsePanelPreview(params: IzlogSearchParams): PanelPreviewParams {
@@ -139,6 +156,10 @@ export function parsePanelPreview(params: IzlogSearchParams): PanelPreviewParams
     fiokaOtvorena: firstParam(params.fioka) === "otvorena",
     rezervacije: pickOptional(params.rezervacije, PANEL_REZERVACIJE),
     bezRadnogVremena: firstParam(params["radno-vreme"]) === "prazno",
+    posta: pickParam(params.posta, IZLOG_POSTA, "nije"),
+    povratak: pickOptional(params.povratak, ["povezano", "greska"] as const),
+    sablon: pickOptional(params.sablon, ["prihvatanje", "odbijanje", "predlog"] as const),
+    sabloniPrilagodjeni: firstParam(params.sabloni) === "1",
   };
 }
 
@@ -219,6 +240,13 @@ export type KonobarPreviewParams = {
   rezervacija: string | null;
   /** K25 `otkazana=1`: a guest has just cancelled a reservation (the strip shows). */
   otkazana: boolean;
+  /** K26 `odgovor=prihvatanje|odbijanje|predlog|druga`: the kind the sheet "Obavesti gosta" starts with (default: by status). */
+  odgovor: IzlogOdgovor | null;
+  /** K26 `posta=povezana|nije|nedostupna|greska`: the venue mailbox; default connected (the send button shows). */
+  posta: IzlogPosta;
+  /** K26 `slanje=salje|poslato|greska`: a send in progress, done or refused; `ishod=1` opens the call outcome. */
+  slanje: IzlogSlanje | null;
+  ishodPoziva: boolean;
 };
 
 const KONOBAR_REZERVACIJA = /^(?:1|rv_[a-z0-9]{2,4})$/;
@@ -242,6 +270,10 @@ export function parseKonobarPreview(params: IzlogSearchParams): KonobarPreviewPa
     sto: naziv(params.sto),
     rezervacija: rezervacija !== undefined && KONOBAR_REZERVACIJA.test(rezervacija) ? rezervacija : null,
     otkazana: firstParam(params.otkazana) === "1",
+    odgovor: pickOptional(params.odgovor, IZLOG_ODGOVORI),
+    posta: pickParam(params.posta, IZLOG_POSTA, "povezana"),
+    slanje: pickOptional(params.slanje, IZLOG_SLANJA),
+    ishodPoziva: firstParam(params.ishod) === "1",
   };
 }
 

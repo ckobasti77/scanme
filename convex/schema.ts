@@ -86,6 +86,13 @@ import {
   menuPresenceEntityTypeValidator,
   menuRequestCancelledByValidator,
   menuReservationStatusValidator,
+  menuMailProviderValidator,
+  menuMailConnectionStatusValidator,
+  menuReplyTemplateKindValidator,
+  menuReplyKindValidator,
+  menuReplyChannelValidator,
+  menuReplyStatusValidator,
+  menuPhoneOutcomeValidator,
   menuRequestChannelValidator,
   menuRequestItemAddonValidator,
   menuRequestKindValidator,
@@ -3826,6 +3833,85 @@ export default defineSchema({
     .index("by_menuServiceId_and_deviceKeyHash_and_createdAt", ["menuServiceId", "deviceKeyHash", "createdAt"])
     .index("by_menuServiceId_and_deviceKeyHash_and_clientRequestId", ["menuServiceId", "deviceKeyHash", "clientRequestId"])
     .index("by_menuServiceId_and_cancelledAt", ["menuServiceId", "cancelledAt"]),
+
+  // K26 — the venue's business mailbox, connected through OAuth (Gmail or
+  // Microsoft; master §11.4, P7; plan docs/meni/planovi/K24.md §3). At most
+  // one row per Menu service. No password is ever seen: the provider's
+  // refresh and access tokens are AES-256-GCM ciphertext under
+  // MENU_MAIL_TOKEN_KEY, bound (additional data) to purpose + service +
+  // provider + address, and never leave the actions (no public query returns
+  // a *Ciphertext / *Iv field). `revoked` keeps the row without tokens.
+  menuMailConnections: defineTable({
+    menuServiceId: v.id("menuServices"),
+    provider: menuMailProviderValidator,
+    emailAddress: v.string(),
+    status: menuMailConnectionStatusValidator,
+    refreshTokenCiphertext: v.optional(v.string()),
+    refreshTokenIv: v.optional(v.string()),
+    accessTokenCiphertext: v.optional(v.string()),
+    accessTokenIv: v.optional(v.string()),
+    accessTokenExpiresAt: v.optional(v.number()),
+    keyVersion: v.number(),
+    scopes: v.array(v.string()),
+    connectedByUserId: v.id("users"),
+    connectedAt: v.number(),
+    revokedAt: v.optional(v.number()),
+    lastErrorCode: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index("by_menuServiceId", ["menuServiceId"]),
+
+  // K26 — the one-time OAuth `state` of a mailbox connection: only its
+  // SHA-256 is stored, valid 10 minutes, for the person who started it; the
+  // PKCE verifier is AES-GCM ciphertext (same key, bound to the state).
+  menuMailOAuthStates: defineTable({
+    stateHash: v.string(),
+    menuServiceId: v.id("menuServices"),
+    provider: menuMailProviderValidator,
+    userId: v.id("users"),
+    codeVerifierCiphertext: v.string(),
+    codeVerifierIv: v.string(),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_stateHash", ["stateHash"])
+    .index("by_userId_and_createdAt", ["userId", "createdAt"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  // K26 — the venue's own reply templates (accept, decline, propose); a
+  // missing row means the default text of the `menu-odgovor` dictionary.
+  menuMessageTemplates: defineTable({
+    menuServiceId: v.id("menuServices"),
+    kind: menuReplyTemplateKindValidator,
+    subject: v.string(),
+    body: v.string(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  }).index("by_menuServiceId_and_kind", ["menuServiceId", "kind"]),
+
+  // K26 — one reply to a guest about a reservation: sent from the venue's
+  // mailbox (`sending` → `sent` | `failed`), or logged by staff (`logged`:
+  // opened in their own e-mail, or a phone call with an optional outcome).
+  // The text of a message is NOT stored (less personal data); only the kind,
+  // the channel and the outcome. `clientSendId` makes a send idempotent.
+  menuReservationReplies: defineTable({
+    reservationId: v.id("menuReservations"),
+    menuServiceId: v.id("menuServices"),
+    channel: menuReplyChannelValidator,
+    kind: v.optional(menuReplyKindValidator),
+    status: menuReplyStatusValidator,
+    phoneOutcome: v.optional(menuPhoneOutcomeValidator),
+    errorCode: v.optional(v.string()),
+    providerMessageId: v.optional(v.string()),
+    clientSendId: v.optional(v.string()),
+    byStaffId: v.optional(v.id("menuStaff")),
+    byUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_reservationId", ["reservationId"])
+    .index("by_menuServiceId_and_createdAt", ["menuServiceId", "createdAt"])
+    .index("by_menuServiceId_and_clientSendId", ["menuServiceId", "clientSendId"]),
 
   // Explicit Menu roles (K01 §4.2). Account roles are DERIVED from
   // accountMemberships / businessMemberships; a row here grants an explicit

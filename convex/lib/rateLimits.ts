@@ -122,6 +122,19 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   menuReservationService: { kind: "token bucket", rate: 60, period: HOUR, capacity: 60 },
   // menuReservationCancel — per IP hash, the cancel link and Moji zahtevi.
   menuReservationCancel: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 10 },
+  // ScanMe Menu V1 (K26, plan docs/meni/planovi/K24.md §3.2) — the reply to a
+  // guest. menuMailConnect: per person starting a mailbox connection (Gmail or
+  // Microsoft); 10 an hour covers a few failed tries.
+  menuMailConnect: { kind: "token bucket", rate: 10, period: HOUR, capacity: 10 },
+  // menuMailSendService: per venue, messages sent from its mailbox; 30 an hour
+  // is far above real replies to reservations and keeps the venue's address
+  // from becoming a spam source. menuMailSendPerson: per staff member or
+  // account, 5 a minute.
+  menuMailSendService: { kind: "token bucket", rate: 30, period: HOUR, capacity: 30 },
+  menuMailSendPerson: { kind: "token bucket", rate: 5, period: MINUTE, capacity: 5 },
+  // menuMailSendReservation: per reservation, 5 a day — an answer, a change and
+  // a follow-up fit; the venue's address never floods one guest.
+  menuMailSendReservation: { kind: "token bucket", rate: 5, period: 24 * HOUR, capacity: 5 },
   // TASK-66 (RFC-004 §2.9): the two GUEST ACTIONS. Deliberately keyed
   // differently from each other, and from the per-IP hop buckets above —
   // §2.9 rejects a per-IP action limit outright, because a whole hall sits

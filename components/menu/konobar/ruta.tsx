@@ -26,6 +26,7 @@ import type { StaffSessionBody } from "@/lib/menu/http/staff-session";
 import type { MenuRequestStatus } from "@/lib/menu/request-status";
 import type { MenuReservationStatus } from "@/lib/menu/reservation-status";
 import { useVeza } from "../gost/use-veza";
+import { ObavestiGostaRuta } from "../odgovor/obavesti-gosta-ruta";
 import type { KonobarIshod, KonobarRadnje, KonobarRezervacije, KonobarRezIshod, KonobarSalaIshod, PinIshod } from "./model";
 import { KonobarPanel } from "./panel";
 import { PinEkran } from "./pin/pin-ekran";
@@ -292,6 +293,24 @@ export function KonobarRuta({ slug, panelCode, lokal, pinDostupan, pocetniToken,
       izabranaRezervacijaId={rezervacijaId}
       onIzaberiRezervaciju={setRezervacijaId}
       detaljRezervacije={detaljRezervacije}
+      odgovorGostu={(id, d) => (
+        <ObavestiGostaRuta
+          key={id}
+          prijava={prijavaArgs}
+          rezervacijaId={id}
+          rezervacija={{
+            status: d.reservation.status,
+            guestName: d.reservation.guestName,
+            partySize: d.reservation.partySize,
+            requestedAt: d.reservation.requestedAt,
+            proposedAt: d.reservation.proposedAt,
+            proposalNote: d.reservation.proposalNote,
+            contactEmail: d.reservation.contactEmail,
+            contactPhone: d.reservation.contactPhone,
+          }}
+          offline={veza === "offline"}
+        />
+      )}
     />
   );
 }

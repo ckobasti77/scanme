@@ -279,6 +279,10 @@ export type MenuOwnedTable =
   | "menuSecrets"
   // K25
   | "menuReservations"
+  // K26
+  | "menuMailConnections"
+  | "menuMessageTemplates"
+  | "menuReservationReplies"
   // K23
   | "menuPositionOccupancy";
 

@@ -93,6 +93,11 @@ describe("/dev/menu-panel-preview", () => {
       // K25 (intentional): the reservation choice and the working hours, absent by default.
       rezervacije: null,
       bezRadnogVremena: false,
+      // K26 (intentional): the mailbox and the templates of Podešavanja.
+      posta: "nije",
+      povratak: null,
+      sablon: null,
+      sabloniPrilagodjeni: false,
     });
   });
 
@@ -108,6 +113,11 @@ describe("/dev/menu-panel-preview", () => {
       fiokaOtvorena: true,
       rezervacije: null,
       bezRadnogVremena: false,
+      // K26 (intentional): the mailbox and the templates of Podešavanja.
+      posta: "nije",
+      povratak: null,
+      sablon: null,
+      sabloniPrilagodjeni: false,
     });
   });
 
@@ -180,7 +190,34 @@ describe("/dev/menu-konobar-preview", () => {
       // K25 (intentional): no reservation open, no cancellation strip.
       rezervacija: null,
       otkazana: false,
+      // K26 (intentional): the reply sheet starts by status, the mailbox connected.
+      odgovor: null,
+      posta: "povezana",
+      slanje: null,
+      ishodPoziva: false,
     });
+  });
+
+  test("K26: the reply sheet (kind, mailbox, send state, call outcome); anything else gives the default", () => {
+    expect(parseKonobarPreview({ odgovor: "predlog", posta: "greska", slanje: "poslato", ishod: "1" })).toMatchObject({
+      odgovor: "predlog",
+      posta: "greska",
+      slanje: "poslato",
+      ishodPoziva: true,
+    });
+    expect(parseKonobarPreview({ odgovor: "ljubavno", posta: "zoho", slanje: "odmah", ishod: "da" })).toMatchObject({
+      odgovor: null,
+      posta: "povezana",
+      slanje: null,
+      ishodPoziva: false,
+    });
+    expect(parsePanelPreview({ sekcija: "podesavanja", posta: "nedostupna", povratak: "greska", sablon: "odbijanje", sabloni: "1" })).toMatchObject({
+      posta: "nedostupna",
+      povratak: "greska",
+      sablon: "odbijanje",
+      sabloniPrilagodjeni: true,
+    });
+    expect(parsePanelPreview({ posta: "x", povratak: "x", sablon: "druga" })).toMatchObject({ posta: "nije", povratak: null, sablon: null });
   });
 
   test("K25: a reservation detail, the table with a reservation and the cancellation strip", () => {

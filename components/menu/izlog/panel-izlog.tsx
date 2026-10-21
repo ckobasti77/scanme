@@ -30,9 +30,12 @@ import {
 } from "../panel/stanja-panela";
 import { EditorIzlog } from "./editor-izlog";
 import { LokalIzlog } from "./lokal-izlog";
+import { PostaIzlog, SabloniIzlog } from "./odgovor-izlog";
 import { PodesavanjaRezervacijaIzlog, RezervacijeIzlog } from "./rezervacije-izlog";
 
 const t = menuPanelSr;
+/** The optional K25/K26 izlog fields (/dev/menu-editor-preview mounts the panel without them). */
+type K25K26 = "rezervacije" | "bezRadnogVremena" | "posta" | "povratak" | "sablon" | "sabloniPrilagodjeni";
 export const PANEL_IZLOG_PUTANJA = "/dev/menu-panel-preview";
 
 export function PanelIzlog({
@@ -43,8 +46,7 @@ export function PanelIzlog({
    * `sekcija=primitivi` is the primitives page of the route, not a panel section. The two K25 fields
    * are optional: /dev/menu-editor-preview mounts the panel without them (no reservations there).
    */
-  params: Omit<PanelPreviewParams, "rezervacije" | "bezRadnogVremena"> &
-    Partial<Pick<PanelPreviewParams, "rezervacije" | "bezRadnogVremena">> & { sekcija: PanelNavSekcija };
+  params: Omit<PanelPreviewParams, K25K26> & Partial<Pick<PanelPreviewParams, K25K26>> & { sekcija: PanelNavSekcija };
   /** /dev/menu-editor-preview passes its own editor states. */
   editor?: EditorPreviewParams;
 }) {
@@ -109,7 +111,7 @@ export function PanelIzlog({
     // K20: the real "Lokal i QR" over the invented restaurant; /dev/menu-lokal-preview has its states.
     sadrzaj = <LokalIzlog params={{ tema, pogled: "lista", stanje: null, fokusPozicija: false, stampa: false }} />;
   } else {
-    // K25: the finished reservation blocks stand above the "u pripremi" card until K27/K28 build the rest.
+    // K25/K26: the finished reservation and reply blocks stand above the "u pripremi" card until K27/K28 build the rest.
     const iznad =
       sekcija === "funkcionalnosti" ? (
         <RezervacijeIzlog
@@ -118,7 +120,12 @@ export function PanelIzlog({
           radnoVremeHref={radnoVremeIzloga}
         />
       ) : sekcija === "podesavanja" ? (
-        <PodesavanjaRezervacijaIzlog bezRadnogVremena={bezRadnogVremena} />
+        // K26: the venue mailbox and the reply templates (K28 places them in the finished section).
+        <div className="grid gap-6">
+          <PodesavanjaRezervacijaIzlog bezRadnogVremena={bezRadnogVremena} />
+          <PostaIzlog posta={params.posta ?? "nije"} povratak={params.povratak ?? null} />
+          <SabloniIzlog prilagodjeni={params.sabloniPrilagodjeni ?? false} sablon={params.sablon ?? null} />
+        </div>
       ) : undefined;
     sadrzaj = (
       <SekcijaUPripremi
