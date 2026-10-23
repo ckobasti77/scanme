@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { AdminGuard } from "@/components/admin/admin-guard";
 import { AdminProductsErrorBoundary, AdminProductsWorkspace } from "@/components/admin/admin-products";
-import { legacySearchHref } from "@/lib/admin-v2/query/legacy-param";
+import { AdminShell } from "@/components/admin/admin-shell";
 import { adminProductsSr } from "@/lib/i18n/sr/admin-products";
 
 export const metadata: Metadata = {
@@ -9,11 +9,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// ADMIN v2: the venue (`?venue=`) and the filters are read from the URL by the page itself; an older `?smf=` link becomes `?q=`.
-export default async function ProductsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const params = await searchParams;
-  const legacy = legacySearchHref("/admin/operativa/proizvodi", params, "smf");
-  if (legacy) redirect(legacy);
-  const product = typeof params.product === "string" ? params.product : undefined;
-  return <AdminProductsErrorBoundary><AdminProductsWorkspace initialProductId={product} /></AdminProductsErrorBoundary>;
+export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ venue?: string; product?: string; smf?: string }> }) {
+  const { venue, product, smf } = await searchParams;
+  return <AdminGuard><AdminShell><AdminProductsErrorBoundary><AdminProductsWorkspace initialVenueId={venue} initialProductId={product} initialSmfCode={smf} /></AdminProductsErrorBoundary></AdminShell></AdminGuard>;
 }

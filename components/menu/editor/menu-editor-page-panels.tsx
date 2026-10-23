@@ -90,7 +90,7 @@ const FONT_LABELS: Record<DesignFontKey, string> = {
   "dm-sans": "DM Sans",
   "nunito-sans": "Nunito Sans",
   "source-sans-3": "Source Sans",
-  "system-ui": dict.fontSistemsko,
+  "system-ui": "Sistemsko pismo",
   inter: "Inter",
   manrope: "Manrope",
   "cormorant-garamond": "Cormorant Garamond",

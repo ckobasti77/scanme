@@ -51,7 +51,7 @@ describe("getDict", () => {
     expect(menu.unavailableBadge).toBe("Nema više");
     expect(menu.poweredBy).toBe("ScanMe Meni");
     expect(menu.moreItems).toBe("Još {count}");
-    expect(menu.metaTitle).toBe("{name} — Meni");
+    expect(menu.metaTitle).toBe("{name} · Meni");
 
     const menuAdmin = getDict("menu-admin");
     expect(menuAdmin.eyebrow).toBe("ScanMe Meni");

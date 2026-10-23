@@ -1,6 +1,6 @@
 "use client";
 
-import { Component, type ReactNode, useDeferredValue, useMemo, useState } from "react";
+import { Component, type ReactNode, useDeferredValue, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/convex/_generated/api";
@@ -10,13 +10,17 @@ import {
   type TechnicalChannelRow,
 } from "@/components/admin/admin-qr";
 import { AdminErrorState, AdminPanel } from "@/components/admin/admin-primitives";
-import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
-import { qrListArgs } from "@/lib/admin-v2/lists/qr";
-import { QR_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/operations";
 import { getDict } from "@/lib/i18n";
 
 const dict = getDict("admin-products");
 const pageSize = 25;
+
+type Filters = {
+  search: string;
+  binding: "all" | "digital" | "physical";
+  kind: "all" | "qr" | "nfc";
+  state: "all" | "active" | "inactive" | "problem";
+};
 
 function channelColor(row: { state: "active" | "inactive" | "problem"; health: "healthy" | "unverified" | "broken"; redirectEnabled: boolean }) {
   if (row.state === "problem" || row.health === "broken") return "red" as const;
@@ -30,12 +34,17 @@ function listText<Row>(rows: readonly Row[] | undefined, line: (row: Row) => str
   return rows.slice(0, 5).map(line).join("\n");
 }
 
-export function AdminQrWorkspace({ initialChannelId }: { initialChannelId?: string }) {
-  const [state] = useAdminUrlState(QR_URL_FIELDS);
+export function AdminQrWorkspace({ initialChannelId, initialCode }: { initialChannelId?: string; initialCode?: string }) {
+  const [filters, setFilters] = useState<Filters>({ search: initialCode ?? "", binding: "all", kind: "all", state: "all" });
   const [selectedOverride, setSelected] = useState<TechnicalChannelRow | null | undefined>(undefined);
-  // The filters are the sidebar's and live in the URL; typing in the search does not hit the query on every key.
-  const args = useDeferredValue(useMemo(() => qrListArgs(state), [state]));
-  const channels = usePaginatedQuery(api.adminProductReads.listChannels, args, { initialNumItems: pageSize });
+  const search = useDeferredValue(filters.search);
+  const channels = usePaginatedQuery(api.adminProductReads.listChannels, {
+    ...(search.trim() ? { search } : {}),
+    ...(filters.binding !== "all" ? { binding: filters.binding } : {}),
+    ...(filters.kind !== "all" ? { kind: filters.kind } : {}),
+    ...(filters.state !== "all" ? { state: filters.state } : {}),
+    direction: "desc",
+  }, { initialNumItems: pageSize });
   const rows: TechnicalChannelRow[] = channels.results.map((row) => ({
     id: row._id,
     accountId: row.accountId,
@@ -85,6 +94,7 @@ export function AdminQrWorkspace({ initialChannelId }: { initialChannelId?: stri
     status={channels.status === "LoadingFirstPage" ? "loading" : "ready"}
     canLoadMore={channels.status === "CanLoadMore" || channels.status === "LoadingMore"}
     loadingMore={channels.status === "LoadingMore"}
+    onFiltersChange={setFilters}
     onChannelSelected={setSelected}
     onLoadMore={() => channels.loadMore(pageSize)}
     detailMeta={detailMeta}

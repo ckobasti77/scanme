@@ -15,9 +15,6 @@ export const menuEditorSr = {
   draftChanged:
     "Nacrt je u međuvremenu izmenjen. Osvežite editor i pokušajte ponovo.",
   itemNotFound: "Stavka nije pronađena.",
-  // K06: the legacy writers after the cutover (convex/lib/menuLegacyGuard.ts).
-  legacyMigrated:
-    "Ovaj meni je prebačen u novi ScanMe Menu. Izmene se sada rade u novom editoru.",
   // --- the five group shapes (components/menu/blocks/registry.tsx) ------------
   shapeLabelLista: "Lista",
   shapeLabelGalerija: "Galerija",
@@ -25,7 +22,7 @@ export const menuEditorSr = {
   shapeLabelIstaknuto: "Istaknuto",
   shapeLabelTabelaVarijanti: "Tabela varijanti",
   // --- the editor shell -------------------------------------------------------
-  metaEditorTitle: "Editor",
+  metaEditorTitle: "Uredi meni | ScanMe",
   editorLoading: "Učitavanje editora…",
   signInTitle: "Prijava je potrebna",
   signInBody:
@@ -53,7 +50,6 @@ export const menuEditorSr = {
   saveStateError: "Nije sačuvano",
   saveRetryHint: "Kliknite da pokušate ponovo.",
   saveErrorFallback: "Nacrt nije sačuvan.",
-  fontSistemsko: "Sistemsko pismo",
   savedToast: "Nacrt je sačuvan.",
   publishDialogTitle: "Objavi trenutni nacrt?",
   publishDialogBody:
@@ -165,7 +161,7 @@ export const menuEditorSr = {
   // --- the dayparts panel -----------------------------------------------------
   daypartsHeading: "Vremenski prozori",
   daypartsEmptyHint:
-    "Bez doba dana sve grupe su prikazane uvek. Dodajte doručak, ručak ili večeru da biste vezali grupe za deo dana.",
+    "Bez dobâ dana sve grupe su prikazane uvek. Dodajte doručak, ručak ili večeru da biste vezali grupe za deo dana.",
   daypartAdd: "Dodaj doba dana",
   daypartKeyLabel: "Ključ",
   daypartKeyHint: "Kratak ključ bez dijakritika, npr. dorucak, rucak, vecera.",

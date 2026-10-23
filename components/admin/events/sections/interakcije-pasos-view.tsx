@@ -1,16 +1,18 @@
 "use client";
 
 import { Eye, Info, RefreshCw, Snowflake, TriangleAlert } from "lucide-react";
-import { useMemo, useState, type ComponentProps } from "react";
+import { useState, type ComponentProps } from "react";
 import { ConfirmAction, interactionCodeText } from "@/components/admin/admin-events-interactions";
 import { AdminEmptyState, AdminStatus } from "@/components/admin/admin-primitives";
 import {
   AdminDataCard,
   AdminDataView,
+  AdminFilterBar,
   adminSecondaryButtonClass,
   type AdminColumn,
+  type AdminFilterChip,
+  type AdminFilterFacet,
 } from "@/components/admin/admin-ui";
-import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import { eventDateTime, Feedback, Meta, Section, type EventMessage } from "@/components/admin/events/event-ui";
 import {
   applyPassportFilters,
@@ -20,16 +22,15 @@ import {
   passportStateCounts,
   type PassportRow,
   type PassportState,
+  type PassportStateParam,
 } from "@/lib/admin-v1/passport-overview";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
-import type { SidebarLive } from "@/lib/admin-v2/sidebar/types";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
 
-// Admin UX A7 / ADMIN v2 — `interakcije/pasos` (the state filter is in the
-// sidebar of the admin frame; ADMIN-UX §6 Pasoš brenda, MASTER §11):
+// Admin UX A7 — `interakcije/pasos` (ADMIN-UX §6 Pasoš brenda, MASTER §11):
 // the passport appears by itself for every brand that meets the condition.
 // Per brand: the condition and why it is not met, the state (Aktivan /
 // Zamrznut / Sakriven / Nema uslov / Nije napravljen) and the models in the
@@ -53,12 +54,11 @@ export type EventPassportsViewProps = {
   /** buildPassportRows(getPassportOverview, names, now); undefined = loading. */
   rows: PassportRow[] | undefined;
   eventStartsAt: number | undefined;
-  /** ADMIN v2: kept for the callers; the exhibitor filter has no control in the sidebar (no page uses it unscoped). */
   exhibitors: { id: string; name: string }[];
   query: AdminQueryState;
   onQueryChange: (patch: AdminQueryPatch) => void;
   actions: PassportsActions;
-  /** Izlagači 2026: on one exhibitor's page (`rows` are its brands). ADMIN v2: no longer changes anything, the sidebar of the page has no exhibitor group either way. */
+  /** Izlagači 2026: on one exhibitor's page (`rows` are its brands) — no exhibitor filter. */
   scoped?: boolean;
 };
 
@@ -203,28 +203,38 @@ function passportColumns(runner: Runner, actions: PassportsActions): AdminColumn
   ];
 }
 
-/** What the passport list sends to the sidebar: the states with their counts, and the brands (the brand arrives by a link and shows only as a chip). */
-export function passportsSidebarLive(rows: readonly PassportRow[], query: AdminQueryState): SidebarLive {
-  const counts = passportStateCounts(rows, query);
-  const brands = new Map(rows.map((row) => [row.brandId, row.brandName]));
-  return {
-    options: {
-      stanje: PASSPORT_STATE_VALUES.map((value) => ({ value, label: p.states[PASSPORT_STATE_OF_PARAM[value]], count: counts[value] })),
-      brend: [...brands].map(([value, label]) => ({ value, label })),
-    },
-  };
-}
-
-export function EventPassportsView({ rows, eventStartsAt, query, onQueryChange, actions }: EventPassportsViewProps) {
+export function EventPassportsView({ rows, eventStartsAt, exhibitors, query, onQueryChange, actions, scoped = false }: EventPassportsViewProps) {
   const runner = usePassportRunner();
   const all = rows ?? [];
   const filtered = rows ? applyPassportFilters(rows, query) : undefined;
-  const sidebar = useMemo(() => passportsSidebarLive(rows ?? [], query), [rows, query]);
-  useAdminSidebarLive(all.length ? sidebar : null);
+  const counts = passportStateCounts(all, query);
+  const brandName = query.brend ? all.find((row) => row.brandId === query.brend)?.brandName : undefined;
+
+  const facets: AdminFilterFacet[] = [
+    ...(scoped ? [] : [{ id: "izlagac", label: p.facetExhibitor, options: exhibitors.map((row) => ({ value: row.id, label: row.name })) }]),
+    { id: "stanje", label: p.facetState, options: PASSPORT_STATE_VALUES.map((value) => ({ value, label: p.states[PASSPORT_STATE_OF_PARAM[value]], count: counts[value] })) },
+  ];
+  const chips: AdminFilterChip[] = [];
+  const exhibitor = query.izlagac && !scoped ? exhibitors.find((row) => row.id === query.izlagac) : undefined;
+  if (exhibitor) chips.push({ id: "izlagac", label: `${p.facetExhibitor}: ${exhibitor.name}`, onRemove: () => onQueryChange({ izlagac: null }) });
+  if (brandName) chips.push({ id: "brend", label: fmt(p.brandChip, { brand: brandName }), onRemove: () => onQueryChange({ brend: null }) });
+  if (query.stanje && (PASSPORT_STATE_VALUES as readonly string[]).includes(query.stanje)) {
+    chips.push({ id: "stanje", label: `${p.facetState}: ${p.states[PASSPORT_STATE_OF_PARAM[query.stanje as PassportStateParam]]}`, onRemove: () => onQueryChange({ stanje: null }) });
+  }
   const clear = () => onQueryChange(clearPassportFiltersPatch());
 
   return (
     <div className="grid min-w-0 gap-4">
+      {all.length ? (
+        <AdminFilterBar
+          label={p.filterLabel}
+          facets={facets}
+          values={scoped ? { stanje: query.stanje } : { izlagac: query.izlagac, stanje: query.stanje }}
+          onFacetChange={(id, next) => onQueryChange({ [id]: next ?? null })}
+          chips={chips}
+          onClear={clear}
+        />
+      ) : null}
       <Section
         title={dict.interactionSections.pasos}
         action={(

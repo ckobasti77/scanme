@@ -10,7 +10,7 @@ import type { OrderingPanelDict } from "../types";
 // diagnostic for the panel/owner view. It must never be copied to a guest
 // surface.
 export const orderingPanelSr = {
-  metaTitle: "Konobarski panel · {name}",
+  metaTitle: "Panel konobara — {name}",
 
   // PIN screen.
   pinHeading: "Prijava konobara",

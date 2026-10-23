@@ -47,18 +47,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  MenuAdminRezim,
-  type RezimIshod,
-  type UvozIshod,
-} from "@/components/admin/menu-admin-rezim";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatBelgrade } from "@/lib/belgrade-time";
 import { fmt } from "@/lib/i18n";
 import { menuAdminSr as dict } from "@/lib/i18n/sr/menu-admin";
-import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
-import type { MenuMode } from "@/lib/menu/modes";
 import { MENU_MAX_ITEMS } from "@/lib/menu-export/rows";
 import { parseMenuImport } from "@/lib/menu-import";
 import { MIGRATION_STAGES, type MigrationStage } from "@/lib/menu-migration";
@@ -103,18 +96,12 @@ export function MenuAdminSubpage({ businessId }: { businessId: Id<"businesses"> 
   const importDraft = useMutation(api.menuAdmin.importDraft);
   const publishForClient = useMutation(api.menuAdmin.publishForClient);
   const exportMenu = useAction(api.menuExport.exportMenu);
-  // K28 — the new Menu model: service mode and the import into its draft.
-  const service = useQuery(api.menuAdmin.serviceForBusiness, { businessId });
-  const adminSetMode = useMutation(api.menuServices.adminSetMode);
-  const importDraftV2 = useMutation(api.menuAdmin.importDraftV2);
 
   const [busy, setBusy] = useState<Busy>(null);
   const [stagePick, setStagePick] = useState<MigrationStage | null>(null);
   const [importText, setImportText] = useState("");
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [kept, setKept] = useState<string[]>([]);
-  // The clock for "overdue": read once on the device (the overview query never reads it).
-  const [now] = useState(() => Date.now());
 
   const parsed = useMemo(() => parseMenuImport(importText), [importText]);
   const tooLarge = parsed.items > MENU_MAX_ITEMS;
@@ -142,9 +129,8 @@ export function MenuAdminSubpage({ businessId }: { businessId: Id<"businesses"> 
   const { business, menu } = data;
   const currentStage = menu?.migrationStage ?? null;
   const selectedStage = stagePick ?? currentStage;
-  // Worked out here from the deadline and the stage (the overview query reads no clock).
-  const deadlineAt = menu?.deadlineAt ?? null;
-  const overdue = deadlineAt !== null && currentStage !== "published" && now > deadlineAt;
+  // Evaluated by the overview query (render stays pure).
+  const overdue = menu?.overdue ?? false;
 
   async function run<T>(kind: Busy, work: () => Promise<T>, fallback: string) {
     setBusy(kind);
@@ -229,47 +215,6 @@ export function MenuAdminSubpage({ businessId }: { businessId: Id<"businesses"> 
     if (result) {
       downloadChunks(result.chunks, result.mimeType, result.fileName);
       toast.success(dict.exportSuccess);
-    }
-  }
-
-  function domainErrorText(error: unknown): string {
-    const code = errorMessage(error, "");
-    return (menuDomenSr.errors as Record<string, string | undefined>)[code] ?? code;
-  }
-
-  async function handlePromeni(mode: MenuMode): Promise<RezimIshod> {
-    if (!service) return { ok: false, poruka: dict.rezimGreska };
-    try {
-      const result = await adminSetMode({ menuServiceId: service.menuServiceId, mode });
-      return { ok: true, changed: result.changed, droppedFeatures: result.droppedFeatures };
-    } catch (error) {
-      return { ok: false, poruka: `${dict.rezimGreska} ${domainErrorText(error)}`.trim() };
-    }
-  }
-
-  async function runImportV2(json: string, dryRun: boolean): Promise<UvozIshod> {
-    if (!service) return { ok: false, poruka: dict.uvozGreska };
-    try {
-      const result = await importDraftV2({
-        menuServiceId: service.menuServiceId,
-        model: JSON.parse(json) as Parameters<typeof importDraftV2>[0]["model"],
-        ...(dryRun ? { dryRun: true } : {}),
-      });
-      const { report } = result;
-      return {
-        ok: true,
-        imported: result.imported,
-        grupe: report.planned.sections,
-        artikli: report.planned.articles,
-        upozorenja: report.warningCount,
-        duplikati: report.duplicateCount,
-        blokade: report.blockers,
-        ...("written" in result && result.written
-          ? { uvezeno: result.written.articles }
-          : {}),
-      };
-    } catch (error) {
-      return { ok: false, poruka: `${dict.uvozGreska} ${domainErrorText(error)}`.trim() };
     }
   }
 
@@ -549,17 +494,6 @@ export function MenuAdminSubpage({ businessId }: { businessId: Id<"businesses"> 
               </div>
             </section>
           </>
-        ) : null}
-
-        {/* ---- K28: service mode + import into the new-model draft -------- */}
-        {service !== undefined ? (
-          <MenuAdminRezim
-            usluga={service}
-            lokal={business.name}
-            onPromeni={handlePromeni}
-            onProveri={(json) => runImportV2(json, true)}
-            onUvezi={(json) => runImportV2(json, false)}
-          />
         ) : null}
       </div>
 

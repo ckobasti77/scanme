@@ -75,7 +75,7 @@ export const communicationsSr = {
   clientYou: "Vi",
   clientScanMe: "ScanMe",
   clientHistoryCapped: "Prikazano je poslednjih 100 poruka.",
-  previewBadge: "Probni prikaz · nisu stvarni podaci",
+  previewBadge: "Razvojni prikaz ADMIN-08",
   previewClientMessage: "Možete li da proverite novu stavku u meniju?",
   previewAdminMessage: "Naravno. Provera je u toku i javljamo odgovor ovde.",
 } as const satisfies CommunicationsDict;

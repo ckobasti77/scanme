@@ -7,12 +7,6 @@
 // TASK-61). Unavailable in production, mirroring app/dev/customers-preview.
 //
 //   /dev/menu-admin-preview?businessId=<businesses id>
-//
-// K28 fixture mode (no Convex, no admin session, invented venue):
-//
-//   /dev/menu-admin-preview?fixture=1[&modal=rezim|uvoz]
-//
-// Unknown parameters fall back to the default state, never an error.
 
 import { notFound } from "next/navigation";
 import { MenuAdminPreview } from "./menu-admin-preview";
@@ -26,10 +20,5 @@ export default async function MenuAdminPreviewPage({
   const resolved = await searchParams;
   const businessId =
     typeof resolved.businessId === "string" ? resolved.businessId : null;
-  const fixture = resolved.fixture === "1";
-  const modal =
-    resolved.modal === "rezim" || resolved.modal === "uvoz" ? resolved.modal : null;
-  return (
-    <MenuAdminPreview businessId={businessId} fixture={fixture} modal={modal} />
-  );
+  return <MenuAdminPreview businessId={businessId} />;
 }

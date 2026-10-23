@@ -56,11 +56,6 @@ describe("A3 Modeli filters", () => {
     expect(applyModelFilters(models, { q: "nepostojeci" })).toEqual([]);
   });
 
-  test("ADMIN v2: the one search of Modeli also finds a model by its exhibitor", () => {
-    const withNamed = [...models, model("m9", "z", "b9", { exhibitorName: "TEST Voltaria d.o.o." })];
-    expect(ids(applyModelFilters(withNamed, { q: "voltaria" }))).toEqual(["m9"]);
-  });
-
   test("package, status, problems, QR and photo filters", () => {
     expect(ids(applyModelFilters(models, { paket: "napredni" }))).toEqual(["m4", "m5"]);
     expect(ids(applyModelFilters(models, { paket: "za-sve" }))).toEqual(["m3"]);

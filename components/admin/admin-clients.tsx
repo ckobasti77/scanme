@@ -1,6 +1,5 @@
 "use client";
 
-import { AdminClearFilters } from "@/components/admin/admin-ui/admin-clear-filters";
 import { useMutation, usePaginatedQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import {
@@ -9,6 +8,7 @@ import {
   Mail,
   MoreHorizontal,
   Phone,
+  Search,
   ShieldAlert,
   Star,
   UserRound,
@@ -31,23 +31,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
-import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
+import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { clientsListArgs, clientsNarrowed, filterPreviewClients } from "@/lib/admin-v2/lists/clients";
-import { CLIENTS_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/clients";
 import { fmt } from "@/lib/i18n";
 import { adminV1Sr as dict } from "@/lib/i18n/sr/admin-v1";
 import { adminSearchSr } from "@/lib/i18n/sr/admin-search";
 import { cn } from "@/lib/utils";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus, AdminTable } from "./admin-primitives";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminTable } from "./admin-primitives";
 import { AdminTooltip } from "./admin-tooltip";
 
 type ClientRow = FunctionReturnType<typeof api.adminReadModels.listClients>["page"][number];
 type VenueServiceRow = FunctionReturnType<typeof api.adminReadModels.clientVenueServices>["page"][number];
 type ServiceKey = keyof ClientRow["serviceSummaries"];
 type ServiceState = NonNullable<ClientRow["serviceSummaries"][ServiceKey]["worst"]>;
+type Sort = "urgency" | "name" | "recent";
+type Status = "all" | "active" | "archived";
 
 const SERVICE_META: Record<
   ServiceKey,
@@ -130,8 +129,8 @@ function Identity({ row }: { row: ClientRow }) {
       >
         {row.ownerDisplayName}
       </Link>
-      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="font-mono text-[0.69rem] whitespace-nowrap text-[var(--admin-text-muted)]">{row.smkCode}</span>
+      <div className="mt-1 flex min-w-0 items-center gap-2">
+        <span className="font-mono text-[0.69rem] text-[var(--admin-text-muted)]">{row.smkCode}</span>
         {row.premiumStatus ? (
           <span
             data-premium={row.premiumStatus}
@@ -202,7 +201,7 @@ function ServiceButtons({ row, expanded, onToggle }: { row: ClientRow; expanded:
               aria-expanded={expanded}
               aria-label={`${description}. ${fmt(expanded ? dict.clientsServiceCollapse : dict.clientsServiceExpand, { name: row.ownerDisplayName })}`}
               className={cn(
-                "grid size-11 shrink-0 place-items-center rounded-xl border transition-colors @4xl:size-9",
+                "grid size-11 shrink-0 place-items-center rounded-xl border transition-colors xl:size-9",
                 state ? STATE_CLASS[state] : "border-[var(--admin-border)] bg-[var(--admin-surface-muted)] text-[var(--admin-text-muted)]",
               )}
             >
@@ -231,7 +230,7 @@ function Actions({ row }: { row: ClientRow }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="grid size-11 place-items-center rounded-xl hover:bg-[var(--admin-surface-muted)] @4xl:size-10" aria-label={fmt(dict.clientsActions, { name: row.ownerDisplayName })}>
+        <button type="button" className="grid size-11 place-items-center rounded-xl hover:bg-[var(--admin-surface-muted)] xl:size-10" aria-label={fmt(dict.clientsActions, { name: row.ownerDisplayName })}>
           <MoreHorizontal className="size-5" aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
@@ -391,10 +390,10 @@ function MobileCard({ row, details }: { row: ClientRow; details?: VenueServiceRo
 function ClientResults({ rows, detailsByAccount }: { rows: ClientRow[]; detailsByAccount?: Record<string, VenueServiceRow[]> }) {
   return (
     <>
-      <div className="hidden @4xl:block">
+      <div className="hidden xl:block">
         <AdminTable caption={dict.clientsTableCaption} tableClassName="table-fixed text-[0.82rem]">
           <colgroup>
-            <col className="w-10" /><col className="w-[22%]" /><col className="w-[23%]" /><col className="w-[15%]" /><col className="w-36" /><col /><col className="w-14" />
+            <col className="w-[3.5%]" /><col className="w-[17%]" /><col className="w-[22%]" /><col className="w-[15%]" /><col className="w-[15%]" /><col className="w-[22%]" /><col className="w-[5.5%]" />
           </colgroup>
           <thead className="bg-[var(--admin-surface-muted)] text-[0.67rem] font-bold tracking-[0.06em] text-[var(--admin-text-muted)] uppercase">
             <tr>
@@ -407,47 +406,69 @@ function ClientResults({ rows, detailsByAccount }: { rows: ClientRow[]; detailsB
               <th className="px-2 py-3 text-right" scope="col"><span className="sr-only">{dict.clientsColActions}</span></th>
             </tr>
           </thead>
-          <tbody data-admin-reveal="rows">{rows.map((row) => <DesktopRow key={row.accountId} row={row} details={detailsByAccount?.[row.accountId]} />)}</tbody>
+          <tbody>{rows.map((row) => <DesktopRow key={row.accountId} row={row} details={detailsByAccount?.[row.accountId]} />)}</tbody>
         </AdminTable>
       </div>
-      <div data-admin-reveal="rows" className="grid min-w-0 gap-3 @4xl:hidden">
+      <div className="grid min-w-0 gap-3 xl:hidden">
         {rows.map((row) => <MobileCard key={row.accountId} row={row} details={detailsByAccount?.[row.accountId]} />)}
       </div>
     </>
   );
 }
 
-const loadMoreClass = "min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold hover:border-[var(--admin-ink)] disabled:opacity-60";
+function Toolbar({ search, onSearch, status, onStatus, sort, onSort }: { search: string; onSearch: (value: string) => void; status: Status; onStatus: (value: Status) => void; sort: Sort; onSort: (value: Sort) => void }) {
+  const selectClass = "min-h-11 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm font-semibold";
+  return (
+    <div className="grid min-w-0 gap-2 border-b border-[var(--admin-border)] p-3 sm:grid-cols-[minmax(14rem,1fr)_auto_auto] sm:p-4">
+      <label className="relative min-w-0">
+        <span className="sr-only">{dict.clientsSearchLabel}</span>
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]" aria-hidden="true" />
+        <Input value={search} onChange={(event) => onSearch(event.target.value)} placeholder={dict.clientsSearchPlaceholder} className="min-h-11 rounded-xl border-[var(--admin-border)] bg-[var(--admin-surface-strong)] pl-9" />
+      </label>
+      <label className="grid">
+        <span className="sr-only">{dict.clientsStatusLabel}</span>
+        <select value={status} onChange={(event) => onStatus(event.target.value as Status)} className={selectClass}>
+          <option value="all">{dict.clientsStatusAll}</option><option value="active">{dict.clientsStatusActive}</option><option value="archived">{dict.clientsStatusArchived}</option>
+        </select>
+      </label>
+      <label className="grid">
+        <span className="sr-only">{dict.clientsSortLabel}</span>
+        <select value={sort} onChange={(event) => onSort(event.target.value as Sort)} className={selectClass}>
+          <option value="urgency">{dict.clientsSortUrgency}</option><option value="name">{dict.clientsSortName}</option><option value="recent">{dict.clientsSortRecent}</option>
+        </select>
+      </label>
+    </div>
+  );
+}
 
 export function AdminClientsWorkspace() {
-  const [urlState] = useAdminUrlState(CLIENTS_URL_FIELDS);
-  const args = clientsListArgs(urlState);
-  const deferredSearch = useDeferredValue(args.search);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<Status>("all");
+  const [sort, setSort] = useState<Sort>("urgency");
+  const deferredSearch = useDeferredValue(search.trim());
   const { results, status, loadMore } = usePaginatedQuery(
     api.adminReadModels.listClients,
-    { ...args, search: deferredSearch },
+    { search: deferredSearch || undefined, status: statusFilter, sort },
     { initialNumItems: 20 },
   );
-  const narrowed = clientsNarrowed({ ...args, search: deferredSearch });
+  const loadingFirst = status === "LoadingFirstPage";
   return (
-    <div className="@container grid min-w-0 gap-5">
-      <AdminPageHeader title={dict.clientsTitle} description={dict.clientsSubtitle} />
-      {status === "LoadingFirstPage" ? (
-        <AdminPanel><AdminLoadingState shape="table" /></AdminPanel>
-      ) : results.length === 0 ? (
-        <AdminPanel>
-          <AdminEmptyState action={<AdminClearFilters />} title={narrowed ? dict.clientsNoResultsTitle : dict.clientsEmptyTitle} body={narrowed ? dict.clientsNoResultsBody : dict.clientsEmptyBody} />
-        </AdminPanel>
-      ) : (
-        <ClientResults rows={results} />
-      )}
-      {status !== "LoadingFirstPage" && results.length > 0 && status !== "Exhausted" ? (
-        <div className="text-center">
-          <button type="button" disabled={status === "LoadingMore"} onClick={() => loadMore(20)} className={loadMoreClass}>
-            {status === "LoadingMore" ? dict.clientsLoadingMore : dict.clientsLoadMore}
-          </button>
-        </div>
-      ) : null}
+    <div className="grid min-w-0 gap-5">
+      <header>
+        <h1 className="text-[clamp(2.2rem,4.5vw,4.4rem)] leading-none font-medium tracking-[-0.055em]">{dict.clientsTitle}</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)] sm:text-base">{dict.clientsSubtitle}</p>
+      </header>
+      <AdminPanel className="min-w-0 overflow-hidden">
+        <Toolbar search={search} onSearch={setSearch} status={statusFilter} onStatus={setStatusFilter} sort={sort} onSort={setSort} />
+        {loadingFirst ? <AdminLoadingState /> : results.length === 0 ? <AdminEmptyState title={deferredSearch || statusFilter !== "all" ? dict.clientsNoResultsTitle : dict.clientsEmptyTitle} body={deferredSearch || statusFilter !== "all" ? dict.clientsNoResultsBody : dict.clientsEmptyBody} /> : <div className="min-w-0 p-3 sm:p-4"><ClientResults rows={results} /></div>}
+        {status !== "LoadingFirstPage" && results.length > 0 && status !== "Exhausted" ? (
+          <div className="border-t border-[var(--admin-border)] p-3 text-center">
+            <button type="button" disabled={status === "LoadingMore"} onClick={() => loadMore(20)} className="min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold hover:border-[var(--admin-ink)] disabled:opacity-60">
+              {status === "LoadingMore" ? dict.clientsLoadingMore : dict.clientsLoadMore}
+            </button>
+          </div>
+        ) : null}
+      </AdminPanel>
     </div>
   );
 }
@@ -469,28 +490,21 @@ export class AdminClientsErrorBoundary extends Component<{ children: ReactNode }
 }
 
 export function AdminClientsPreview({ mode = "loaded" }: { mode?: "loaded" | "loading" | "empty" | "error" }) {
-  const [urlState] = useAdminUrlState(CLIENTS_URL_FIELDS);
-  const narrowed = clientsNarrowed(clientsListArgs(urlState));
-  const filtered = filterPreviewClients(FIXTURE_CLIENTS, urlState);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<Status>("all");
+  const [sort, setSort] = useState<Sort>("urgency");
+  const filtered = FIXTURE_CLIENTS.filter((row) => !search || `${row.ownerDisplayName} ${row.smkCode} ${row.firstVenueName} ${row.defaultContactEmail} ${row.defaultContactPhone}`.toLocaleLowerCase("sr-Latn").includes(search.toLocaleLowerCase("sr-Latn")));
   return (
-    <div className="@container grid min-w-0 gap-5">
-      <AdminPageHeader title={dict.clientsTitle} description={dict.clientsFixtureDescription} badge={<AdminStatus label={dict.clientsFixtureBadge} tone="waiting" />} />
-      {mode === "loading" ? (
-        <AdminPanel><AdminLoadingState shape="table" /></AdminPanel>
-      ) : mode === "error" ? (
-        <AdminPanel>
-          <AdminErrorState title={dict.clientsErrorTitle} body={dict.clientsErrorBody} />
-          <div className="border-t border-[var(--admin-border)] p-3 text-center">
-            <button type="button" onClick={() => window.location.reload()} className="min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold">{dict.clientsRetry}</button>
-          </div>
-        </AdminPanel>
-      ) : mode === "empty" || filtered.length === 0 ? (
-        <AdminPanel>
-          <AdminEmptyState action={<AdminClearFilters />} title={narrowed ? dict.clientsNoResultsTitle : dict.clientsEmptyTitle} body={narrowed ? dict.clientsNoResultsBody : dict.clientsEmptyBody} />
-        </AdminPanel>
-      ) : (
-        <ClientResults rows={filtered} detailsByAccount={FIXTURE_DETAILS} />
-      )}
+    <div className="grid min-w-0 gap-5">
+      <header className="grid gap-2">
+        <span className="w-fit rounded-full bg-[var(--admin-accent)] px-2.5 py-1 text-[0.68rem] font-bold text-[var(--admin-accent-ink)]">{dict.clientsFixtureBadge}</span>
+        <h1 className="text-[clamp(2.2rem,4.5vw,4.4rem)] leading-none font-medium tracking-[-0.055em]">{dict.clientsTitle}</h1>
+        <p className="text-sm text-[var(--admin-text-muted)]">{dict.clientsFixtureDescription}</p>
+      </header>
+      <AdminPanel className="min-w-0 overflow-hidden">
+        <Toolbar search={search} onSearch={setSearch} status={status} onStatus={setStatus} sort={sort} onSort={setSort} />
+        {mode === "loading" ? <AdminLoadingState /> : mode === "error" ? <><AdminErrorState title={dict.clientsErrorTitle} body={dict.clientsErrorBody} /><div className="border-t border-[var(--admin-border)] p-3 text-center"><button type="button" onClick={() => window.location.reload()} className="min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold">{dict.clientsRetry}</button></div></> : mode === "empty" || filtered.length === 0 ? <AdminEmptyState title={search ? dict.clientsNoResultsTitle : dict.clientsEmptyTitle} body={search ? dict.clientsNoResultsBody : dict.clientsEmptyBody} /> : <div className="min-w-0 p-3 sm:p-4"><ClientResults rows={filtered} detailsByAccount={FIXTURE_DETAILS} /></div>}
+      </AdminPanel>
     </div>
   );
 }
