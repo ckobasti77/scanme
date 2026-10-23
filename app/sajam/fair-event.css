@@ -78,7 +78,7 @@
   --fair-bay-mark: #ffd23f;
   min-height: 100dvh;
   overflow-x: clip;
-  color-scheme: light;
+  color-scheme: only light;
   background: var(--fair-paper-tex) 0 0 / 420px 420px, var(--fair-canvas-glow), var(--fair-canvas);
   color: var(--fair-ink);
   font-family: "Archivo Variable", "Archivo", "Segoe UI", Arial, sans-serif;
@@ -117,6 +117,13 @@
 .fair-event ::selection {
   background: #d8cec2;
   color: var(--fair-ink);
+}
+
+/* Light-only fair app: the root must say `only light` too, over the landing's
+   html[data-theme="dark"] { color-scheme: dark } (set from the OS theme), or
+   the browser force-darkens the page. Scoped to pages with the fair shell. */
+:root:has(.fair-event) {
+  color-scheme: only light;
 }
 
 body:has(.fair-event) [data-theme-toggle="global"] {
