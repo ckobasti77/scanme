@@ -105,6 +105,16 @@
   --ui-tooltip-shadow: 3px 3px 0 #6fc05d;
 }
 
+/* Signal only, nothing reads it: Samsung Internet's dark mode ignores
+   `color-scheme: only light` but reportedly skips force-darkening a site
+   whose stylesheet has its own prefers-color-scheme: dark rule. The fair
+   app stays light-only (app/sajam/layout.tsx, fair-event.css). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --scanme-os-scheme: dark;
+  }
+}
+
 html[data-theme="dark"] {
   color-scheme: dark;
   --background: #1c2221;
