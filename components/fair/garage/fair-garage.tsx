@@ -356,6 +356,8 @@ function GarageModelCard({
   bay: number;
 }) {
   const [removing, setRemoving] = useState(false);
+  const router = useRouter();
+  const modelHref = `/sajam/${model.eventSlug}/model/${model.modelSlug}`;
   const longPress = useRef<{ pointerId: number; x: number; y: number; timeout: number } | null>(null);
   const suppressClick = useRef(false);
   const suppressReset = useRef<number | null>(null);
@@ -456,7 +458,19 @@ function GarageModelCard({
         if (!selectionDisabled || selected) onSelect();
       }}
     >
-      <div className={styles.modelMedia} data-garage-photo>
+      {/* 30 Oct 2026 (owner): tapping the photo opens the model like "Pogledaj".
+          A click, not a link: the photo keeps its long press into compare mode
+          (selection mode swallows the click in the capture handler above). The
+          keyboard path stays the "Pogledaj" link. */}
+      <div
+        className={styles.modelMedia}
+        data-garage-photo
+        data-opens-model={selectionMode ? undefined : ""}
+        onClick={(event) => {
+          if (selectionMode || (event.target as Element).closest("button, a")) return;
+          router.push(modelHref);
+        }}
+      >
         <ModelVisual model={model} preload={preload} alt={fmt(dict.modelPhotoAlt, { brand: model.brandName, model: model.displayName })} />
         <span className={styles.bay}>{fmt(dict.bayLabel, { n: String(bay).padStart(2, "0") })}</span>
         <button
@@ -481,7 +495,7 @@ function GarageModelCard({
           {model.variant ? <strong>{model.priceText}</strong> : null}
         </div>
         <div className={styles.modelActions}>
-          <Link prefetch={false} href={`/sajam/${model.eventSlug}/model/${model.modelSlug}`} className={styles.viewLink}>
+          <Link prefetch={false} href={modelHref} className={styles.viewLink}>
             {dict.viewModel}<ChevronRight aria-hidden="true" />
           </Link>
           <button type="button" className={styles.shareButton} aria-label={fmt(dict.shareModelAria, { model: model.displayName })} onClick={onShare}>
