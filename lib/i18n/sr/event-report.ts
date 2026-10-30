@@ -21,6 +21,7 @@ export const eventReportSr = {
   ratingsHeading: "Ocene",
   audienceHeading: "Glas publike",
   surveyHeading: "Anketa",
+  surveyFreeText: "Slobodan unos teksta",
   sponsoredHeading: "Sponzorisana traka u garaži",
   noModelAnalytics: "Paket nema analitiku po modelu.",
   colStand: "Štand",

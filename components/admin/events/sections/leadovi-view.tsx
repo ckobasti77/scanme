@@ -62,7 +62,7 @@ export type LeadActivityView = {
   scans?: Group<{ eventModelId: string; firstAt: number; lastAt: number; count: number }>;
   ratings?: Group<{ eventModelId: string; at: number; overall?: number; appearance?: number; specifications?: number; price?: number }>;
   audienceVotes?: Group<{ eventModelId: string; at: number; prompt: string; answer: string }>;
-  surveyAnswers?: Group<{ eventModelId: string; at: number; answers: { prompt: string; kind: "yes_no" | "single_choice"; answer: string }[] }>;
+  surveyAnswers?: Group<{ eventModelId: string; at: number; answers: { prompt: string; kind: "yes_no" | "single_choice" | "free_text"; answer: string }[] }>;
   passport?: Group<{ brandId: string; required: number | null; stamps: { eventModelId: string; at: number }[]; favoriteModelId?: string }>;
   sponsoredActions?: Group<{ eventModelId: string; kind: "open_model" | "garage_add"; at: number }>;
 };
@@ -426,7 +426,7 @@ function ActivityList({ activity, names, brandName }: { activity: LeadActivityVi
     const row = names.model(id);
     return row ? modelName(row) : t.unknownModel;
   };
-  const answer = (item: { kind: "yes_no" | "single_choice"; answer: string }) => (item.kind === "yes_no" ? (item.answer === "yes" ? t.yes : item.answer === "no" ? t.no : item.answer) : item.answer);
+  const answer = (item: { kind: "yes_no" | "single_choice" | "free_text"; answer: string }) => (item.kind === "yes_no" ? (item.answer === "yes" ? t.yes : item.answer === "no" ? t.no : item.answer) : item.answer);
   const blocks: ReactNode[] = [];
   for (const group of GROUP_ORDER) {
     if (group === "scans" && activity.scans) {

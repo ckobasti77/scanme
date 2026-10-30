@@ -100,7 +100,7 @@ export type FairLeadActivity = {
   surveyAnswers?: {
     shared: boolean;
     capped: boolean;
-    items: { eventModelId: Id<"fairEventModels">; at: number; answers: { prompt: string; kind: "yes_no" | "single_choice"; answer: string }[] }[];
+    items: { eventModelId: Id<"fairEventModels">; at: number; answers: { prompt: string; kind: "yes_no" | "single_choice" | "free_text"; answer: string }[] }[];
   };
   passport?: {
     shared: boolean;
@@ -192,7 +192,10 @@ export async function fairVisitorActivity(
       const answers = row.answers.flatMap((answer) => {
         const question = survey.questions.find((entry) => entry.id === answer.questionId);
         if (!question) return [];
-        const label = question.kind === "single_choice" ? question.options.find((option) => option.id === answer.value)?.label ?? "—" : answer.value;
+        // 30 Oct 2026: free_text / write-in answers carry the typed text.
+        const label = answer.text !== undefined
+          ? (question.writeInLabel ? `${question.writeInLabel}: ${answer.text}` : answer.text)
+          : question.kind === "single_choice" ? question.options.find((option) => option.id === answer.value)?.label ?? "—" : answer.value;
         return [{ prompt: question.prompt, kind: question.kind, answer: label }];
       });
       items.push({ eventModelId: row.eventModelId, at: row.submittedAt, answers });

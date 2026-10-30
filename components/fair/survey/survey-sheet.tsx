@@ -13,6 +13,7 @@ import {
   isFinalStep,
   isSurveyLocked,
 } from "@/lib/fair-client/survey-machine";
+import { FAIR_SURVEY_FREE_TEXT_MAX, FAIR_SURVEY_FREE_TEXT_VALUE, FAIR_SURVEY_WRITE_IN_VALUE } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n";
 import { ContactBlock } from "../contact-block";
 import { FairSheet } from "../fair-sheet";
@@ -43,6 +44,10 @@ export function SurveySheet() {
     setShown({ stage, direction });
   }
 
+  // 30 Oct 2026: the step whose "Drugo – upiši sam" option is open as an input.
+  const [writeInOpen, setWriteInOpen] = useState<number | null>(null);
+  const writeInInput = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => () => {
     if (advanceTimer.current !== null) window.clearTimeout(advanceTimer.current);
   }, []);
@@ -60,6 +65,7 @@ export function SurveySheet() {
 
   function choose(value: string) {
     if (advanceTimer.current !== null || state.phase === "sending") return;
+    setWriteInOpen(null);
     dispatch({ type: "choose", value });
     fairHaptic(10);
     advanceTimer.current = window.setTimeout(() => {
@@ -80,6 +86,21 @@ export function SurveySheet() {
         : null,
     );
   }
+
+  /**
+   * The write-in input is always in the DOM (only visually hidden), so focus()
+   * inside this tap handler opens the phone keyboard on the same tap (iOS
+   * ignores focus() on an element mounted later). Its text is kept.
+   */
+  function openWriteIn(index: number) {
+    if (advanceTimer.current !== null || state.phase === "sending") return;
+    setWriteInOpen(index);
+    writeInInput.current?.focus({ preventScroll: true });
+    // Empty text = no answer yet (the other option, if any, is deselected).
+    dispatch({ type: "text", value: FAIR_SURVEY_WRITE_IN_VALUE, text: state.texts[index] ?? "" });
+  }
+
+  const writeInIsOpen = (index: number) => writeInOpen === index || state.answers[index] === FAIR_SURVEY_WRITE_IN_VALUE;
 
   const options = (index: number) => {
     const question = questions[index];
@@ -117,7 +138,27 @@ export function SurveySheet() {
             {fmt(dict.audienceQuestionOf, { current: index + 1, total: questions.length })}
           </span>
           <h3 id={`fair-survey-q-${index}`}>{question.prompt}</h3>
-          <div className="fair-survey-options" role="group" aria-labelledby={`fair-survey-q-${index}`}>
+          {question.kind === "free_text" ? (
+            <label className="fair-field fair-survey-text">
+              <input
+                type="text"
+                aria-labelledby={`fair-survey-q-${index}`}
+                maxLength={FAIR_SURVEY_FREE_TEXT_MAX}
+                autoComplete="off"
+                enterKeyHint="next"
+                placeholder={dict.surveyFreeTextPlaceholder}
+                value={state.texts[index] ?? ""}
+                onChange={(event) => dispatch({ type: "text", value: FAIR_SURVEY_FREE_TEXT_VALUE, text: event.target.value })}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") dispatch({ type: "next" });
+                }}
+              />
+              <small className="fair-survey-text__count" aria-hidden="true">
+                {fmt(dict.surveyTextCount, { count: (state.texts[index] ?? "").length, max: FAIR_SURVEY_FREE_TEXT_MAX })}
+              </small>
+            </label>
+          ) : null}
+          <div className="fair-survey-options" role="group" aria-labelledby={`fair-survey-q-${index}`} hidden={question.kind === "free_text"}>
             {options(index).map((option) => (
               <button
                 key={option.id}
@@ -132,6 +173,38 @@ export function SurveySheet() {
                 {option.label}
               </button>
             ))}
+            {question.writeInLabel ? (
+              <div className="fair-survey-writein" data-open={writeInIsOpen(index) || undefined}>
+                <button
+                  type="button"
+                  className="fair-survey-option"
+                  aria-pressed={writeInIsOpen(index)}
+                  tabIndex={writeInIsOpen(index) ? -1 : undefined}
+                  onClick={() => openWriteIn(index)}
+                >
+                  <span className="fair-survey-option__dot" aria-hidden="true">
+                    <Check />
+                  </span>
+                  {question.writeInLabel}
+                </button>
+                <input
+                  ref={writeInInput}
+                  type="text"
+                  className="fair-survey-writein__input"
+                  aria-label={question.writeInLabel}
+                  tabIndex={writeInIsOpen(index) ? undefined : -1}
+                  maxLength={FAIR_SURVEY_FREE_TEXT_MAX}
+                  autoComplete="off"
+                  enterKeyHint="next"
+                  placeholder={question.writeInLabel}
+                  value={state.texts[index] ?? ""}
+                  onChange={(event) => dispatch({ type: "text", value: FAIR_SURVEY_WRITE_IN_VALUE, text: event.target.value })}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") dispatch({ type: "next" });
+                  }}
+                />
+              </div>
+            ) : null}
           </div>
         </>
       );
@@ -200,7 +273,7 @@ export function SurveySheet() {
         {dict.surveyBack}
       </button>
       <button type="button" className="fair-survey-link" onClick={() => dispatch({ type: "next" })}>
-        {dict.surveySkip}
+        {state.answers[step] !== null ? dict.surveyNext : dict.surveySkip}
       </button>
     </div>
   ) : answered === 0 ? (

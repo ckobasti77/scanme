@@ -2152,6 +2152,73 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   opacity: 1;
 }
 
+/* 30 Oct 2026: "Drugo – upiši sam". The input always occupies the button's own
+   box (no layout jump); opening cross-fades the label out and the field in, so
+   the button reads as turning into the field. */
+.fair-survey-writein {
+  position: relative;
+  display: grid;
+}
+
+.fair-survey-writein > .fair-survey-option,
+.fair-survey-writein__input {
+  grid-area: 1 / 1;
+}
+
+.fair-survey-writein__input {
+  width: 100%;
+  min-height: 54px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--fair-accent);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 560;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.985);
+  transition:
+    opacity var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.fair-survey-writein > .fair-survey-option {
+  transition:
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    opacity var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.fair-survey-writein[data-open] > .fair-survey-option {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fair-survey-writein[data-open] .fair-survey-writein__input {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+.fair-survey-writein__input:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+}
+
+.fair-survey-text {
+  display: grid;
+  gap: 6px;
+}
+
+.fair-survey-text__count {
+  justify-self: end;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .fair-survey-nav {
   display: flex;
   align-items: center;

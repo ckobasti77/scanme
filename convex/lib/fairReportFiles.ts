@@ -163,7 +163,7 @@ export function fairDailyReportDocument(dataset: FairDailyDataset): FairReportDo
         question.answers.map((answer, index): FairReportCell[] => [
           "",
           index === 0 ? question.prompt : "",
-          question.kind === "yes_no" ? (answer.value === "yes" ? dict.yes : dict.no) : answer.label ?? answer.value,
+          question.kind === "yes_no" ? (answer.value === "yes" ? dict.yes : dict.no) : question.kind === "free_text" ? dict.surveyFreeText : answer.label ?? answer.value,
           answer.count,
         ]),
       ),

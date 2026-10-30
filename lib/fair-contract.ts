@@ -43,7 +43,8 @@ export type FairQrAssignmentStatus = "assigned" | "released";
 export type FairAudienceQuestionStatus = "draft" | "published" | "closed";
 /** B0 placeholder: HANDOFF §5.3 names `fairSurveys.status` without values. */
 export type FairSurveyStatus = "draft" | "published" | "retired";
-export type FairSurveyQuestionKind = "yes_no" | "single_choice";
+/** 30 Oct 2026: `free_text` = a short typed answer (owner decision, AMF). */
+export type FairSurveyQuestionKind = "yes_no" | "single_choice" | "free_text";
 export type FairLeadKind = "interest" | "test_drive";
 export type FairContactRequirement = "one_of" | "email" | "phone" | "both";
 export type FairPreferredContact = "email" | "phone";
@@ -515,8 +516,10 @@ export type FairSurveyQuestionView = {
   id: string;
   prompt: string;
   kind: FairSurveyQuestionKind;
-  /** Empty for `yes_no` (answers are "yes" / "no"). */
+  /** Empty for `yes_no` (answers are "yes" / "no") and `free_text`. */
   options: FairChoiceOptionView[];
+  /** `single_choice` only: a last "write your own" option ("Drugo – upiši sam"). */
+  writeInLabel?: string;
   order: number;
 };
 
@@ -529,8 +532,14 @@ export type FairSurveyView = {
   questions: FairSurveyQuestionView[];
 };
 
-/** `value` is "yes" | "no" for a `yes_no` question, else the chosen option id. */
-export type FairSurveyAnswerInput = { questionId: string; value: string };
+/**
+ * `value` is "yes" | "no" for a `yes_no` question, else the chosen option id;
+ * `free_text` and a write-in carry `value` FAIR_SURVEY_FREE_TEXT_VALUE /
+ * FAIR_SURVEY_WRITE_IN_VALUE plus the typed `text`.
+ */
+export type FairSurveyAnswerInput = { questionId: string; value: string; text?: string };
+export const FAIR_SURVEY_FREE_TEXT_VALUE = "free_text";
+export const FAIR_SURVEY_WRITE_IN_VALUE = "write_in";
 
 export type FairMySurveyState =
   | { state: "none" }

@@ -16,7 +16,7 @@ import {
   type FairSponsoredRotationView,
 } from "../lib/fair-contract";
 import { deriveFairCapabilities, getFairEntitlements } from "../lib/fair-entitlements";
-import { fairAudienceResult, fairModelQuestions, fairPassportState, fairQuestionOpen, fairVoteThreshold } from "./lib/fairInteractions";
+import { fairAudienceResult, fairModelQuestions, fairPassportState, fairQuestionOpen, fairSurveyAllowed, fairVoteThreshold } from "./lib/fairInteractions";
 import { fairActiveConsent, fairExhibitorName, fairLeadConfig, fairLeadsEnabled, fairRenderConsentText } from "./lib/fairLeads";
 import { FAIR_SPONSORED_ITEMS_CAP, fairActiveSponsoredSnapshot, fairSponsoredItems, fairSponsoredVisual } from "./lib/fairSponsored";
 import {
@@ -206,6 +206,7 @@ function projector(ctx: QueryCtx) {
         inPublishedSponsoredSnapshot: sponsoredIds.has(model._id),
         interestLeadEnabled: interest?.enabled === true,
         testDriveLeadEnabled: testDrive?.enabled === true,
+        surveyAllTiers: participationRow.surveyAllTiers === true,
       }),
     };
   };
@@ -437,7 +438,7 @@ export const getSurveyForModel = query({
   returns: v.union(fairSurveyView, v.null()),
   handler: async (ctx, args) => {
     const model = await publishedModel(ctx, args.eventModelId);
-    if (!model || !getFairEntitlements(model.packageTier).survey) return null;
+    if (!model || !(await fairSurveyAllowed(ctx, model, model.packageTier))) return null;
     const survey = await ctx.db
       .query("fairSurveys")
       .withIndex("by_eventModelId_and_status", (q) => q.eq("eventModelId", model._id).eq("status", "published"))
@@ -455,6 +456,7 @@ export const getSurveyForModel = query({
           prompt: question.prompt,
           kind: question.kind,
           options: [...question.options].sort((a, b) => a.order - b.order),
+          ...(question.writeInLabel ? { writeInLabel: question.writeInLabel } : {}),
           order: question.order,
         })),
     };

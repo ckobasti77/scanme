@@ -410,6 +410,10 @@ export interface FairModelDict {
   surveyNo: string;
   surveyBack: string;
   surveySkip: string;
+  /** 30 Oct 2026: free_text / write-in answers (no auto-advance). */
+  surveyNext: string;
+  surveyFreeTextPlaceholder: string;
+  surveyTextCount: string;
   surveyFinalEyebrow: string;
   surveyFinalTitleContact: string;
   surveyFinalBodyContact: string;
@@ -5968,6 +5972,8 @@ export interface EventReportDict {
   ratingsHeading: string;
   audienceHeading: string;
   surveyHeading: string;
+  /** 30 Oct 2026: a free_text survey question's count row (the texts are in the lead export). */
+  surveyFreeText: string;
   sponsoredHeading: string;
   noModelAnalytics: string;
   colStand: string;

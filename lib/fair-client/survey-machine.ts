@@ -1,4 +1,9 @@
-import { FAIR_SURVEY_MAX_QUESTIONS, type FairErrorCode } from "@/lib/fair-contract";
+import {
+  FAIR_SURVEY_FREE_TEXT_VALUE,
+  FAIR_SURVEY_MAX_QUESTIONS,
+  FAIR_SURVEY_WRITE_IN_VALUE,
+  type FairErrorCode,
+} from "@/lib/fair-contract";
 
 // Sajam 2026 — survey state machine (MASTER §9.2). Pure, shared by the chat
 // head and the full-screen sheet. Steps 0..total-1 are questions, `total` is
@@ -9,8 +14,10 @@ export type SurveyPhase = "editing" | "sending" | "sent" | "error";
 
 export type SurveyState = {
   total: number;
-  /** Per question: the answer value ("yes"/"no" or an option id) or null. */
+  /** Per question: the answer value ("yes"/"no", an option id, free_text/write_in) or null. */
   answers: Array<string | null>;
+  /** Per question: the typed text (free_text, write-in), kept when another option is picked. */
+  texts: string[];
   step: number;
   phase: SurveyPhase;
   errorCode: FairErrorCode | null;
@@ -19,6 +26,8 @@ export type SurveyState = {
 export type SurveyAction =
   | { type: "open" }
   | { type: "choose"; value: string }
+  /** Typing into a free_text field or the write-in option (`value` = its marker). */
+  | { type: "text"; value: typeof FAIR_SURVEY_FREE_TEXT_VALUE | typeof FAIR_SURVEY_WRITE_IN_VALUE; text: string }
   | { type: "next" }
   | { type: "back" }
   | { type: "goTo"; step: number }
@@ -28,7 +37,7 @@ export type SurveyAction =
 
 export function initialSurveyState(total: number): SurveyState {
   const size = Math.max(0, Math.min(FAIR_SURVEY_MAX_QUESTIONS, total));
-  return { total: size, answers: Array.from({ length: size }, () => null), step: 0, phase: "editing", errorCode: null };
+  return { total: size, answers: Array.from({ length: size }, () => null), texts: Array.from({ length: size }, () => ""), step: 0, phase: "editing", errorCode: null };
 }
 
 export function answeredCount(state: SurveyState): number {
@@ -60,12 +69,16 @@ export function surveyHeadCopy(state: SurveyState): SurveyHeadCopy {
   return { kind: "partial", remaining: state.total - answered };
 }
 
+const typedAnswer = (value: string | null) => value === FAIR_SURVEY_FREE_TEXT_VALUE || value === FAIR_SURVEY_WRITE_IN_VALUE;
+
 export function surveyAnswersPayload(
   state: SurveyState,
   questionIds: readonly string[],
-): Array<{ questionId: string; value: string }> {
+): Array<{ questionId: string; value: string; text?: string }> {
   return state.answers.flatMap((value, index) =>
-    value !== null && questionIds[index] ? [{ questionId: questionIds[index], value }] : [],
+    value !== null && questionIds[index]
+      ? [{ questionId: questionIds[index], value, ...(typedAnswer(value) ? { text: state.texts[index].trim() } : {}) }]
+      : [],
   );
 }
 
@@ -87,6 +100,14 @@ export function surveyReducer(state: SurveyState, action: SurveyAction): SurveyS
       const answers = [...state.answers];
       answers[state.step] = action.value;
       return { ...state, answers, phase: "editing", errorCode: null };
+    }
+    case "text": {
+      if (isFinalStep(state)) return state;
+      const answers = [...state.answers];
+      const texts = [...state.texts];
+      texts[state.step] = action.text;
+      answers[state.step] = action.text.trim() ? action.value : null;
+      return { ...state, answers, texts, phase: "editing", errorCode: null };
     }
     case "next":
       return { ...state, step: clampStep(state, state.step + 1) };

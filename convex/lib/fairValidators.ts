@@ -72,7 +72,7 @@ export const fairSurveyStatus = v.union(
   v.literal("retired"),
 );
 
-export const fairSurveyQuestionKind = v.union(v.literal("yes_no"), v.literal("single_choice"));
+export const fairSurveyQuestionKind = v.union(v.literal("yes_no"), v.literal("single_choice"), v.literal("free_text"));
 
 export const fairLeadKind = v.union(v.literal("interest"), v.literal("test_drive"));
 
@@ -248,14 +248,18 @@ export const fairSurveyQuestion = v.object({
   prompt: v.string(),
   kind: fairSurveyQuestionKind,
   options: v.array(fairChoiceOption),
+  // 30 Oct 2026: single_choice only, the last "Drugo – upiši sam" option.
+  writeInLabel: v.optional(v.string()),
   required: v.boolean(),
   order: v.number(),
 });
 
-// `value` is "yes" | "no" for a yes_no question, else the chosen option id.
+// `value` is "yes" | "no" for a yes_no question, else the chosen option id;
+// free_text / write-in: "free_text" / "write_in" plus the typed `text` (PII).
 export const fairSurveyAnswer = v.object({
   questionId: v.string(),
   value: v.string(),
+  text: v.optional(v.string()),
 });
 
 // -----------------------------------------------------------------------------
@@ -407,7 +411,7 @@ export const fairSurveyView = v.object({
   version: v.number(),
   title: v.optional(v.string()),
   questions: v.array(
-    v.object({ id: v.string(), prompt: v.string(), kind: fairSurveyQuestionKind, options: v.array(fairChoiceOption), order: v.number() }),
+    v.object({ id: v.string(), prompt: v.string(), kind: fairSurveyQuestionKind, options: v.array(fairChoiceOption), writeInLabel: v.optional(v.string()), order: v.number() }),
   ),
 });
 

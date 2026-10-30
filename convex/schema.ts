@@ -3376,6 +3376,9 @@ export default defineSchema({
     // N3: the zone the organizer names for an exhibitor that has no stand on
     // the map yet (e.g. "ispred hale"); unused while a stand exists.
     mapZoneId: v.optional(fairMapZoneId),
+    // 30 Oct 2026 (owner, AMF Nikom): the survey also on this exhibitor's
+    // Starter models (lib fairSurveyAllowed). Unset = Napredni only.
+    surveyAllTiers: v.optional(v.boolean()),
     status: fairParticipationStatus,
     createdAt: v.number(),
     updatedAt: v.number(),

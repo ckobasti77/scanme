@@ -888,6 +888,7 @@ export const adminEventsSr = {
   surveyKinds: {
     yes_no: "Da/Ne",
     single_choice: "Izbor jednog odgovora",
+    free_text: "Slobodan unos teksta",
   },
   surveyAddQuestion: "Dodaj pitanje",
   surveyRemoveQuestion: "Ukloni pitanje",
