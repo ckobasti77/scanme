@@ -1082,7 +1082,7 @@
                 },
                 {
                   "label": "Dostupni motori (ST-Line)",
-                  "value": "1,0 EcoBoost mHEV 92 kW / 125 KS, ručni 6: 19.740 €; 1,0 EcoBoost mHEV 92 kW / 125 KS, automatski 7: 21.740 €; 1,0 EcoBoost mHEV 114 kW / 155 KS, automatski 7: 22.740 €",
+                  "value": "Motor, Snaga, Menjač; 1,0 EcoBoost mHEV, 92 kW / 125 KS, ručni 6; 1,0 EcoBoost mHEV, 92 kW / 125 KS, automatski 7; 1,0 EcoBoost mHEV, 114 kW / 155 KS, automatski 7",
                   "order": 5
                 },
                 {
@@ -1146,7 +1146,7 @@
                 },
                 {
                   "label": "Dostupni motori (ST-Line)",
-                  "value": "1,5 EcoBoost 110 kW / 150 KS, ručni 6: 28.990 €; 1,5 EcoBoost 137 kW / 186 KS, automatski 8: 27.490 €; 2,5 FHEV 132 kW / 180 KS, automatski CVT: 34.990 €; 2,5 FHEV 134 kW / 183 KS, automatski CVT: 37.990 €; 2,5 PHEV 178 kW / 243 KS, automatski CVT: cena nije navedena",
+                  "value": "Motor, Snaga, Menjač; 1,5 EcoBoost, 110 kW / 150 KS, ručni 6; 1,5 EcoBoost, 137 kW / 186 KS, automatski 8; 2,5 FHEV, 132 kW / 180 KS, automatski CVT; 2,5 FHEV, 134 kW / 183 KS, automatski CVT; 2,5 PHEV, 178 kW / 243 KS, automatski CVT",
                   "order": 5
                 },
                 {
@@ -1298,7 +1298,7 @@
                 },
                 {
                   "label": "Dostupni motori",
-                  "value": "3,0 BMW benzin 210 kW / 282 KS, 2.998 cm³, 450 Nm; 3,0 BMW dizel 183 kW / 245 KS, 2.993 cm³, 550 Nm",
+                  "value": "Gorivo, Zapremina, Snaga, Moment; Benzin, 2.998 cm³, 210 kW / 282 KS, 450 Nm; Dizel, 2.993 cm³, 183 kW / 245 KS, 550 Nm",
                   "order": 11
                 },
                 {

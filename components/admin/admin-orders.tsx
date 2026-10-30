@@ -238,7 +238,7 @@ function OrdersList({ rows, details, onSelect, onExpand }: { rows: OrderRow[]; d
               <div className="flex items-center justify-between gap-3 text-xs text-[var(--admin-text-muted)]"><span>{row.assigneeName}</span><time dateTime={new Date(row.updatedAt).toISOString()}>{dateTime.format(row.updatedAt)}</time></div>
             </button>
             <button type="button" onClick={() => { toggle(row.id); onExpand(row.id); }} className="flex min-h-11 w-full items-center justify-between border-t border-[var(--admin-border)] px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--admin-focus)]" aria-expanded={expanded.has(row.id)}>
-              {expanded.has(row.id) ? dict.collapseLines : dict.expandLines}<ChevronDown className={cn("size-4 transition-transform motion-reduce:transition-none", expanded.has(row.id) && "rotate-180")} aria-hidden="true" />
+              {expanded.has(row.id) ? dict.collapseLines : dict.expandLines}<ChevronDown className={cn("size-4 transition-transform motion-reduce:transition-none", expanded.has(row.id) && "-rotate-180")} aria-hidden="true" />
             </button>
             {expanded.has(row.id) ? details[row.id] ? <Lines detail={details[row.id]!} /> : <AdminLoadingState compact /> : null}
           </AdminPanel>

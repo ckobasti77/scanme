@@ -19,7 +19,7 @@ import {
 import { useId, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { FairModelDict } from "@/lib/i18n";
-import type { FairKeySpec, FairKeySpecKind } from "./model-key-specs";
+import { fairSpecTable, type FairKeySpec, type FairKeySpecKind } from "./model-key-specs";
 
 // Model page v2: the key-spec strip and, attached to the same card, the full
 // grouped list behind one toggle. Free opens it by default (the page may
@@ -147,12 +147,31 @@ export function ModelSpecsCard({
                   <section key={group.id}>
                     <h2>{group.label}</h2>
                     <dl>
-                      {group.items.map((item) => (
-                        <div key={item.id}>
-                          <dt>{item.label}</dt>
-                          <dd>{item.value}</dd>
-                        </div>
-                      ))}
+                      {group.items.map((item) => {
+                        const table = /^dostupni motori/i.test(item.label) ? fairSpecTable(item.value) : null;
+                        return table ? (
+                          <div key={item.id} data-table="">
+                            <dt>{item.label}</dt>
+                            <dd>
+                              <table className="fair-specs__table">
+                                <thead>
+                                  <tr>{table.head.map((cell, index) => <th key={index} scope="col">{cell}</th>)}</tr>
+                                </thead>
+                                <tbody>
+                                  {table.rows.map((row, rowIndex) => (
+                                    <tr key={rowIndex}>{row.map((cell, index) => <td key={index}>{cell}</td>)}</tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </dd>
+                          </div>
+                        ) : (
+                          <div key={item.id}>
+                            <dt>{item.label}</dt>
+                            <dd>{item.value}</dd>
+                          </div>
+                        );
+                      })}
                     </dl>
                   </section>
                 ))}

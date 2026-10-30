@@ -269,7 +269,7 @@
 
 /* Caret points up while the group is expanded. */
 .moreCaretIconOpen {
-  transform: rotate(180deg);
+  transform: rotate(-180deg);
 }
 
 @media (prefers-reduced-motion: no-preference) {
