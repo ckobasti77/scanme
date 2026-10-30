@@ -41,12 +41,14 @@
                 {
                   "label": "Snaga",
                   "value": "85 kW / 115 KS",
-                  "order": 3
+                  "order": 3,
+                  "isHighlight": true
                 },
                 {
                   "label": "Potrošnja (WLTP)",
                   "value": "5,2 l/100 km",
-                  "order": 4
+                  "order": 4,
+                  "isHighlight": true
                 },
                 {
                   "label": "Emisija CO₂ (WLTP)",
@@ -57,6 +59,18 @@
                   "label": "Gorivo",
                   "value": "Benzin",
                   "order": 6
+                },
+                {
+                  "label": "Motor",
+                  "value": "1,0 TSI",
+                  "order": 7,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Menjač",
+                  "value": "Automatski DSG",
+                  "order": 8,
+                  "isHighlight": true
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/skoda-fabia.webp",
@@ -87,12 +101,14 @@
                 {
                   "label": "Snaga",
                   "value": "85 kW / 115 KS",
-                  "order": 3
+                  "order": 3,
+                  "isHighlight": true
                 },
                 {
                   "label": "Potrošnja (WLTP)",
                   "value": "5,6 l/100 km",
-                  "order": 4
+                  "order": 4,
+                  "isHighlight": true
                 },
                 {
                   "label": "Emisija CO₂ (WLTP)",
@@ -103,6 +119,18 @@
                   "label": "Gorivo",
                   "value": "Benzin",
                   "order": 6
+                },
+                {
+                  "label": "Motor",
+                  "value": "1,0 TSI",
+                  "order": 7,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Menjač",
+                  "value": "Automatski DSG",
+                  "order": 8,
+                  "isHighlight": true
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/skoda-kamiq.webp",
@@ -133,12 +161,14 @@
                 {
                   "label": "Snaga",
                   "value": "110 kW / 150 KS",
-                  "order": 3
+                  "order": 3,
+                  "isHighlight": true
                 },
                 {
                   "label": "Potrošnja (WLTP)",
                   "value": "4,5–4,9 l/100 km",
-                  "order": 4
+                  "order": 4,
+                  "isHighlight": true
                 },
                 {
                   "label": "Emisija CO₂ (WLTP)",
@@ -149,6 +179,18 @@
                   "label": "Gorivo",
                   "value": "Dizel",
                   "order": 6
+                },
+                {
+                  "label": "Motor",
+                  "value": "2,0 TDI",
+                  "order": 7,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Menjač",
+                  "value": "Automatski DSG",
+                  "order": 8,
+                  "isHighlight": true
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/skoda-octavia.webp",
@@ -178,12 +220,14 @@
                 {
                   "label": "Snaga",
                   "value": "110 kW / 150 KS",
-                  "order": 3
+                  "order": 3,
+                  "isHighlight": true
                 },
                 {
                   "label": "Potrošnja (WLTP)",
                   "value": "5,5–6,2 l/100 km",
-                  "order": 4
+                  "order": 4,
+                  "isHighlight": true
                 },
                 {
                   "label": "Emisija CO₂ (WLTP)",
@@ -194,6 +238,18 @@
                   "label": "Gorivo",
                   "value": "Benzin",
                   "order": 6
+                },
+                {
+                  "label": "Motor",
+                  "value": "1,5 TSI",
+                  "order": 7,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Menjač",
+                  "value": "Automatski DSG",
+                  "order": 8,
+                  "isHighlight": true
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/skoda-karoq.webp",
@@ -224,12 +280,14 @@
                 {
                   "label": "Snaga",
                   "value": "142 kW / 193 KS",
-                  "order": 3
+                  "order": 3,
+                  "isHighlight": true
                 },
                 {
                   "label": "Potrošnja (WLTP)",
                   "value": "6,3 l/100 km",
-                  "order": 4
+                  "order": 4,
+                  "isHighlight": true
                 },
                 {
                   "label": "Emisija CO₂ (WLTP)",
@@ -240,6 +298,23 @@
                   "label": "Gorivo",
                   "value": "Dizel",
                   "order": 6
+                },
+                {
+                  "label": "Motor",
+                  "value": "2,0 TDI",
+                  "order": 7,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Menjač",
+                  "value": "Automatski DSG",
+                  "order": 8,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Pogon",
+                  "value": "4x4",
+                  "order": 9
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/skoda-kodiaq.webp",
@@ -270,12 +345,14 @@
                 {
                   "label": "Snaga",
                   "value": "142 kW / 193 KS",
-                  "order": 3
+                  "order": 3,
+                  "isHighlight": true
                 },
                 {
                   "label": "Potrošnja (WLTP)",
                   "value": "5,9 l/100 km",
-                  "order": 4
+                  "order": 4,
+                  "isHighlight": true
                 },
                 {
                   "label": "Emisija CO₂ (WLTP)",
@@ -286,6 +363,23 @@
                   "label": "Gorivo",
                   "value": "Dizel",
                   "order": 6
+                },
+                {
+                  "label": "Motor",
+                  "value": "2,0 TDI",
+                  "order": 7,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Menjač",
+                  "value": "Automatski DSG",
+                  "order": 8,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Pogon",
+                  "value": "4x4",
+                  "order": 9
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/skoda-superb.webp",
@@ -334,7 +428,8 @@
                 {
                   "label": "Snaga",
                   "value": "505 kW / 677 KS",
-                  "order": 3
+                  "order": 3,
+                  "isHighlight": true
                 },
                 {
                   "label": "Obrtni moment",
@@ -359,12 +454,14 @@
                 {
                   "label": "Kapacitet baterije",
                   "value": "31,7 kWh",
-                  "order": 8
+                  "order": 8,
+                  "isHighlight": true
                 },
                 {
                   "label": "Električni domet (VLTC)",
                   "value": "110 km",
-                  "order": 9
+                  "order": 9,
+                  "isHighlight": true
                 },
                 {
                   "label": "Kombinovani domet (VLTC)",
@@ -374,7 +471,8 @@
                 {
                   "label": "Brzo punjenje",
                   "value": "20%–80% za 15 min",
-                  "order": 11
+                  "order": 11,
+                  "isHighlight": true
                 },
                 {
                   "label": "Sporo punjenje",
@@ -462,7 +560,8 @@
                 {
                   "label": "Snaga",
                   "value": "70 kW / 94 KS",
-                  "order": 3
+                  "order": 3,
+                  "isHighlight": true
                 },
                 {
                   "label": "Obrtni moment",
@@ -477,12 +576,14 @@
                 {
                   "label": "WLTP domet",
                   "value": "310 km",
-                  "order": 6
+                  "order": 6,
+                  "isHighlight": true
                 },
                 {
                   "label": "Kapacitet baterije",
                   "value": "43,9 kWh",
-                  "order": 7
+                  "order": 7,
+                  "isHighlight": true
                 },
                 {
                   "label": "Tip baterije",
@@ -492,7 +593,8 @@
                 {
                   "label": "Brzo punjenje (30%–80%)",
                   "value": "30 min pri 120 kW",
-                  "order": 9
+                  "order": 9,
+                  "isHighlight": true
                 },
                 {
                   "label": "Sporo punjenje",
@@ -555,7 +657,8 @@
                 {
                   "label": "Motor",
                   "value": "1,5 DVVT+GDI / turbopunjač",
-                  "order": 1
+                  "order": 1,
+                  "isHighlight": true
                 },
                 {
                   "label": "Pogon",
@@ -570,7 +673,8 @@
                 {
                   "label": "Snaga",
                   "value": "130 kW / 175 KS / 5.500 o/min",
-                  "order": 4
+                  "order": 4,
+                  "isHighlight": true
                 },
                 {
                   "label": "Obrtni moment",
@@ -585,7 +689,8 @@
                 {
                   "label": "Kapacitet baterije",
                   "value": "2 kWh",
-                  "order": 7
+                  "order": 7,
+                  "isHighlight": true
                 },
                 {
                   "label": "Menjač",
@@ -595,7 +700,8 @@
                 {
                   "label": "Potrošnja",
                   "value": "6,1 l/100 km",
-                  "order": 9
+                  "order": 9,
+                  "isHighlight": true
                 },
                 {
                   "label": "Rezervoar",
@@ -666,7 +772,8 @@
                 {
                   "label": "Motor",
                   "value": "1,2 T3",
-                  "order": 1
+                  "order": 1,
+                  "isHighlight": true
                 },
                 {
                   "label": "Gorivo",
@@ -676,7 +783,8 @@
                 {
                   "label": "Snaga",
                   "value": "74 kW / 100 KS",
-                  "order": 3
+                  "order": 3,
+                  "isHighlight": true
                 },
                 {
                   "label": "Obrtni moment",
@@ -691,12 +799,14 @@
                 {
                   "label": "Potrošnja",
                   "value": "5,6 l/100 km",
-                  "order": 6
+                  "order": 6,
+                  "isHighlight": true
                 },
                 {
                   "label": "Menjač",
-                  "value": "Manuelni/6 + R",
-                  "order": 7
+                  "value": "Ručni, 6 brzina",
+                  "order": 7,
+                  "isHighlight": true
                 },
                 {
                   "label": "Tip pogona",
@@ -794,29 +904,33 @@
               "displayName": "MG ZS Hybrid+",
               "variant": "Luxury",
               "slug": "mg-zs-hybrid",
-              "priceText": "25.190 €",
+              "priceText": "23.990 €",
               "externalUrl": "https://www.mgmotor.rs/model/zs-hev",
               "packageTier": "starter",
               "specifications": [
                 {
                   "label": "Motor",
-                  "value": "1,5 L Hybrid +",
-                  "order": 1
+                  "value": "1,5 l Hybrid+",
+                  "order": 1,
+                  "isHighlight": true
                 },
                 {
                   "label": "Snaga",
                   "value": "145 kW / 197 KS",
-                  "order": 2
+                  "order": 2,
+                  "isHighlight": true
                 },
                 {
                   "label": "Potrošnja (WLTP)",
                   "value": "5,0–5,1 l/100 km",
-                  "order": 3
+                  "order": 3,
+                  "isHighlight": true
                 },
                 {
                   "label": "Emisija CO₂ (WLTP)",
                   "value": "113–115 g/km",
-                  "order": 4
+                  "order": 4,
+                  "isHighlight": true
                 },
                 {
                   "label": "Dužina × širina × visina",
@@ -837,7 +951,8 @@
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/mg-zs-hybrid.webp",
               "passportEligible": true,
               "sortOrder": 11,
-              "assignedResolverCode": "WFYJCN2K"
+              "assignedResolverCode": "WFYJCN2K",
+              "priceSecondaryText": "Akcijska cena, Luxury"
             },
             {
               "externalKey": "auto-moto-fest-2026-mg-hs-hybrid",
@@ -851,22 +966,26 @@
                 {
                   "label": "Motor",
                   "value": "1,5T Hybrid+",
-                  "order": 1
+                  "order": 1,
+                  "isHighlight": true
                 },
                 {
                   "label": "Snaga",
                   "value": "165 kW / 225 KS",
-                  "order": 2
+                  "order": 2,
+                  "isHighlight": true
                 },
                 {
                   "label": "Potrošnja (WLTP)",
                   "value": "5,5 l/100 km",
-                  "order": 3
+                  "order": 3,
+                  "isHighlight": true
                 },
                 {
                   "label": "Emisija CO₂ (WLTP)",
                   "value": "126 g/km",
-                  "order": 4
+                  "order": 4,
+                  "isHighlight": true
                 },
                 {
                   "label": "Dužina × širina × visina",
@@ -946,89 +1065,179 @@
               "displayName": "Ford Puma mHEV",
               "variant": "ST-Line",
               "slug": "ford-puma-mhev",
-              "priceText": "22.690 €",
+              "priceText": "od 21.740 €",
               "externalUrl": "https://ford.rs/puma",
               "packageTier": "starter",
               "specifications": [
                 {
-                  "label": "Dostupni motori",
-                  "value": "1,0 l EcoBoost 125 KS mHEV / 1,0 l EcoBoost 155 KS mHEV",
-                  "order": 1
+                  "label": "Motor",
+                  "value": "1,0 EcoBoost mHEV",
+                  "order": 1,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Gorivo",
+                  "value": "Benzin, blagi hibrid",
+                  "order": 2,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Snaga",
+                  "value": "92 kW / 125 KS",
+                  "order": 3,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Menjač",
+                  "value": "Automatski, 7 brzina",
+                  "order": 4,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Dostupni motori (ST-Line)",
+                  "value": "1,0 EcoBoost mHEV 92 kW / 125 KS, ručni 6: 19.740 €; 1,0 EcoBoost mHEV 92 kW / 125 KS, automatski 7: 21.740 €; 1,0 EcoBoost mHEV 114 kW / 155 KS, automatski 7: 22.740 €",
+                  "order": 5
+                },
+                {
+                  "label": "Zapremina prtljažnika",
+                  "value": "456 l (1,126 l sa preklopljenim sedištima)",
+                  "order": 6
                 },
                 {
                   "label": "Naplatci",
                   "value": "17\" aluminijumski naplatci 215/55 R17 94H",
-                  "order": 2
+                  "order": 7
                 },
                 {
                   "label": "Centralni ekran",
                   "value": "12\"",
-                  "order": 3
+                  "order": 8
                 },
                 {
                   "label": "Digitalna kontrolna tabla vozača",
                   "value": "12,8\"",
-                  "order": 4
+                  "order": 9
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/ford-puma-mhev.webp",
               "passportEligible": true,
               "sortOrder": 14,
-              "assignedResolverCode": "8R2XNYND"
+              "assignedResolverCode": "8R2XNYND",
+              "priceSecondaryText": "ST-Line, 1,0 EcoBoost mHEV automatski 7"
             },
             {
               "externalKey": "auto-moto-fest-2026-ford-kuga",
               "displayName": "Ford Kuga",
               "variant": "ST-Line",
               "slug": "ford-kuga",
-              "priceText": "28.490 €",
+              "priceText": "od 27.490 €",
               "externalUrl": "https://ford.rs/nova-kuga",
               "packageTier": "starter",
               "specifications": [
                 {
+                  "label": "Motor",
+                  "value": "1,5 EcoBoost",
+                  "order": 1,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Gorivo",
+                  "value": "Benzin",
+                  "order": 2,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Snaga",
+                  "value": "137 kW / 186 KS",
+                  "order": 3,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Menjač",
+                  "value": "Automatski, 8 brzina",
+                  "order": 4,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Dostupni motori (ST-Line)",
+                  "value": "1,5 EcoBoost 110 kW / 150 KS, ručni 6: 28.990 €; 1,5 EcoBoost 137 kW / 186 KS, automatski 8: 27.490 €; 2,5 FHEV 132 kW / 180 KS, automatski CVT: 34.990 €; 2,5 FHEV 134 kW / 183 KS, automatski CVT: 37.990 €; 2,5 PHEV 178 kW / 243 KS, automatski CVT: cena nije navedena",
+                  "order": 5
+                },
+                {
+                  "label": "Zapremina prtljažnika",
+                  "value": "do 536 l",
+                  "order": 6
+                },
+                {
                   "label": "Naplatci",
                   "value": "18\" aluminijumske felne 225/60 R18",
-                  "order": 1
+                  "order": 7
                 },
                 {
                   "label": "Ogibljenje",
                   "value": "Sportsko ogibljenje",
-                  "order": 2
+                  "order": 8
                 },
                 {
                   "label": "Ekran osetljiv na dodir",
                   "value": "13,2\"",
-                  "order": 3
+                  "order": 9
                 },
                 {
                   "label": "Digitalna instrument tabla",
                   "value": "12,3\"",
-                  "order": 4
+                  "order": 10
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/ford-kuga.webp",
               "passportEligible": true,
               "sortOrder": 15,
-              "assignedResolverCode": "B43P40QA"
+              "assignedResolverCode": "B43P40QA",
+              "priceSecondaryText": "ST-Line, 1,5 EcoBoost automatski 8"
             },
             {
               "externalKey": "auto-moto-fest-2026-ford-ranger-raptor",
               "displayName": "Ford Ranger Raptor",
               "slug": "ford-ranger-raptor",
-              "priceText": "73.890 € + PDV",
+              "priceText": "83.988 €",
               "externalUrl": "https://ford.rs/novi-raptor",
               "packageTier": "starter",
               "specifications": [
                 {
-                  "label": "Dostupni motori",
-                  "value": "3,0-litarski EcoBoost V6 benzinski motor sa dual turbo punjačem i 2,0-litarski Bi-turbo EcoBlue dizelski motor",
-                  "order": 1
+                  "label": "Motor",
+                  "value": "3,0 EcoBoost V6",
+                  "order": 1,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Gorivo",
+                  "value": "Benzin",
+                  "order": 2,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Snaga",
+                  "value": "215 kW / 292 KS",
+                  "order": 3,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Menjač",
+                  "value": "Automatski, 10 brzina",
+                  "order": 4,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Pneumatici",
+                  "value": "285/70 R17 (17\" aluminijumski naplatci)",
+                  "order": 5
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/ford-ranger-raptor.webp",
               "passportEligible": true,
               "sortOrder": 16,
-              "assignedResolverCode": "YEKDCQ3T"
+              "assignedResolverCode": "YEKDCQ3T",
+              "priceSecondaryText": "Akcijska cena 69.990 € bez PDV-a"
             }
           ]
         },
@@ -1050,14 +1259,83 @@
               "packageTier": "starter",
               "specifications": [
                 {
-                  "label": "Dostupni motori",
-                  "value": "BMW 3,0 l Benzin / BMW 3,0 l Dizel",
-                  "order": 1
+                  "label": "Motor",
+                  "value": "3,0 BMW",
+                  "order": 1,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Tip motora",
+                  "value": "Redni šestocilindrični",
+                  "order": 2
+                },
+                {
+                  "label": "Gorivo",
+                  "value": "Benzin",
+                  "order": 3
+                },
+                {
+                  "label": "Zapremina",
+                  "value": "2.998 cm³",
+                  "order": 4
+                },
+                {
+                  "label": "Snaga",
+                  "value": "210 kW / 282 KS",
+                  "order": 5,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "450 Nm",
+                  "order": 6
                 },
                 {
                   "label": "Menjač",
-                  "value": "automatski (8)",
-                  "order": 2
+                  "value": "Automatski, 8 brzina",
+                  "order": 7,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Pogon",
+                  "value": "4x4",
+                  "order": 8,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Potrošnja",
+                  "value": "15,6–16,8 l/100 km",
+                  "order": 9
+                },
+                {
+                  "label": "Emisija CO₂",
+                  "value": "325–336 g/km",
+                  "order": 10
+                },
+                {
+                  "label": "Dostupni motori",
+                  "value": "3,0 BMW benzin 210 kW / 282 KS, 2.998 cm³, 450 Nm; 3,0 BMW dizel 183 kW / 245 KS, 2.993 cm³, 550 Nm",
+                  "order": 11
+                },
+                {
+                  "label": "Dužina × širina × visina",
+                  "value": "4.895 × 1.930 × 2.036 mm (dužina sa rezervnim točkom)",
+                  "order": 12
+                },
+                {
+                  "label": "Međuosovinsko rastojanje",
+                  "value": "2.922 mm",
+                  "order": 13
+                },
+                {
+                  "label": "Broj sedišta",
+                  "value": "5",
+                  "order": 14
+                },
+                {
+                  "label": "Pneumatici",
+                  "value": "265/70 R17 (17\" čelični naplatci)",
+                  "order": 15
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/ineos-grenadier.webp",
@@ -1093,9 +1371,10 @@
               "packageTier": "advanced",
               "specifications": [
                 {
-                  "label": "Tip motora",
-                  "value": "Benzin 1,5 TGDI",
-                  "order": 1
+                  "label": "Motor",
+                  "value": "1,5 TGDI",
+                  "order": 1,
+                  "isHighlight": true
                 },
                 {
                   "label": "Zapremina",
@@ -1105,7 +1384,8 @@
                 {
                   "label": "Snaga",
                   "value": "133 kW / 178 KS",
-                  "order": 3
+                  "order": 3,
+                  "isHighlight": true
                 },
                 {
                   "label": "Obrtni moment",
@@ -1115,7 +1395,8 @@
                 {
                   "label": "Menjač",
                   "value": "Automatski (DCT), 7 brzina",
-                  "order": 5
+                  "order": 5,
+                  "isHighlight": true
                 },
                 {
                   "label": "Pogon",
@@ -1130,7 +1411,8 @@
                 {
                   "label": "Potrošnja",
                   "value": "8,5 l/100 km",
-                  "order": 8
+                  "order": 8,
+                  "isHighlight": true
                 },
                 {
                   "label": "Emisija CO₂",
@@ -1143,29 +1425,34 @@
                   "order": 10
                 },
                 {
+                  "label": "Gorivo",
+                  "value": "Benzin",
+                  "order": 11
+                },
+                {
                   "label": "Dužina × širina × visina",
                   "value": "4.670 × 1.855 × 1.740 mm",
-                  "order": 11
+                  "order": 12
                 },
                 {
                   "label": "Međuosovinsko rastojanje",
                   "value": "2.750 mm",
-                  "order": 12
+                  "order": 13
                 },
                 {
                   "label": "Emisiona norma",
                   "value": "EURO 6E-BIS",
-                  "order": 13
+                  "order": 14
                 },
                 {
                   "label": "Masa u voznom stanju",
                   "value": "1.576 kg",
-                  "order": 14
+                  "order": 15
                 },
                 {
                   "label": "Pneumatici",
                   "value": "225/60 R18",
-                  "order": 15
+                  "order": 16
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/swm-g01-pro.webp",

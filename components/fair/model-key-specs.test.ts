@@ -112,3 +112,32 @@ describe("fairModelSpecGroups", () => {
     expect(fairModelSpecGroups(server, labels)).toEqual(server);
   });
 });
+
+describe("AMF key tiles (hotfix 30 Oct 2026)", () => {
+  const models = amf.participations.flatMap((p) => p.brands.flatMap((b) => b.models));
+  const tiles = (slug: string) => {
+    const model = models.find((m) => m.slug === slug)!;
+    return fairModelKeySpecs(model.specifications.map((s, i) => ({ id: `spec-${i}`, label: s.label, value: s.value, isHighlight: "isHighlight" in s && s.isHighlight === true })), true);
+  };
+
+  test("every model has four short tiles, never wheels, screens or suspension when engine data exists", () => {
+    for (const model of models) {
+      const keys = tiles(model.slug);
+      expect(keys, model.slug).toHaveLength(4);
+      for (const key of keys) {
+        expect(key.value.length, `${model.slug} ${key.label}`).toBeLessThanOrEqual(8);
+        expect(key.qualifier.length, `${model.slug} ${key.label}`).toBeLessThanOrEqual(13);
+      }
+      if (model.slug !== "mg-s5-ev") expect(keys.map((k) => k.kind), model.slug).not.toEqual(expect.arrayContaining(["wheels"]));
+    }
+  });
+
+  test("combustion and EV tiles follow the owner's order", () => {
+    expect(tiles("ford-kuga").map((k) => [k.kind, k.value, k.unit, k.qualifier])).toEqual([
+      ["power", "137", "kW", ""], ["engine", "1,5", "l", "EcoBoost"], ["transmission", "8", "brzina", "automatski"], ["fuel", "Benzin", "", ""],
+    ]);
+    expect(tiles("ineos-grenadier").map((k) => k.kind)).toEqual(["power", "engine", "transmission", "drive"]);
+    expect(tiles("skoda-kodiaq").map((k) => [k.kind, k.value])).toEqual([["power", "142"], ["engine", "2,0"], ["transmission", "DSG"], ["consumption", "6,3"]]);
+    expect(tiles("dongfeng-box").map((k) => k.kind)).toEqual(["range", "battery", "power", "charging"]);
+  });
+});

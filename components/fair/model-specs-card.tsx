@@ -2,8 +2,11 @@
 
 import {
   BatteryCharging,
+  Car,
   ChevronDown,
+  Cog,
   FileText,
+  Fuel,
   Gauge,
   PlugZap,
   Route,
@@ -39,7 +42,10 @@ const ICONS: Record<FairKeySpecKind, LucideIcon> = {
   wheels: Settings2,
   screen: SlidersHorizontal,
   suspension: SlidersHorizontal,
-  transmission: Settings2,
+  transmission: Cog,
+  engine: Settings2,
+  fuel: Fuel,
+  drive: Car,
 };
 
 type Group = { id: string; label: string; items: Array<{ id: string; label: string; value: string }> };
@@ -86,6 +92,9 @@ export function ModelSpecsCard({
   const bodyId = useId();
   const count = groups.reduce((sum, group) => sum + group.items.length, 0);
   const hasList = count > 0 || Boolean(description);
+  // AMF: one rule per strip. When any figure and its unit would not fit one
+  // line, every unit takes its own line, so figures, units and labels align.
+  const wrapUnits = uniformValues && keySpecs.some((spec) => spec.unit !== "" && spec.value.length + spec.unit.length * 0.55 > 8.5);
   if (keySpecs.length === 0 && !hasList) return null;
 
   return (
@@ -97,9 +106,9 @@ export function ModelSpecsCard({
             return (
               <div key={spec.id} className="fair-specs__key">
                 <Icon aria-hidden="true" />
-                <strong data-long={!uniformValues && spec.unit === "" && spec.value.length > 6 ? "true" : undefined} data-wrap-unit={uniformValues && spec.value.length > 5 && spec.unit !== "" || undefined}>
+                <strong data-long={!uniformValues && spec.unit === "" && spec.value.length > 6 ? "true" : undefined} data-wrap-unit={wrapUnits || undefined}>
                   {spec.value}
-                  {spec.unit ? <i>{spec.unit}</i> : null}
+                  {spec.unit ? <i>{spec.unit}</i> : wrapUnits ? <i aria-hidden="true">{"\u00a0"}</i> : null}
                 </strong>
                 <span>
                   {shortLabel(spec, dict)}

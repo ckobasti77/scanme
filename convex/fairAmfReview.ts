@@ -13,11 +13,15 @@ export const applySpecs = internalMutation({
     specifications: v.array(fairSpecification),
     expectedSecondary: v.optional(v.string()),
     priceSecondaryText: v.optional(v.string()),
+    // Hotfix 30 Oct 2026: the main price may change too, compared like the rest.
+    expectedPriceText: v.optional(v.string()),
+    priceText: v.optional(v.string()),
   })) },
   returns: v.object({ updated: v.number(), unchanged: v.number() }),
   handler: async (ctx, args) => {
     const event = await ctx.db.query("fairEvents").withIndex("by_code", q => q.eq("code", "auto-moto-fest-2026")).unique();
-    if (!event || args.models.length !== 18 || new Set(args.models.map(m => m.slug)).size !== 18) throw new Error("AMF_REVIEW_SCOPE");
+    // Hotfix 30 Oct 2026: a call may carry part of the 18 models (CLI argument size).
+    if (!event || args.models.length < 1 || args.models.length > 18 || new Set(args.models.map(m => m.slug)).size !== args.models.length) throw new Error("AMF_REVIEW_SCOPE");
     const models = await ctx.db.query("fairEventModels").withIndex("by_eventId_and_externalKey", q => q.eq("eventId", event._id)).take(200);
     if (models.length >= 200) throw new Error("AMF_REVIEW_SCOPE");
     const same = (a: typeof args.models[number]["specifications"], b: typeof a) => {
@@ -28,12 +32,13 @@ export const applySpecs = internalMutation({
     for (const change of args.models) {
       const model = models.find(m => m.slug === change.slug);
       if (!model) throw new Error("AMF_REVIEW_MODEL_MISSING");
-      if (same(model.specifications, change.specifications) && model.priceSecondaryText === change.priceSecondaryText) continue;
-      if (!same(model.specifications, change.expectedSpecifications) || model.priceSecondaryText !== change.expectedSecondary) throw new Error("AMF_REVIEW_STALE");
-      await ctx.db.patch(model._id, { specifications: change.specifications, priceSecondaryText: change.priceSecondaryText, updatedAt: Date.now() });
+      const priceText = change.priceText ?? model.priceText;
+      if (same(model.specifications, change.specifications) && model.priceSecondaryText === change.priceSecondaryText && model.priceText === priceText) continue;
+      if (!same(model.specifications, change.expectedSpecifications) || model.priceSecondaryText !== change.expectedSecondary || (change.priceText !== undefined && model.priceText !== change.expectedPriceText)) throw new Error("AMF_REVIEW_STALE");
+      await ctx.db.patch(model._id, { specifications: change.specifications, priceSecondaryText: change.priceSecondaryText, priceText, updatedAt: Date.now() });
       updated++;
     }
-    return { updated, unchanged: 18 - updated };
+    return { updated, unchanged: args.models.length - updated };
   },
 });
 

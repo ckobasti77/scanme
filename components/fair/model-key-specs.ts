@@ -7,7 +7,7 @@ import { fairSpecificationIcon, type FairModelSpecificationIcon } from "./model-
 
 export type FairKeySpecSource = { id: string; label: string; value: string; isHighlight: boolean };
 
-export type FairKeySpecKind = FairModelSpecificationIcon | "tank" | "consumption" | "emissions" | "displacement" | "engines" | "wheels" | "screen" | "suspension" | "transmission" | "other";
+export type FairKeySpecKind = FairModelSpecificationIcon | "tank" | "consumption" | "emissions" | "displacement" | "engines" | "wheels" | "screen" | "suspension" | "transmission" | "engine" | "fuel" | "drive" | "other";
 
 export type FairKeySpec = {
   id: string;
@@ -89,9 +89,22 @@ function compactSpec(item: FairKeySpecSource): FairKeySpec {
     if (inches) return { ...spec, kind: /naplatci|tockovi/.test(label) ? "wheels" : "screen", value: inches[1], unit: "″", qualifier: "" };
   } else if (/ogibljenje/.test(label) && item.value === "Sportsko ogibljenje") {
     return { ...spec, kind: "suspension", value: "Sportsko", unit: "", qualifier: "" };
-  } else if (/menjac/.test(label)) {
-    const gears = item.value.match(/\((\d+)\)/);
-    if (gears) return { ...spec, kind: "transmission", value: gears[1], unit: "", qualifier: "" };
+  } else if (/^menjac/.test(label)) {
+    // "Automatski, 8 brzina" → 8 brzina · automatski; "Automatski E-CVT" → E-CVT · automatski.
+    const type = /automat/.test(fold(item.value)) ? "automatski" : /rucn|manuel/.test(fold(item.value)) ? "ručni" : "";
+    const gears = item.value.match(/(\d+)\s*brzin/) ?? item.value.match(/\((\d+)\)/);
+    if (gears) return { ...spec, kind: "transmission", value: gears[1], unit: gears[0].includes("brzin") ? "brzina" : "", qualifier: type };
+    const code = item.value.match(/\b(E-CVT|CVT|DSG|DCT)\b/);
+    if (code) return { ...spec, kind: "transmission", value: code[1], unit: "", qualifier: type };
+  } else if (/^motor$/.test(label)) {
+    // "1,5 EcoBoost" → 1,5 l · EcoBoost: the displacement is the figure, the family its qualifier.
+    const engine = item.value.match(/^(\d+[.,]\d)\s*(.*)$/);
+    if (engine) return { ...spec, kind: "engine", value: engine[1], unit: "l", qualifier: engine[2].replace(/^(?:T|l|L)\b\s*/, "").split(/\s*[,/(]\s*|\s+/)[0] ?? "", label: "Motor" };
+  } else if (/^gorivo$/.test(label)) {
+    const [fuel, ...rest] = item.value.split(/,\s*/);
+    return { ...spec, kind: "fuel", value: fuel, unit: "", qualifier: rest.join(", "), label: "Gorivo" };
+  } else if (/^pogon$/.test(label)) {
+    return { ...spec, kind: "drive", label: "Pogon" };
   }
   return spec;
 }
@@ -100,11 +113,14 @@ export function fairModelKeySpecs(items: readonly FairKeySpecSource[], compact =
   if (compact) {
     const parsed = items.map(compactSpec);
     const priority: FairKeySpecKind[] = ["range", "battery", "power", "charging", "speed", "acceleration", "tank", "torque", "displacement", "consumption", "engines", "wheels", "screen", "suspension", "transmission"];
-    const flagged = parsed.filter((_, index) => items[index].isHighlight);
-    const candidates = flagged.length ? flagged : [...parsed].sort((a, b) => {
-      const rank = (kind: FairKeySpecKind) => { const index = priority.indexOf(kind); return index < 0 ? 99 : index; };
+    // Flagged tiles (AMF curation, 30 Oct 2026): EV order first, then power, engine, gearbox, consumption.
+    const flaggedOrder: FairKeySpecKind[] = ["range", "battery", "power", "charging", "engine", "transmission", "consumption", "emissions", "torque", "fuel", "drive"];
+    const byRank = (order: FairKeySpecKind[]) => (a: FairKeySpec, b: FairKeySpec) => {
+      const rank = (kind: FairKeySpecKind) => { const index = order.indexOf(kind); return index < 0 ? 99 : index; };
       return rank(a.kind) - rank(b.kind);
-    });
+    };
+    const flagged = parsed.filter((_, index) => items[index].isHighlight);
+    const candidates = [...(flagged.length ? flagged : parsed)].sort(byRank(flagged.length ? flaggedOrder : priority));
     // Unconfirmed equipment/engine descriptions stay complete in the full list;
     // only compact measurements (or a short equipment value) belong in tiles.
     return candidates.filter((s) => s.unit || s.value.length <= 8).slice(0, FAIR_KEY_SPECS_MAX);
