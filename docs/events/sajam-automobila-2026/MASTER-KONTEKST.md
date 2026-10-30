@@ -2,7 +2,7 @@
 
 > Status: **ZAKLJUČAN ZA DELEGIRANJE**
 >
-> Poslednje ažuriranje: 7. oktobar 2026.
+> Poslednje ažuriranje: 30. oktobar 2026. (AMF go-live, §20)
 > Vlasnik proizvodnih odluka i finalni go/no-go: **Aleksa**
 > Rok za operativnu spremnost prve faze: **9. oktobar 2026.**
 > Prateći tehnički dokument: [`BACKEND-HANDOFF.md`](./BACKEND-HANDOFF.md)
@@ -738,6 +738,22 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 ---
 
 ## 20. Dnevnik izmena
+
+### 30. oktobar 2026. (AMF go-live)
+
+Odluke vlasnika proizvoda (Aleksa, 30. 10.); gde se razlikuju od §4.3, §9.1 i §9.2, važe ove:
+
+- **Više od 5 ponuđenih odgovora.** Glas publike i anketa zadržavaju sve opcije koje izlagač da; granica u kodu je 12 (sanity), duge liste se skroluju (`FAIR_AUDIENCE_OPTIONS_MAX`, `FAIR_SURVEY_OPTIONS_MAX`).
+- **Slobodan unos u anketi.** Nova vrsta pitanja `free_text` (1–200 znakova, bez kontrolnih znakova) i opcija „Drugo – upiši sam” na `single_choice` pitanju (`writeInLabel`). Tekst je PII: vidi ga samo ScanMe u lead aktivnosti/izvozu i briše se sa odgovorima ankete; izveštaj izlagaču broji samo koliko je odgovora upisano.
+- **Nikom: anketa i na Starter modelima.** Izuzetak za jednog izlagača (`fairParticipations.surveyAllTiers`); pravilo „anketa = Napredni” važi za sve ostale.
+- **Izbor modela u formi za probnu vožnju** (svi izlagači) i u Nikom „Zainteresovan sam”: lista svih objavljenih modela istog izlagača preko svih njegovih brendova, skenirani prvi. Pravo i pravilo kontakta dolaze od forme koja je otvorena; lead se upisuje na izabrani model istog izlagača (`scannedModelId` čuva odakle je otvoren).
+- **Nikom dodatna polja** (opciona): „Kada planirate kupovinu?” i „Kako planirate da finansirate kupovinu?”; u izvozu leadova kolona „Detalji”.
+- **Leadovi idu samo ScanMe-u**; nijedan email izlagača nije primalac. Probna vožnja Škoda traži telefon i email, Grand Motors telefon.
+- **Indikator skrola** (`components/fair/scroll-hint.tsx`) je zajednička komponenta za sve sheet-ove i Glas publike.
+- **Garaža:** dodir na fotografiju modela otvara stranicu modela kao „Pogledaj”.
+- **Javna aplikacija AMF otvorena odmah** (08:22, bez vremenskog ograničenja, `AMF_PUBLIC_GATE_OPENS_AT`); `startsAt` događaja ostaje 30. 10. 10:00 (zamrzavanje pasoša). Analitika broji od 08:00 (vlasnik: ostaje 08:00).
+- **Mapa AMF uključena u produkciji** (`FAIR_PUBLIC_MAP_ENABLED`), glavni pano vodi na mapu, SA26-001…015 su povučeni (neaktivni), SA26-016…033 su vezani za 18 AMF modela. Usklađeno sa mapama organizatora 21.10/16.10 posle potvrde tabele razlika: Jetour (6‑7), Moto Revolution (glavni ulaz), Asteriks (štand 16), lokacija `ispred-s6` za SWM.
+- Tok i izvori: `scripts/sajam/prompts/AMF-golive-2026-10-30.md`, `FRONTEND-DELTA-2026-10-30.md`.
 
 ### 8. oktobar 2026.
 

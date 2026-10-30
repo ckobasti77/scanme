@@ -1918,3 +1918,22 @@ Nezavisni pregled doslednosti (Korak 2, `jovan-status/SAJAM-SUPER-2026-10-09.md`
 - **Sada:** strelica nazad i centrirano „GLAS PUBLIKE / model“, bez lockup-a i menija sajma. Pozadina, linija preko cele širine i dugme nazad (`md`) usklađeni su sa zaglavljem sajma.
 - **Pitanje:** da li Glas publike dobija standardno sajamsko zaglavlje (lockup i Mapa · Pasoši · Garaža), sa strelicom nazad u sadržaju, kao na detalju pasoša?
 - **Zašto nije urađeno:** to menja strukturu i navigaciju toka. Korak 2 kaže da se ponašanje i sadržaj ne menjaju.
+
+---
+
+## AMF go-live (30. 10. 2026) — podaci koje nisam pogađao
+
+Uvoz je urađen iz `amf-2026-unos-podaci.json`; gde podatak nije bio jednoznačan, izabrana je konzervativna opcija. **Deferred, awaiting owner decision.**
+
+1. **Ford Kuga ST-Line 28.490 €**: cena iz mejla se ne poklapa ni sa jednim redom cenovnika (ST-Line: 27.490 / 28.990 / 34.990 / 37.990 €), motor nije potvrđen. Specifikacije su samo ono što važi za ceo ST-Line paket (18" felne 225/60 R18, sportsko ogibljenje, ekran 13,2", tabla 12,3").
+2. **Ford Puma ST-Line 22.690 €**: cenovnik ST-Line ima 21.740 / 23.740 / 24.740 €; prikazana je cena iz mejla. Specifikacije: dostupni motori 1.0 EcoBoost 125/155 PS mHEV i oprema zajednička za ST-Line.
+3. **Ford Ranger Raptor**: cenovnik nije stigao; jedina specifikacija je „Dostupni motori” sa zvaničnog ford.rs/novi-raptor (3,0 EcoBoost V6 benzin / 2,0 Bi-turbo EcoBlue dizel).
+4. **Ineos Grenadier**: „Cena na upit”, bez linka; varijanta nije navedena, pa su specifikacije samo zajedničke za sve (BMW 3.0L benzin/dizel, automatski 8).
+5. **MG cene**: cene iz mejla se razlikuju od akcijskih cena u cenovnicima (ZS Luxury 25.190 vs 23.990 €, HS Luxury 32.990 vs 32.490 €, S5 Luxury LR 35.490 vs 34.990 €). Prikazane su cene iz mejla (JSON). Specifikacije su za Luxury.
+6. **Škoda Karoq**: cena vozila i „Osnovni model od” su iste (30.500 €), kao u PDF-u; prikazano tako.
+7. **Škoda Superb**: fotografija je Superb Combi (karavan); karoserija izloženog L&K Plus nije navedena.
+8. **Nikom anketa P2** („Koji model DONGFENG-a…”): opcije su M-HERO / NAMMI BOX / T5 FORTHING / Drugo, bez Fiat Grande Pande, iako anketa važi i na Grande Pandi. Ostavljeno kako je izlagač napisao.
+9. **Nikom Starter Glas publike**: raspored ima samo P1–P3 (po danu); P4 i P5 se na Starter modelima nikad ne prikazuju.
+10. **Dongfeng BOX**: mejl kaže „Nammi Box”, letak „DONGFENG BOX”; prikazano „Dongfeng BOX”.
+11. **Sponzorisano pitanje**: postavljeno na instancu od 30. 10. (Škoda P2, M-HERO P1); za 31. 10. i 1. 11. se prebacuje istom komandom (`fairSetup:setupAudienceQuestions`, `sponsorDateKey`).
+12. **Email po leadu**: ScanMe trenutno ne dobija email za svaki sajamski lead (posetilac dobija potvrdu); Nikom dodatna polja su u inbox/izvozu (kolona „Detalji”), ne u emailu.
