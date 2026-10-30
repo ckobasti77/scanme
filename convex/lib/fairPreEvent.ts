@@ -19,6 +19,8 @@ import { fairWindowHourKeys } from "./fairReportDataset";
  */
 export const FAIR_ANALYTICS_CUTOFF_BY_EVENT_CODE: Readonly<Record<string, number>> = {
   "elektromobilnost-2026": Date.parse("2026-10-09T08:00:00+02:00"),
+  // 30 Oct 2026: scans before 08:00 (morning sticker tests) count as test.
+  "auto-moto-fest-2026": Date.parse("2026-10-30T08:00:00+01:00"),
 };
 
 /** The analytics cutoff of an event: its configured hall opening, else its opening. */

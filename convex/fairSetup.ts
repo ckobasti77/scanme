@@ -61,7 +61,9 @@ const EVENTS: Record<string, SetupEvent> = {
     code: "auto-moto-fest-2026",
     title: "Auto Moto Fest 2026",
     venueName: "Hala Čair, Niš",
-    startsAt: Date.parse("2026-10-30T00:00:00+01:00"),
+    // 30 Oct 2026: the real opening (10:00). The passport set freezes here, so
+    // the intake must be imported before it; the public gate has its own time.
+    startsAt: Date.parse("2026-10-30T10:00:00+01:00"),
     endsAt: Date.parse("2026-11-02T00:00:00+01:00"),
     garagePriority: 2,
     days: [
@@ -69,10 +71,13 @@ const EVENTS: Record<string, SetupEvent> = {
       { dateKey: "2026-10-31", label: "Subota, 31. oktobar" },
       { dateKey: "2026-11-01", label: "Nedelja, 1. novembar" },
     ],
-    // DEV only until the real AMF intake arrives: "_T" marks test data
-    // (exhibitor AUDI-T, brand AUDI_T) to be replaced before PROD.
+    // Real AMF intake (amf-2026-unos-podaci.json, 30 Oct 2026). GRAND-MOTORS
+    // is the same client as on elektromobilnost-2026 (same SMK/SML codes).
     exhibitors: [
-      { code: "AUDI-T", accountName: "AUDI_T", shortName: "AUDI_T", brands: ["AUDI_T"] },
+      { code: "AUTOCACAK-PROMET", accountName: "AutoČačak Promet d.o.o.", shortName: "AutoČačak Promet", brands: ["Škoda"] },
+      { code: "NIKOM", accountName: "Nikom grupacija (NIKOM-AUTO DOO)", shortName: "Nikom", brands: ["Dongfeng", "Fiat"] },
+      { code: "GRAND-MOTORS", accountName: "Grand Motors d.o.o.", shortName: "Grand Motors", brands: ["MG", "Ford", "Ineos"] },
+      { code: "SWM", accountName: "SWM", shortName: "SWM", brands: ["SWM"] },
     ],
   },
 };
