@@ -6,7 +6,8 @@ const CAR_BOX = "https://www.polovniautomobili.com/car-box?ref=result-dealer-sea
 const NIKOM = "https://nikom.co.rs/o_nama.html";
 
 export const AMF_EXHIBITOR_WEBSITES: Readonly<Record<string, string>> = {
-  skoda: "https://www.skoda-auto.rs/content/acp-nis",
+  // 30 Oct 2026: the exhibitor AutoČačak Promet's own site (agreed with Teodora).
+  skoda: "https://www.autocacak-promet.rs/",
   // The organiser's deep link 404s (20 Oct 2026); the dealer homepage works.
   mercedes: "https://mercedes-benz-kemoimpexauto.rs",
   fiat: NIKOM,

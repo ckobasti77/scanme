@@ -1,7 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { FairErrorCode, FairLeadFormView, FairLeadSubmitResult } from "@/lib/fair-contract";
+import {
+  FAIR_LEAD_FINANCINGS,
+  FAIR_LEAD_PURCHASE_TIMINGS,
+  type FairErrorCode,
+  type FairLeadFinancing,
+  type FairLeadFormView,
+  type FairLeadPurchaseTiming,
+  type FairLeadSubmitResult,
+} from "@/lib/fair-contract";
 import { EMPTY_CONTACT_DRAFT, contactFormState, type ContactDraft } from "@/lib/fair-client/contact-form";
 import { browserContactStorage, saveContact } from "@/lib/fair-client/contact-store";
 import { newFairSubmissionId, postFair } from "@/lib/fair-client/fair-api";
@@ -10,6 +18,7 @@ import { fairHaptic } from "@/lib/fair-client/haptics";
 import { fairLeadSentText } from "@/lib/fair-client/lead-result";
 import { fmt } from "@/lib/i18n";
 import { ContactBlock } from "./contact-block";
+import { FairSelect } from "./fair-select";
 import { FairSheet } from "./fair-sheet";
 import { useFairModelInteractions } from "./model-interactions";
 
@@ -35,6 +44,10 @@ export function LeadSheet({
   const [status, setStatus] = useState<"idle" | "sending" | "unavailable" | "error">(open ? "idle" : "unavailable");
   const [errorCode, setErrorCode] = useState<FairErrorCode | null>(null);
   const submissionId = useRef<string | null>(null);
+  // 30 Oct 2026: model selector (defaults to the scanned model) and Nikom's optional answers.
+  const [selectedModelId, setSelectedModelId] = useState(model.id);
+  const [purchaseTiming, setPurchaseTiming] = useState<FairLeadPurchaseTiming | null>(null);
+  const [financing, setFinancing] = useState<FairLeadFinancing | null>(null);
   const contact = open ? contactFormState(draft, open.contactRequirement) : null;
   const titleId = `fair-lead-${kind}-title`;
   const requirementText = open
@@ -58,6 +71,9 @@ export function LeadSheet({
       ...contact.payload,
       consentAccepted: true,
       consentVersion: open.consent.version,
+      ...(open.modelChoices && selectedModelId !== model.id ? { selectedModelId } : {}),
+      ...(open.extraFields && purchaseTiming ? { purchaseTiming } : {}),
+      ...(open.extraFields && financing ? { financing } : {}),
     });
     if (!result.ok) {
       setErrorCode(result.code);
@@ -129,6 +145,37 @@ export function LeadSheet({
                 <> {open.preferredContact === "email" ? dict.leadPreferredEmail : dict.leadPreferredPhone}</>
               ) : null}
             </p>
+            {open.modelChoices ? (
+              <FairSelect
+                label={dict.leadModelLabel}
+                placeholder={dict.leadChoose}
+                options={open.modelChoices.map((choice) => ({
+                  id: choice.id,
+                  label: choice.displayName.startsWith(`${choice.brandName} `) ? choice.displayName.slice(choice.brandName.length + 1) : choice.displayName,
+                  detail: choice.brandName,
+                }))}
+                value={selectedModelId}
+                onChange={setSelectedModelId}
+              />
+            ) : null}
+            {open.extraFields ? (
+              <>
+                <FairSelect
+                  label={dict.leadPurchaseTimingLabel}
+                  placeholder={dict.leadOptionalChoose}
+                  options={FAIR_LEAD_PURCHASE_TIMINGS.map((id) => ({ id, label: dict.leadPurchaseTimings[id] }))}
+                  value={purchaseTiming}
+                  onChange={(id) => setPurchaseTiming(id as FairLeadPurchaseTiming)}
+                />
+                <FairSelect
+                  label={dict.leadFinancingLabel}
+                  placeholder={dict.leadOptionalChoose}
+                  options={FAIR_LEAD_FINANCINGS.map((id) => ({ id, label: dict.leadFinancings[id] }))}
+                  value={financing}
+                  onChange={(id) => setFinancing(id as FairLeadFinancing)}
+                />
+              </>
+            ) : null}
             <ContactBlock
               idPrefix={`fair-lead-${kind}`}
               requirement={open.contactRequirement}

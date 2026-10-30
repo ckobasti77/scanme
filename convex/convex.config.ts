@@ -64,41 +64,6 @@ const app = defineApp({
     ZOHO_MAIL_CLIENT_ENABLED: v.optional(v.string()),
     ZOHO_TOKEN_ENCRYPTION_KEY: v.optional(v.string()),
     ZOHO_MAIL_REDIRECT_URI: v.optional(v.string()),
-    // ScanMe Menu V1 (K14): the informative EUR rate of the public menu
-    // (convex/menuFx.ts). On only when the switch is exactly "true" AND the
-    // URL is https; otherwise the cron does nothing (no network call) and the
-    // EUR switch never shows.
-    MENU_FX_ENABLED: v.optional(v.string()),
-    MENU_FX_URL: v.optional(v.string()),
-    // ScanMe Menu V1 (K16): the AI translation SUGGESTION (Premium). Off unless
-    // the key is set: no network call, the editor says it is switched off. A
-    // suggestion is never published until the owner confirms it.
-    MENU_AI_TRANSLATE_KEY: v.optional(v.string()),
-    MENU_AI_TRANSLATE_MODEL: v.optional(v.string()),
-    // ScanMe Menu V1 (K22): the pepper of the three-digit staff PINs of the
-    // waiter panel (pinLookup = HMAC-SHA256(pepper, service:pin)). Without it no
-    // PIN can be set or used (the panel says so; Owner/Manager still enter with
-    // their account). Changing it invalidates every PIN (staff get new ones).
-    MENU_PIN_PEPPER: v.optional(v.string()),
-    // ScanMe Menu V1 (K26): the venue's business mailbox for replies to guests
-    // (convex/menuMail.ts, convex/menuMailActions.ts). On only when the switch
-    // is exactly "true", the key is 32 bytes of base64 (its own key, never the
-    // Zoho one) and the redirect URI is the Next callback route; a provider is
-    // offered only with both of its client values. Otherwise nothing connects
-    // or sends (mail/not_configured, no network call) and the UI says so.
-    MENU_MAIL_ENABLED: v.optional(v.string()),
-    MENU_MAIL_TOKEN_KEY: v.optional(v.string()),
-    MENU_MAIL_REDIRECT_URI: v.optional(v.string()),
-    MENU_MAIL_GOOGLE_CLIENT_ID: v.optional(v.string()),
-    MENU_MAIL_GOOGLE_CLIENT_SECRET: v.optional(v.string()),
-    MENU_MAIL_MICROSOFT_CLIENT_ID: v.optional(v.string()),
-    MENU_MAIL_MICROSOFT_CLIENT_SECRET: v.optional(v.string()),
-    // ScanMe Menu V1 (K33): shared secret of the Next handlers → the public
-    // guest, reservation, analytics and PIN functions (convex/lib/menuGateway.ts).
-    // With it set, a caller IP hash counts only together with this secret, so a
-    // direct call cannot dodge the per-IP buckets. Same value in the Next env.
-    // Missing = the IP hash is trusted as before (development).
-    MENU_GATEWAY_SECRET: v.optional(v.string()),
   },
 });
 

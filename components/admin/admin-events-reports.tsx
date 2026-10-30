@@ -1,10 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AdminEmptyState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
-import { AdminDataCard, AdminDataView } from "@/components/admin/admin-ui";
-import { AdminTableScroll } from "@/components/admin/admin-ui/admin-table-scroll";
-import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
+import { AdminDataCard, AdminDataView, AdminFilterBar, type AdminFilterChip } from "@/components/admin/admin-ui";
 import {
   ConfirmAction,
   Feedback,
@@ -25,8 +23,7 @@ import {
 } from "@/components/admin/events/report-queue";
 import { fairDailyReportDocument, fairReportNumberText, type FairReportCell } from "@/convex/lib/fairReportFiles";
 import type { FairDailyDataset } from "@/convex/lib/fairReportDataset";
-import type { AdminQueryState } from "@/lib/admin-v1/query-state";
-import type { SidebarLive } from "@/lib/admin-v2/sidebar/types";
+import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
 import type { FairReportFormat, FairReportStatus } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
@@ -120,7 +117,7 @@ function ReviewPanel({ dataset }: { dataset: FairDailyDataset }) {
         <div key={section.heading} className="min-w-0">
           <h3 className="text-sm font-semibold">{section.heading}</h3>
           {section.note ? <Meta>{section.note}</Meta> : null}
-          <AdminTableScroll className="mt-2 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)]">
+          <div className="mt-2 overflow-x-auto rounded-[var(--admin-radius-control)] border border-[var(--admin-border)]">
             <table className="w-full min-w-[28rem] text-left text-sm">
               <thead className="bg-[var(--admin-surface-strong)]">
                 <tr>{section.columns.map((column) => <th key={column} scope="col" className="px-3 py-2 font-semibold">{column}</th>)}</tr>
@@ -135,7 +132,7 @@ function ReviewPanel({ dataset }: { dataset: FairDailyDataset }) {
                 ))}
               </tbody>
             </table>
-          </AdminTableScroll>
+          </div>
         </div>
       ))}
     </div>
@@ -295,46 +292,34 @@ function QueueDetail({ row, actions, review, idSuffix }: { row: QueueRow; action
   );
 }
 
-/**
- * ADMIN v2: what the Izveštaji page sends to the sidebar of the frame: the
- * options of the three filter groups (dan, izlagač, stanje) with the row
- * counts of the whole queue (the counts do not follow the filters, as the
- * facets did before). Pure, so the test draws the sidebar with it.
- */
-export function reportsSidebarLive(view: ReportsView): SidebarLive {
-  const q = dict.reportQueue;
-  const rows = buildReportQueue(view);
-  return {
-    options: {
-      dan: [...view.days].sort((a, b) => a.endsAt - b.endsAt).map((day) => ({ value: day.dateKey, label: day.label, count: rows.filter((row) => row.day.dateKey === day.dateKey).length })),
-      izlagac: view.participations.map((row) => ({ value: row.id, label: row.name, count: rows.filter((entry) => entry.participation.id === row.id).length })),
-      status: REPORT_QUEUE_STATUSES.map((status) => ({ value: status, label: q.statuses[status], count: rows.filter((row) => row.status === status).length })),
-    },
-  };
-}
-
 export function AdminEventsReports({
   view,
   actions,
   query = {},
+  onQueryChange = () => undefined,
 }: {
   view: ReportsView | undefined;
   actions: ReportsActions | undefined;
   query?: AdminQueryState;
+  onQueryChange?: (patch: AdminQueryPatch) => void;
 }) {
   const exportRun = useRunner();
-  const sidebar = useMemo(() => (view ? reportsSidebarLive(view) : null), [view]);
-  useAdminSidebarLive(sidebar);
-  if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.loading} body={dict.reportsUnavailable} /></AdminPanel>;
+  if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.tabReports} body={dict.reportsUnavailable} /></AdminPanel>;
 
   const q = dict.reportQueue;
   const rows = buildReportQueue(view);
   const shown = filterReportQueue(rows, query);
   const countOf = (status: ReportQueueStatus) => rows.filter((row) => row.status === status).length;
+  const dayLabel = (dateKey: string) => view.days.find((day) => day.dateKey === dateKey)?.label ?? dateKey;
+  const exhibitorName = (id: string) => view.participations.find((row) => row.id === id)?.name ?? id;
+  const chips: AdminFilterChip[] = [];
+  if (query.dan) chips.push({ id: "dan", label: `${q.facetDay}: ${dayLabel(query.dan)}`, onRemove: () => onQueryChange({ dan: null }) });
+  if (query.izlagac) chips.push({ id: "izlagac", label: `${q.facetExhibitor}: ${exhibitorName(query.izlagac)}`, onRemove: () => onQueryChange({ izlagac: null }) });
+  if (query.status && query.status in q.statuses) chips.push({ id: "status", label: `${q.facetStatus}: ${q.statuses[query.status as ReportQueueStatus]}`, onRemove: () => onQueryChange({ status: null }) });
 
   return (
     <div className="grid min-w-0 gap-5">
-      <p data-admin-reveal="text" className="text-sm text-[var(--admin-text-muted)]">{dict.reportsSubtitle}</p>
+      <p className="text-sm text-[var(--admin-text-muted)]">{dict.reportsSubtitle}</p>
 
       <Section title={q.title} help={q.help}>
         <div className="mb-3 grid gap-1">
@@ -343,11 +328,24 @@ export function AdminEventsReports({
           <Meta>{dict.reportsListHelp}</Meta>
           {!view.runs.length ? <Meta>{dict.reportsEmpty}</Meta> : null}
         </div>
+        <AdminFilterBar
+          label={q.filterLabel}
+          facets={[
+            { id: "dan", label: q.facetDay, options: [...view.days].sort((a, b) => a.endsAt - b.endsAt).map((day) => ({ value: day.dateKey, label: day.label, count: rows.filter((row) => row.day.dateKey === day.dateKey).length })) },
+            { id: "izlagac", label: q.facetExhibitor, options: view.participations.map((row) => ({ value: row.id, label: row.name, count: rows.filter((entry) => entry.participation.id === row.id).length })) },
+            { id: "status", label: q.facetStatus, options: REPORT_QUEUE_STATUSES.map((status) => ({ value: status, label: q.statuses[status], count: countOf(status) })) },
+          ]}
+          values={{ dan: query.dan, izlagac: query.izlagac, status: query.status }}
+          onFacetChange={(id, value) => onQueryChange({ [id]: value ?? null })}
+          chips={chips}
+          onClear={chips.length ? () => onQueryChange({ dan: null, izlagac: null, status: null }) : undefined}
+          className="mb-3"
+        />
         <AdminDataView
           listKey="dogadjaji.izvestaji.red"
           caption={q.title}
           rows={shown}
-          empty={rows.length ? { title: q.noMatchTitle, body: q.noMatchBody } : { title: dict.reportsBuildEmptyTitle, body: dict.reportsBuildEmpty }}
+          empty={rows.length ? { title: q.noMatchTitle, body: q.noMatchBody } : { title: q.title, body: dict.reportsBuildEmpty }}
           getRowId={(row) => row.id}
           toolbar={<Meta>{fmt(q.count, { shown: shown.length, total: rows.length })}</Meta>}
           groupBy={{ key: (row) => row.day.id, label: (_key, group) => group[0]?.day.label ?? "" }}

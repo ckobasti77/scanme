@@ -65,7 +65,7 @@ export function AdminLogin({ returnTo = "/admin" }: { returnTo?: string }) {
 
           {isAuthenticated && !isLoading ? (
             <div className="mt-8 border border-border bg-secondary p-4">
-              <p className="text-sm text-muted-foreground">Jedan nalog je već prijavljen u ovom pregledaču.</p>
+              <p className="text-sm text-muted-foreground">Jedan nalog je već prijavljen u ovom browseru.</p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <Button onClick={() => router.replace(returnTo)}>Nastavi</Button>
                 <Button variant="outline" onClick={() => void signOut()}><LogOut className="size-4" /> Odjavi nalog</Button>

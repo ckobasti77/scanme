@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { fairReportMetrics } from "../lib/fair-entitlements";
-import type { FairReportMetric } from "../lib/fair-contract";
+import { FAIR_SURVEY_FREE_TEXT_VALUE, FAIR_SURVEY_WRITE_IN_VALUE, type FairReportMetric } from "../lib/fair-contract";
 import { requireAdmin } from "./lib/access";
 import { fairAdminError } from "./lib/fairCatalog";
 import { fairScanCountKey, readFairCount } from "./lib/fairCountShards";
@@ -210,10 +210,16 @@ async function surveyAggregates(ctx: QueryCtx, eventModelId: Id<"fairEventModels
       questions: [...survey.questions]
         .sort((a, b) => a.order - b.order)
         .map((question) => {
+          // 30 Oct 2026: typed answers are counted here, their text only in the ScanMe lead/export views.
           const values =
             question.kind === "yes_no"
               ? [{ value: "yes" }, { value: "no" }]
-              : [...question.options].sort((a, b) => a.order - b.order).map((option) => ({ value: option.id, label: option.label }));
+              : question.kind === "free_text"
+                ? [{ value: FAIR_SURVEY_FREE_TEXT_VALUE }]
+                : [
+                    ...[...question.options].sort((a, b) => a.order - b.order).map((option) => ({ value: option.id, label: option.label })),
+                    ...(question.writeInLabel ? [{ value: FAIR_SURVEY_WRITE_IN_VALUE, label: question.writeInLabel }] : []),
+                  ];
           return {
             questionId: question.id,
             prompt: question.prompt,

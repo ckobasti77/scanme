@@ -78,7 +78,7 @@
   --fair-bay-mark: #ffd23f;
   min-height: 100dvh;
   overflow-x: clip;
-  color-scheme: light;
+  color-scheme: only light;
   background: var(--fair-paper-tex) 0 0 / 420px 420px, var(--fair-canvas-glow), var(--fair-canvas);
   color: var(--fair-ink);
   font-family: "Archivo Variable", "Archivo", "Segoe UI", Arial, sans-serif;
@@ -117,6 +117,13 @@
 .fair-event ::selection {
   background: #d8cec2;
   color: var(--fair-ink);
+}
+
+/* Light-only fair app: the root must say `only light` too, over the landing's
+   html[data-theme="dark"] { color-scheme: dark } (set from the OS theme), or
+   the browser force-darkens the page. Scoped to pages with the fair shell. */
+:root:has(.fair-event) {
+  color-scheme: only light;
 }
 
 body:has(.fair-event) [data-theme-toggle="global"] {
@@ -483,6 +490,39 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   line-height: 1.2;
+}
+
+.fair-model-price .fair-model-price__secondary {
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.fair-model-external {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 4px;
+  color: var(--fair-ink);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.fair-model-external svg {
+  width: 15px;
+  height: 15px;
+}
+
+.fair-model-external:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+  border-radius: var(--fair-radius-sm, 6px);
 }
 
 /* New-stamp strip: opens its height with the card's entrance, closes on dismiss. */
@@ -2110,6 +2150,189 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-survey-option[aria-pressed="true"] .fair-survey-option__dot svg {
   opacity: 1;
+}
+
+/* 30 Oct 2026: "Drugo – upiši sam". The input always occupies the button's own
+   box (no layout jump); opening cross-fades the label out and the field in, so
+   the button reads as turning into the field. */
+.fair-survey-writein {
+  position: relative;
+  display: grid;
+}
+
+.fair-survey-writein > .fair-survey-option,
+.fair-survey-writein__input {
+  grid-area: 1 / 1;
+}
+
+.fair-survey-writein__input {
+  width: 100%;
+  min-height: 54px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--fair-accent);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 560;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.985);
+  transition:
+    opacity var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.fair-survey-writein > .fair-survey-option {
+  transition:
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    opacity var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.fair-survey-writein[data-open] > .fair-survey-option {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fair-survey-writein[data-open] .fair-survey-writein__input {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+.fair-survey-writein__input:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+}
+
+.fair-survey-text {
+  display: grid;
+  gap: 6px;
+}
+
+/* 30 Oct 2026: fair select (lead model selector, Nikom questions). */
+.fair-select {
+  display: grid;
+  gap: 6px;
+  margin-bottom: var(--fair-space-3);
+}
+
+.fair-select__label {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.fair-select__button {
+  display: flex;
+  min-height: 48px;
+  padding: 8px 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fair-space-3);
+  border: var(--fair-border-strong, var(--fair-border));
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.fair-select[data-open] .fair-select__button {
+  border-color: var(--fair-accent);
+}
+
+.fair-select__button:focus-visible,
+.fair-select__panel button:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+}
+
+.fair-select__value,
+.fair-select__panel button > span {
+  display: grid;
+  font-weight: 620;
+  line-height: 1.25;
+}
+
+.fair-select__value[data-empty] {
+  color: var(--fair-ink-muted);
+  font-weight: 500;
+}
+
+.fair-select__value small,
+.fair-select__panel small {
+  color: var(--fair-ink-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.fair-select__chevron {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  transition: transform var(--fair-dur-overlay) var(--fair-ease-enter);
+}
+
+.fair-select[data-open] .fair-select__chevron {
+  transform: rotate(180deg);
+}
+
+.fair-select__panel {
+  overflow: hidden;
+}
+
+.fair-select__panel ul {
+  display: grid;
+  margin: 0;
+  padding: 4px 0 0;
+  gap: 4px;
+  list-style: none;
+}
+
+.fair-select__panel button {
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  padding: 8px 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fair-space-3);
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.fair-select__panel button[aria-selected="true"] {
+  border-color: var(--fair-accent);
+  background: var(--fair-accent-soft);
+}
+
+.fair-select__panel svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--fair-accent);
+}
+
+.fair-survey-text__count {
+  justify-self: end;
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .fair-survey-nav {

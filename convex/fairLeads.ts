@@ -31,7 +31,7 @@ import {
   normalizeFairLeadContact,
   queueFairLeadEmail,
 } from "./lib/fairLeads";
-import { fairLeadKind, fairLeadSubmitResultView } from "./lib/fairValidators";
+import { fairLeadFinancing, fairLeadKind, fairLeadPurchaseTiming, fairLeadSubmitResultView } from "./lib/fairValidators";
 import { rateLimiter } from "./lib/rateLimits";
 import { fairIsPreEvent } from "./lib/fairPreEvent";
 import { fairSessionAdminUserId } from "./lib/fairScans";
@@ -68,7 +68,7 @@ import { fairSessionAdminUserId } from "./lib/fairScans";
 async function submitResult(ctx: MutationCtx, lead: Doc<"fairLeads">, duplicate: boolean): Promise<FairLeadSubmitResult> {
   const confirmation = await fairLeadDelivery(ctx, lead._id, "immediate_confirmation");
   return {
-    eventModelId: lead.eventModelId,
+    eventModelId: lead.scannedModelId ?? lead.eventModelId,
     kind: lead.kind,
     submittedAt: lead.createdAt,
     duplicate,
@@ -95,6 +95,11 @@ export const submitLead = mutation({
     consentVersion: v.number(),
     /** 9 Oct 2026: "survey" = left on the survey's last step (survey confirmation email). */
     origin: v.optional(v.literal("survey")),
+    /** 30 Oct 2026: another published model of the same exhibitor chosen in the form. */
+    selectedModelId: v.optional(v.string()),
+    /** 30 Oct 2026: optional answers where the exhibitor has the extra fields (Nikom). */
+    purchaseTiming: v.optional(fairLeadPurchaseTiming),
+    financing: v.optional(fairLeadFinancing),
   },
   returns: fairLeadSubmitResultView,
   handler: async (ctx, args): Promise<FairLeadSubmitResult> => {
@@ -112,7 +117,7 @@ export const submitLead = mutation({
       .unique();
     if (prior) {
       const visitor = await findFairVisitor(ctx, args.visitorHash);
-      if (!visitor || prior.visitorId !== visitor._id || prior.eventModelId !== args.eventModelId || prior.kind !== args.kind) {
+      if (!visitor || prior.visitorId !== visitor._id || (prior.scannedModelId ?? prior.eventModelId) !== args.eventModelId || prior.kind !== args.kind) {
         fairInteractionError("SUBMISSION_DUPLICATE");
       }
       return submitResult(ctx, prior, true);
@@ -131,12 +136,26 @@ export const submitLead = mutation({
     const exhibitorName = await fairExhibitorName(ctx, model.participationId);
     if (!exhibitorName) fairInteractionError("CONSENT_NOT_CONFIGURED");
 
+    // 30 Oct 2026: the form (rights, config, contact rule) belongs to the
+    // opened model; the lead is stored on the chosen model of the SAME
+    // exhibitor. Nikom's extra answers only where the exhibitor has them.
+    let target = model;
+    if (args.selectedModelId !== undefined && args.selectedModelId !== model._id) {
+      const chosenId = ctx.db.normalizeId("fairEventModels", args.selectedModelId);
+      const chosen = chosenId ? await ctx.db.get(chosenId) : null;
+      if (!chosen || chosen.status !== "published" || chosen.participationId !== model.participationId) fairInteractionError("INVALID_INPUT", { field: "selectedModelId" });
+      target = chosen;
+    }
+    if ((args.purchaseTiming !== undefined || args.financing !== undefined) && (args.kind !== "interest" || (await ctx.db.get(model.participationId))?.leadInterestExtraFields !== true)) {
+      fairInteractionError("INVALID_INPUT", { field: "extraFields" });
+    }
+
     // N5: email lowercase, phone E.164, a risky name refused (INVALID_INPUT + field/reason).
     const contact = normalizeFairLeadContact(args, config.contactRequirement);
     const recipient = contact.email;
 
     const visitorId = await requireFairVisitorRow(ctx, { visitorHash: args.visitorHash, ipHash: args.ipHash, now });
-    const limit = await rateLimiter.limit(ctx, "fairLeadSubmit", { key: `${visitorId}:${model._id}` });
+    const limit = await rateLimiter.limit(ctx, "fairLeadSubmit", { key: `${visitorId}:${target._id}` });
     if (!limit.ok) fairInteractionError("RATE_LIMITED", { retryAfterMs: Math.ceil(limit.retryAfter) });
 
     // N5: one lead per visitor, model and kind. A form opened again (new
@@ -144,7 +163,7 @@ export const submitLead = mutation({
     // it still spends the limiter token above, so hammering one model stops.
     const existing = await ctx.db
       .query("fairLeads")
-      .withIndex("by_visitorId_and_eventModelId_and_kind", (q) => q.eq("visitorId", visitorId).eq("eventModelId", model._id).eq("kind", args.kind))
+      .withIndex("by_visitorId_and_eventModelId_and_kind", (q) => q.eq("visitorId", visitorId).eq("eventModelId", target._id).eq("kind", args.kind))
       .first();
     if (existing) return submitResult(ctx, existing, true);
 
@@ -180,8 +199,11 @@ export const submitLead = mutation({
       ...(args.origin ? { origin: args.origin } : {}),
       visitorId,
       eventId: model.eventId,
-      eventModelId: model._id,
-      participationId: model.participationId,
+      eventModelId: target._id,
+      participationId: target.participationId,
+      ...(target._id !== model._id ? { scannedModelId: model._id } : {}),
+      ...(args.purchaseTiming ? { purchaseTiming: args.purchaseTiming } : {}),
+      ...(args.financing ? { financing: args.financing } : {}),
       ...contact,
       consentAccepted: true,
       consentVersion: consent.version,

@@ -5,6 +5,9 @@ import {
   FAIR_PII_PURGE_AT_MS,
   FAIR_PUBLIC_VOTE_THRESHOLD,
   FAIR_RATING_DIMENSIONS,
+  FAIR_SURVEY_FREE_TEXT_MAX,
+  FAIR_SURVEY_FREE_TEXT_VALUE,
+  FAIR_SURVEY_WRITE_IN_VALUE,
   isFairRatingValue,
   isFairVisitorHash,
   type FairAudienceResultView,
@@ -290,6 +293,17 @@ export async function fairModelQuestions(ctx: Ctx, eventModelId: Id<"fairEventMo
 // Survey (HANDOFF §5.3, MASTER §9.2)
 // -----------------------------------------------------------------------------
 
+/**
+ * Package right to a survey, plus the owner override of 30 Oct 2026: an
+ * exhibitor with `fairParticipations.surveyAllTiers` (Nikom, AMF) also has it
+ * on its Starter models. Never on `included`.
+ */
+export async function fairSurveyAllowed(ctx: Ctx, model: Doc<"fairEventModels">, tier: FairPackageTier): Promise<boolean> {
+  if (getFairEntitlements(tier).survey) return true;
+  if (tier === "included") return false;
+  return (await ctx.db.get(model.participationId))?.surveyAllTiers === true;
+}
+
 /** All versions of the model's survey, bounded. */
 export async function fairModelSurveys(ctx: Ctx, eventModelId: Id<"fairEventModels">) {
   return ctx.db
@@ -310,10 +324,20 @@ export async function fairVisitorSurveyResponse(ctx: Ctx, visitorId: Id<"fairVis
   return null;
 }
 
+/**
+ * A typed survey answer (free_text, write-in): trimmed, 1…FAIR_SURVEY_FREE_TEXT_MAX
+ * characters, no control characters (stored and exported as plain text).
+ */
+export function fairSurveyTextValid(text: string | undefined): text is string {
+  if (text === undefined) return false;
+  const trimmed = text.trim();
+  return trimmed.length >= 1 && trimmed.length <= FAIR_SURVEY_FREE_TEXT_MAX && trimmed === text && !/[\u0000-\u001f\u007f]/.test(text);
+}
+
 /** Problem code of an answer set against one survey version, or null. */
 export function fairSurveyAnswersProblem(
   survey: Doc<"fairSurveys">,
-  answers: ReadonlyArray<{ questionId: string; value: string }>,
+  answers: ReadonlyArray<{ questionId: string; value: string; text?: string }>,
 ): "INVALID_INPUT" | null {
   if (answers.length < 1 || answers.length > survey.questions.length) return "INVALID_INPUT";
   const seen = new Set<string>();
@@ -321,9 +345,14 @@ export function fairSurveyAnswersProblem(
     const question = survey.questions.find((row) => row.id === answer.questionId);
     if (!question || seen.has(answer.questionId)) return "INVALID_INPUT";
     seen.add(answer.questionId);
-    const valid = question.kind === "yes_no"
-      ? answer.value === "yes" || answer.value === "no"
-      : question.options.some((option) => option.id === answer.value);
+    const typed = question.kind === "free_text"
+      ? answer.value === FAIR_SURVEY_FREE_TEXT_VALUE
+      : question.kind === "single_choice" && question.writeInLabel !== undefined && answer.value === FAIR_SURVEY_WRITE_IN_VALUE;
+    const valid = typed
+      ? fairSurveyTextValid(answer.text)
+      : answer.text === undefined && (question.kind === "yes_no"
+        ? answer.value === "yes" || answer.value === "no"
+        : question.options.some((option) => option.id === answer.value));
     if (!valid) return "INVALID_INPUT";
   }
   // V1 questions are optional (MASTER §9.2); a question the admin marked

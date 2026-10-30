@@ -2,11 +2,9 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { eventNavGroups } from "@/lib/admin-v1/event-sections";
-import { resolveAdminSidebar } from "@/lib/admin-v2/sidebar/registry";
 import { FAIR_ADMIN_ISSUE_CODES } from "@/lib/fair-contract";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 import { issueText, type CatalogView } from "./admin-events";
-import { AdminSidebarView } from "./frame/admin-sidebar-view";
 import { AdminEventFrameView, AdminEventsEntryView } from "./events/event-frame-view";
 import { AdminEventsNotFound } from "./events/event-not-found";
 import { SectionLoading } from "./events/sections/loading";
@@ -15,9 +13,7 @@ import { previewDashboard } from "./events/preview-dashboard-fixtures";
 import { EventDashboardView } from "./events/sections/pregled-view";
 
 // B1A admin Događaji — since A2 the frame (event, section navigation) and the
-// Pregled section are separate views on their own route. ADMIN v2: the event
-// switch and the section navigation are in the sidebar of the admin frame;
-// the frame view renders the page header. A10: Pregled is the
+// Pregled section are separate views on their own route. A10: Pregled is the
 // event dashboard; the catalog lists it showed moved to Izlagači and Modeli
 // (their checks are in sections/izlagaci-view.test.tsx and modeli-view.test.tsx).
 
@@ -54,60 +50,24 @@ function frame(children: ReactNode) {
       currentSlug="test-sajam"
       onSelectEvent={() => undefined}
       nav={eventNavGroups((path) => `/admin/dogadjaji/test-sajam/${path}`, "pregled")}
-      linkStickerHref="/admin/dogadjaji/test-sajam/povezi"
-      title={adminEventsSr.sectionLabels.pregled}
     >
       {children}
     </AdminEventFrameView>,
   );
 }
 
-/** The sidebar of an event page as the admin frame renders it (the event, the sections). */
-function sidebar() {
-  return renderToStaticMarkup(
-    <AdminSidebarView
-      config={resolveAdminSidebar("/admin/dogadjaji/test-sajam/pregled")}
-      live={{
-        context: { value: "test-sajam", options: [{ value: "test-sajam", label: "TEST Sajam · Objavljen" }, { value: "test-amf", label: "TEST AMF · Nacrt" }], onChange: () => undefined },
-        nav: eventNavGroups((path) => `/admin/dogadjaji/test-sajam/${path}`, "pregled"),
-      }}
-      state={{}}
-      onPatch={() => undefined}
-    />,
-  );
-}
-
 describe("B1A admin Događaji surface", () => {
-  test("the page header names the event and the section; Pregled shows the event's days, phase, the work list with filtered links and the numbers", () => {
+  test("the frame names the sections and Pregled shows the event's days, phase, the work list with filtered links and the numbers", () => {
     const html = frame(<EventDashboardView dashboard={previewDashboard("sajam")} now={previewDashboard("sajam").at} base="/admin/dogadjaji/test-sajam" />);
     for (const text of [
-      adminEventsSr.pageTitle, "TEST Sajam", adminEventsSr.sectionLabels.modeli, adminEventsSr.sectionLabels.qr,
-      adminEventsSr.sectionLabels.izlagaci, "TEST dan 1", "TEST dan 2", "Sajamski dan 2 od 3",
+      adminEventsSr.pageTitle, "TEST Sajam", adminEventsSr.sectionLabels.pregled, adminEventsSr.sectionLabels.modeli, adminEventsSr.sectionLabels.qr,
+      adminEventsSr.sectionLabels.import, adminEventsSr.sectionLabels.izlagaci, "TEST dan 1", "TEST dan 2", "Sajamski dan 2 od 3",
       adminEventsSr.dashboard.todoTitle, adminEventsSr.dashboard.kpiTitle, adminEventsSr.dashboard.cardsTitle,
     ]) {
       expect(html).toContain(text);
     }
-    // ADMIN v2: one H1 (the section) and one „Poveži nalepnicu“ entry, in the page header; no navigation and no event select in the screen.
-    expect(html.match(/<h1/g)).toHaveLength(1);
-    expect(html).toContain(`>${adminEventsSr.sectionLabels.pregled}</h1>`);
-    expect(html.match(/data-link-sticker-entry/g)).toHaveLength(1);
-    expect(html).not.toContain("<select");
-    expect(html).not.toContain(`<nav aria-label="${adminEventsSr.sectionsAria}"`);
-  });
-
-  test("ADMIN v2: the sidebar holds the event switch and the section navigation, without a second „Poveži nalepnicu“", () => {
-    const html = sidebar();
-    expect(html).toContain(`>${adminEventsSr.eventLabel}</span><span class="text-[var(--admin-text-muted)]"> · TEST Sajam · Objavljen</span>`);
-    expect(html).toContain("TEST AMF · Nacrt");
-    expect(html.match(new RegExp(`<nav[^>]*aria-label="${adminEventsSr.sectionsAria}"`, "g"))).toHaveLength(1);
-    expect(html.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(html).toContain(`<nav aria-label="${adminEventsSr.sectionsAria}"`);
     expect(html).toMatch(/<a[^>]*href="\/admin\/dogadjaji\/test-sajam\/pregled"[^>]*aria-current="page"/);
-    for (const label of [adminEventsSr.sectionLabels.modeli, adminEventsSr.sectionLabels.qr, adminEventsSr.sectionLabels.import, adminEventsSr.sectionLabels.izlagaci, adminEventsSr.sectionLabels.analitika]) expect(html).toContain(label);
-    expect(html).not.toContain(adminEventsSr.sectionLabels.povezi);
-  });
-
-  test("Pregled links open a section already filtered", () => {
-    const html = frame(<EventDashboardView dashboard={previewDashboard("sajam")} now={previewDashboard("sajam").at} base="/admin/dogadjaji/test-sajam" />);
     // An item opens its section already filtered.
     expect(html).toContain('href="/admin/dogadjaji/test-sajam/modeli?status=objavljen&amp;qr=nema"');
     expect(html).not.toMatch(/FAIR_[A-Z_]+/);

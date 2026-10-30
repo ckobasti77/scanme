@@ -183,8 +183,7 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   // SAJAM SUPER Korak 3 — „Gde je gužva“: heat levels only, read by the Next server with FAIR_GATEWAY_SECRET.
   fairHeat: { module: fairHeat, functions: { getMapHeat: V } },
   // SAJAM SUPER Korak 4 — Analitika: numbers only, admin, polled.
-  // ADMIN v2 X3: + getEventEngagement, getModelAnalytics (read only, admin only).
-  fairEventAnalytics: { module: fairEventAnalytics, functions: { getEventAnalytics: A, getEventAudience: A, getEventEngagement: A, getModelAnalytics: A, getEventStandHours: A } },
+  fairEventAnalytics: { module: fairEventAnalytics, functions: { getEventAnalytics: A, getEventAudience: A } },
 };
 
 type Registered = { isPublic?: boolean; isInternal?: boolean };
@@ -333,9 +332,6 @@ describe("B7 authz table of every fair function", () => {
       ["resetMine", (c) => c.mutation(api.fairAdminDev.resetMine, { gatewaySecret: GATEWAY_SECRET, visitorHash: "f".repeat(64), eventId: f.eventId, scope: "all" })],
       ["getEventAnalytics", (c) => c.query(api.fairEventAnalytics.getEventAnalytics, { eventId: f.eventId, at: Date.now() })],
       ["getEventAudience", (c) => c.query(api.fairEventAnalytics.getEventAudience, { eventId: f.eventId, at: Date.now() })],
-      ["getEventEngagement", (c) => c.query(api.fairEventAnalytics.getEventEngagement, { eventId: f.eventId, at: Date.now() })],
-      ["getModelAnalytics", (c) => c.query(api.fairEventAnalytics.getModelAnalytics, { eventId: f.eventId, eventModelId: f.modelId, at: Date.now() })],
-      ["getEventStandHours", (c) => c.query(api.fairEventAnalytics.getEventStandHours, { eventId: f.eventId, dateKey: "2026-10-09", at: Date.now() })],
       ["resetPreEventData", (c) => c.mutation(api.fairPreEvent.resetPreEventData, { eventId: f.eventId, confirm: "RESETUJ", expected: { leads: 0, survey_responses: 0, ratings: 0, audience_votes: 0, brand_favorites: 0, passport_stamps: 0, sponsored_events: 0, traffic_events: 0, share_collections: 0, unique_scans: 0, scan_events: 0 } })],
     ];
     const adminFunctions = ["fairInteractionsAdmin", "fairLeadsAdmin", "fairSponsoredAdmin", "fairReports", "fairRetention", "fairAdminStats", "fairAdminQr", "fairPassports", "fairLeadsInbox", "fairFollowUps", "fairDashboard", "fairPreEvent", "fairAdminDev", "fairEventAnalytics"].flatMap((name) =>

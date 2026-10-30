@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin } from "lucide-react";
+import { ExternalLink, MapPin } from "lucide-react";
 import type {
   FairFixtureMode,
   FairPhotoPresentation,
@@ -269,6 +269,7 @@ export function FairModelPage({
             <p className="fair-model-price">
               <small>{dict.priceLabel}</small>
               <span>{priceValue(model.priceText, dict)}</span>
+              {model.priceSecondaryText ? <small className="fair-model-price__secondary">{model.priceSecondaryText}</small> : null}
             </p>
           </div>
           <SurveyChatHead />
@@ -283,6 +284,13 @@ export function FairModelPage({
           defaultOpen={selection.mode === "free"}
           dict={dict}
         />
+
+        {model.externalUrl ? (
+          <a className="fair-model-external" href={model.externalUrl} target="_blank" rel="noopener noreferrer">
+            {dict.externalModelLink}
+            <ExternalLink aria-hidden="true" />
+          </a>
+        ) : null}
 
         <ModelActionsCheckpoint
           audience={

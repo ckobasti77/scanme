@@ -72,7 +72,7 @@ export const fairSurveyStatus = v.union(
   v.literal("retired"),
 );
 
-export const fairSurveyQuestionKind = v.union(v.literal("yes_no"), v.literal("single_choice"));
+export const fairSurveyQuestionKind = v.union(v.literal("yes_no"), v.literal("single_choice"), v.literal("free_text"));
 
 export const fairLeadKind = v.union(v.literal("interest"), v.literal("test_drive"));
 
@@ -248,14 +248,18 @@ export const fairSurveyQuestion = v.object({
   prompt: v.string(),
   kind: fairSurveyQuestionKind,
   options: v.array(fairChoiceOption),
+  // 30 Oct 2026: single_choice only, the last "Drugo – upiši sam" option.
+  writeInLabel: v.optional(v.string()),
   required: v.boolean(),
   order: v.number(),
 });
 
-// `value` is "yes" | "no" for a yes_no question, else the chosen option id.
+// `value` is "yes" | "no" for a yes_no question, else the chosen option id;
+// free_text / write-in: "free_text" / "write_in" plus the typed `text` (PII).
 export const fairSurveyAnswer = v.object({
   questionId: v.string(),
   value: v.string(),
+  text: v.optional(v.string()),
 });
 
 // -----------------------------------------------------------------------------
@@ -337,6 +341,8 @@ export const fairPublicModelView = v.object({
   displayName: v.string(),
   variant: v.optional(v.string()),
   priceText: v.string(),
+  priceSecondaryText: v.optional(v.string()),
+  externalUrl: v.optional(v.string()),
   specificationGroups: v.array(
     v.object({
       id: v.string(),
@@ -405,7 +411,7 @@ export const fairSurveyView = v.object({
   version: v.number(),
   title: v.optional(v.string()),
   questions: v.array(
-    v.object({ id: v.string(), prompt: v.string(), kind: fairSurveyQuestionKind, options: v.array(fairChoiceOption), order: v.number() }),
+    v.object({ id: v.string(), prompt: v.string(), kind: fairSurveyQuestionKind, options: v.array(fairChoiceOption), writeInLabel: v.optional(v.string()), order: v.number() }),
   ),
 });
 
@@ -498,8 +504,16 @@ export const fairLeadFormView = v.union(
     contactRequirement: fairContactRequirement,
     preferredContact: v.optional(fairPreferredContact),
     consent: v.object({ version: v.number(), text: v.string() }),
+    // 30 Oct 2026: the exhibitor's published models to choose from (test
+    // drive everywhere, interest with extraFields), scanned model first.
+    modelChoices: v.optional(v.array(v.object({ id: v.string(), brandName: v.string(), displayName: v.string() }))),
+    // 30 Oct 2026 (Nikom): purchase timing + financing in "Zainteresovan sam".
+    extraFields: v.optional(v.boolean()),
   }),
 );
+
+export const fairLeadPurchaseTiming = v.union(v.literal("now"), v.literal("within_3_months"), v.literal("in_3_6_months"), v.literal("just_researching"));
+export const fairLeadFinancing = v.union(v.literal("cash"), v.literal("loan"), v.literal("leasing"), v.literal("undecided"));
 
 export const fairLeadSubmitResultView = v.object({
   eventModelId: v.string(),

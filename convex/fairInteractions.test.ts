@@ -296,11 +296,11 @@ describe("Glas publike (HANDOFF §5.3, §10; MASTER §9.1)", () => {
     await expectCode(f.admin.mutation(api.fairInteractionsAdmin.publishAudienceQuestion, { questionId: await question(f, f.starter.id, f.day1, 6) }), "FAIR_QUESTION_DAY_LIMIT");
   });
 
-  test("question validation: 2–5 options with unique ids, day of the same event, admin only", async () => {
+  test("question validation: 2–12 options (more than 5 since 30 Oct 2026) with unique ids, day of the same event, admin only", async () => {
     const f = await setup();
     const base = { eventModelId: f.advanced.id, eventDayId: f.day1, prompt: "TEST pitanje", sortOrder: 1 };
     await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertAudienceQuestion, { ...base, options: options("a") }), "INVALID_INPUT");
-    await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertAudienceQuestion, { ...base, options: options("a", "b", "c", "d", "e", "f") }), "INVALID_INPUT");
+    await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertAudienceQuestion, { ...base, options: options("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m") }), "INVALID_INPUT");
     await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertAudienceQuestion, { ...base, options: options("a", "a") }), "INVALID_INPUT");
     await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertAudienceQuestion, { ...base, prompt: "  ", options: options("a", "b") }), "INVALID_INPUT");
     await expect(f.member.mutation(api.fairInteractionsAdmin.upsertAudienceQuestion, { ...base, options: options("a", "b") })).rejects.toThrow();
@@ -420,7 +420,8 @@ describe("survey (HANDOFF §5.3; MASTER §9.2)", () => {
     // Owner 9 Oct 2026: the admin allows 10 questions and 6 answers (exhibitors are told 5).
     const eleven = Array.from({ length: 11 }, (_, i) => yesNo(`q${i + 1}`, i + 1));
     await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: eleven }), "FAIR_SURVEY_INVALID");
-    await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: [{ ...choice("q1", 1), options: options("a", "b", "c", "d", "e", "f", "g") }] }), "FAIR_SURVEY_INVALID");
+    // 30 Oct 2026: more than 5/6 options allowed, 12 is the sanity bound.
+    await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: [{ ...choice("q1", 1), options: options("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m") }] }), "FAIR_SURVEY_INVALID");
     expect(await f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: [...eleven.slice(0, 9), { ...choice("q10", 10), options: options("a", "b", "c", "d", "e", "f") }] })).toMatchObject({ result: "created" });
     await f.t.run(async (ctx) => { for (const row of await ctx.db.query("fairSurveys").collect()) await ctx.db.delete(row._id); });
     await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: [] }), "FAIR_SURVEY_INVALID");
@@ -456,6 +457,36 @@ describe("survey (HANDOFF §5.3; MASTER §9.2)", () => {
     await f.admin.mutation(api.fairInteractionsAdmin.publishSurvey, { surveyId: v2 });
     await expectCode(submit(f, me, v2, "test-sub-0003", [{ questionId: "q1", value: "no" }]), "SURVEY_ALREADY_SUBMITTED");
     await expectCode(submit(f, visitor(), surveyId, "test-sub-0004", [{ questionId: "q1", value: "no" }]), "SURVEY_NOT_OPEN");
+  });
+
+  test("30 Oct 2026: free_text and a write-in option store validated text; Starter only with the exhibitor override", async () => {
+    const f = await setup();
+    const free = { id: "q1", prompt: "TEST free", kind: "free_text" as const, options: [], required: false, order: 1 };
+    const writeIn = { ...choice("q2", 2), writeInLabel: "Drugo – upiši sam" };
+    await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: [{ ...free, options: options("a", "b") }] }), "FAIR_SURVEY_INVALID");
+    await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: [{ ...yesNo("q1", 1), writeInLabel: "x" }] }), "FAIR_SURVEY_INVALID");
+    const { surveyId } = await f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.advanced.id, questions: [free, writeIn] });
+    await f.admin.mutation(api.fairInteractionsAdmin.publishSurvey, { surveyId });
+    expect((await f.t.query(api.fairPublic.getSurveyForModel, { eventModelId: f.advanced.id }))?.questions[1]).toMatchObject({ writeInLabel: "Drugo – upiši sam" });
+    const send = (answers: Array<{ questionId: string; value: string; text?: string }>, id: string) =>
+      f.t.mutation(api.fairInteractions.submitSurvey, { gatewaySecret: GATEWAY_SECRET, visitorHash: visitor(), surveyId, submissionId: id, answers });
+    for (const bad of [
+      [{ questionId: "q1", value: "free_text" }],
+      [{ questionId: "q1", value: "free_text", text: " Audi" }],
+      [{ questionId: "q1", value: "free_text", text: "a".repeat(201) }],
+      [{ questionId: "q1", value: "free_text", text: "Au\u0007di" }],
+      [{ questionId: "q2", value: "x", text: "Audi" }],
+      [{ questionId: "q2", value: "write_in" }],
+    ]) await expectCode(send(bad, "test-sub-bad1"), "INVALID_INPUT");
+    await send([{ questionId: "q1", value: "free_text", text: "Audi" }, { questionId: "q2", value: "write_in", text: "Cena servisa" }], "test-sub-text1");
+    expect((await rows(f, "fairSurveyResponses")).map((row) => row.answers)).toEqual([[{ questionId: "q1", value: "free_text", text: "Audi" }, { questionId: "q2", value: "write_in", text: "Cena servisa" }]]);
+
+    await expectCode(f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.starter.id, questions: [free] }), "FAIR_FEATURE_NOT_ENTITLED");
+    await f.t.run(async (ctx) => {
+      const model = await ctx.db.get(f.starter.id as Id<"fairEventModels">);
+      await ctx.db.patch(model!.participationId, { surveyAllTiers: true });
+    });
+    expect(await f.admin.mutation(api.fairInteractionsAdmin.upsertSurveyDraft, { eventModelId: f.starter.id, questions: [free] })).toMatchObject({ result: "created" });
   });
 
   test("a published version is never edited in place: a new structure is a new version and retires the old one", async () => {

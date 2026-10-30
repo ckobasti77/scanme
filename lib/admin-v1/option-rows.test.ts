@@ -30,7 +30,9 @@ describe("option rows", () => {
     expect(value.map((row) => row.id)).toEqual(["o2", "o3", "o1"]);
     value = addOptionRow(addOptionRow(value));
     expect(value).toHaveLength(5);
-    expect(addOptionRow(value)).toHaveLength(5);
+    // 30 Oct 2026: more than 5 options allowed, 12 is the bound.
+    for (let i = 0; i < 10; i += 1) value = addOptionRow(value);
+    expect(value).toHaveLength(12);
   });
 
   test("remove never goes below 2 rows", () => {
@@ -53,7 +55,8 @@ describe("option rows", () => {
   test("validation: at least 2, no empty rows, no duplicates regardless of case, spaces and diacritics", () => {
     expect(validateOptionRows(rows("Da", "Ne"))).toEqual([]);
     expect(validateOptionRows(rows("Da"))).toEqual([{ kind: "too_few", min: 2 }]);
-    expect(validateOptionRows(rows("A", "B", "C", "D", "E", "F"))).toEqual([{ kind: "too_many", max: 5 }]);
+    expect(validateOptionRows(rows("A", "B", "C", "D", "E", "F"))).toEqual([]);
+    expect(validateOptionRows(rows(..."ABCDEFGHIJKLM".split("")))).toEqual([{ kind: "too_many", max: 12 }]);
     expect(validateOptionRows(rows("Da", "  "))).toEqual([{ kind: "empty", rowIds: ["o2"] }]);
     const duplicate = validateOptionRows(rows("Električni", " elektricni ", "Hibrid"));
     expect(duplicate).toEqual([{ kind: "duplicate", rowIds: ["o1", "o2"] }]);

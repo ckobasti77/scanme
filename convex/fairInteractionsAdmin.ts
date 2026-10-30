@@ -21,6 +21,7 @@ import {
   fairModelSurveys,
   fairModelTierAt,
   fairRatingSummary,
+  fairSurveyAllowed,
 } from "./lib/fairInteractions";
 import { syncFairSponsoredSnapshot } from "./lib/fairSponsored";
 import {
@@ -293,17 +294,19 @@ function normalizeSurveyQuestions(questions: ReadonlyArray<Doc<"fairSurveys">["q
       orders.add(question.order);
       const prompt = question.prompt.trim();
       if (!prompt || prompt.length > 300) fairAdminError("FAIR_SURVEY_INVALID", { field: "questions.prompt" });
-      const options = question.kind === "yes_no"
+      const options = question.kind !== "single_choice"
         ? (question.options.length ? fairAdminError("FAIR_SURVEY_INVALID", { field: "questions.options" }) : [])
         : normalizeOptions(question.options, FAIR_AUDIENCE_OPTIONS_MIN, FAIR_SURVEY_OPTIONS_MAX, "FAIR_SURVEY_INVALID");
-      return { id, prompt, kind: question.kind, options, required: question.required, order: question.order };
+      const writeInLabel = question.writeInLabel?.trim();
+      if (writeInLabel !== undefined && (question.kind !== "single_choice" || !writeInLabel || writeInLabel.length > 120)) fairAdminError("FAIR_SURVEY_INVALID", { field: "questions.writeInLabel" });
+      return { id, prompt, kind: question.kind, options, ...(writeInLabel ? { writeInLabel } : {}), required: question.required, order: question.order };
     })
     .sort((a, b) => a.order - b.order);
 }
 
 async function requireSurveyModel(ctx: MutationCtx, eventModelId: Id<"fairEventModels">, now: number) {
   const model = await requireModel(ctx, eventModelId);
-  if (!getFairEntitlements(await fairModelTierAt(ctx, model, now)).survey) fairAdminError("FAIR_FEATURE_NOT_ENTITLED", { feature: "survey" });
+  if (!(await fairSurveyAllowed(ctx, model, await fairModelTierAt(ctx, model, now)))) fairAdminError("FAIR_FEATURE_NOT_ENTITLED", { feature: "survey" });
   return model;
 }
 

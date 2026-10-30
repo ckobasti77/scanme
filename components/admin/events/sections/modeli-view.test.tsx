@@ -3,23 +3,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import type { CatalogView, ModelView, QrDetailView } from "@/components/admin/admin-events";
 import { AdminHierarchyPicker, AdminViewModeOverride } from "@/components/admin/admin-ui";
-import { AdminSidebarView } from "@/components/admin/frame/admin-sidebar-view";
-import { modelName } from "@/components/admin/events/event-ui";
 import { buildHierarchy } from "@/lib/admin-v1/hierarchy";
 import { eventDetailHref, eventSectionHref, interactionExhibitorHref } from "@/lib/admin-v1/event-sections";
-import { modelHierarchy, modelListQuery } from "@/lib/admin-v1/model-filters";
+import { modelListQuery } from "@/lib/admin-v1/model-filters";
 import type { AdminQueryState } from "@/lib/admin-v1/query-state";
-import { resolveAdminSidebar } from "@/lib/admin-v2/sidebar/registry";
-import type { SidebarState } from "@/lib/admin-v2/sidebar/types";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
-import { EventModelDetailView, EventModelsView, modelsSidebarLive, ModelStickerForm, type ModelDetailSummary } from "./modeli-view";
+import { EventModelDetailView, EventModelsView, ModelStickerForm, type ModelDetailSummary } from "./modeli-view";
 
-// Admin UX A3 / ADMIN v2 — Modeli list (the filters are in the sidebar of the
-// admin frame: one search, izlagač → brend, facets, chips; the list keeps the
-// groups, Tabela/Kartice and the empty states) and the model detail
-// (prethodni / sledeći in the filter, linked summaries). SSR markup, like the
-// other admin views.
+// Admin UX A3 — Modeli list (hierarchy filter, search, facets, chips, groups,
+// Tabela/Kartice, empty states) and the model detail (prethodni / sledeći in
+// the filter, linked summaries). SSR markup, like the other admin views.
 
 // The shared next/link stub drops every prop except href/className; the
 // accessible names of the links are checked here.
@@ -69,65 +63,45 @@ function listHtml(query: AdminQueryState, view?: "tabela" | "kartice", source: C
   return renderToStaticMarkup(view ? <AdminViewModeOverride value={view}>{element}</AdminViewModeOverride> : element);
 }
 
-/** The sidebar of the Modeli page as the frame renders it: the registry configuration with what the list sends. */
-function sidebarHtml(query: AdminQueryState) {
-  const hierarchy = modelHierarchy(catalog.models, modelName);
-  return renderToStaticMarkup(
-    <AdminSidebarView config={resolveAdminSidebar(`${BASE}/modeli`)} live={modelsSidebarLive(catalog.models, hierarchy, query)} state={query as SidebarState} onPatch={() => undefined} />,
-  );
-}
-
-/** A radio row of a sidebar group: the option and the number next to it. */
-const option = (label: string, count: number) => new RegExp(`>${label}</span><span[^>]*>${count}</span>`);
+const selects = (html: string) => html.match(/<select[\s\S]*?<\/select>/g) ?? [];
 
 describe("A3 Modeli list", () => {
-  test("ADMIN v2: the list has no filter block above it; the N od M counter stays", () => {
+  test("filter bar: hierarchy (izlagač and brend with counts, a model combobox), search, facets and the N od M counter", () => {
     const html = listHtml({});
-    expect(html).not.toContain('data-admin-primitive="filter-bar"');
-    expect(html).not.toContain("<select");
-    expect(html).not.toContain('type="search"');
+    expect(html).toContain(`aria-label="${list.hierarchyLabel}"`);
+    expect(html).toContain(list.searchLabel);
+    expect(html).toContain(`placeholder="${list.searchPlaceholder}"`);
+    for (const label of [adminUiSr.hierarchy.exhibitor, adminUiSr.hierarchy.brand, adminUiSr.hierarchy.model, ...Object.values(list.facets)]) expect(html).toContain(label);
+    expect(html).toContain(">TEST Izlagač A (3)</option>");
+    expect(html).toContain(">TEST Brend b3 (2)</option>");
+    expect(html).toContain('role="combobox"');
+    expect(html).toContain('role="listbox"');
+    expect(html).toContain(">Starter (3)</option>");
+    expect(html).toContain(">Ima greške (1)</option>");
     expect(html).toContain("6 od 6 modela");
   });
 
-  test("ADMIN v2 sidebar: one search, izlagač and brend with counts, the facets; no control lists the models", () => {
-    const html = sidebarHtml({});
-    expect(html).toContain(list.searchLabel);
-    expect(html).toContain(`placeholder="${list.searchPlaceholder}"`);
-    expect(html.match(/type="search"/g)).toHaveLength(1);
-    for (const label of [adminUiSr.hierarchy.exhibitor, adminUiSr.hierarchy.brand, ...Object.values(list.facets)]) expect(html).toContain(`>${label}</span>`);
-    expect(html).toMatch(option("TEST Izlagač A", 3));
-    expect(html).toMatch(option("TEST Brend b3", 2));
-    expect(html).toMatch(option("Starter", 3));
-    expect(html).toMatch(option("Ima greške", 1));
-    // Seven groups, each a toggle of the accordion; none is open before a click.
-    // X6 (RX V2) — and one more toggle: the section navigation is the folded group „Sekcija“ on a page with filters.
-    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(8);
-    expect(html).not.toContain('aria-expanded="true"');
-    for (const row of catalog.models) expect(html).not.toContain(row.displayName);
+  test("there is no drop-down list of models: models are found in the combobox, not in a <select>", () => {
+    const html = listHtml({});
+    expect(selects(html).length).toBeGreaterThan(0);
+    for (const select of selects(html)) {
+      for (const row of catalog.models) expect(select).not.toContain(row.displayName);
+    }
+    // The combobox offers every model of the current exhibitor/brand by typing.
+    expect(html).toMatch(/role="option"[^>]*>.*TEST m1/);
   });
 
-  test("an exhibitor narrows the brands; chips and Očisti sve appear in the sidebar; links keep the filters", () => {
-    const query: AdminQueryState = { izlagac: "a", paket: "starter" };
-    const html = listHtml(query);
+  test("an exhibitor narrows brands and models; chips and Očisti appear; links keep the filters", () => {
+    const html = listHtml({ izlagac: "a", paket: "starter" });
     expect(html).toContain("2 od 6 modela");
+    expect(html).not.toContain(">TEST Brend b3");
+    expect(html).toContain(">TEST Brend b1 (1)</option>");
+    expect(html).toContain(`${adminEventsSr.colExhibitor}: TEST Izlagač A`);
+    expect(html).toContain(`${list.facets.paket}: Starter`);
+    expect(html).toContain(`>${adminUiSr.filters.clear}</button>`);
+    expect(html).toContain(`aria-label="${adminUiSr.filters.removeChip.replace("{label}", `${list.facets.paket}: Starter`)}"`);
     expect(html).not.toContain("TEST m4");
     expect(html).toContain(`href="${BASE}/modeli/m2?izlagac=a&amp;paket=starter"`);
-    const sidebar = sidebarHtml(query);
-    expect(sidebar).not.toContain("TEST Brend b3");
-    expect(sidebar).toMatch(option("TEST Brend b1", 1));
-    expect(sidebar).toContain(`${adminUiSr.hierarchy.exhibitor}: TEST Izlagač A`);
-    expect(sidebar).toContain(`aria-label="${adminUiSr.filters.removeChip.replace("{label}", `${list.facets.paket}: Starter`)}"`);
-    expect(sidebar).toContain(`>${adminUiSr.filters.clearAll}</button>`);
-    // The header of a group names the current choice.
-    expect(sidebar).toContain(`>${list.facets.paket}</span><span class="text-[var(--admin-text-muted)]"> · Starter</span>`);
-  });
-
-  test("the dependent filters: a brand sets its exhibitor, clearing the exhibitor clears the brand", () => {
-    const hierarchy = modelHierarchy(catalog.models, modelName);
-    const { intercept } = modelsSidebarLive(catalog.models, hierarchy, {});
-    expect(intercept?.({ brend: "b3" }, {})).toEqual({ brend: "b3", izlagac: "b", model: null });
-    expect(intercept?.({ izlagac: null }, { izlagac: "b", brend: "b3" })).toEqual({ izlagac: null, brend: null, model: null });
-    expect(intercept?.({ paket: "starter" }, { izlagac: "b" })).toEqual({ paket: "starter" });
   });
 
   test("search narrows the list; no match shows a next step", () => {
@@ -136,12 +110,7 @@ describe("A3 Modeli list", () => {
     const none = listHtml({ q: "nepostojeci" });
     expect(none).toContain(list.noMatchTitle);
     expect(none).toContain(`>${adminUiSr.filters.clear}</button>`);
-    expect(sidebarHtml({ q: "nepostojeci" })).toContain(`${list.searchLabel}: nepostojeci`);
-  });
-
-  test("ADMIN v3 V1: the list rows enter as rows in both views (table body and cards)", () => {
-    expect(listHtml({}, "tabela")).toContain('<tbody data-admin-reveal="rows"');
-    expect(listHtml({}, "kartice")).toContain('data-admin-reveal="rows"');
+    expect(none).toContain(list.searchChip.replace("{q}", "nepostojeci"));
   });
 
   test("Tabela is grouped by izlagač · brend with the A3 columns (SMQ and code, nema, problems, photo)", () => {
@@ -160,16 +129,6 @@ describe("A3 Modeli list", () => {
     expect(html).toContain(`aria-label="${list.openAria.replace("{model}", "TEST m1")}"`);
     // One brand selected → one group → no group heading.
     expect(listHtml({ brend: "b3" }, "tabela")).not.toContain('scope="rowgroup"');
-  });
-
-  test("N12 — the Model column keeps a minimum width and Brend shows only from a 72 rem list", () => {
-    const html = listHtml({}, "tabela");
-    const headers = html.split("<th").slice(1).map((cell) => cell.slice(0, cell.indexOf("</th>")));
-    const header = (label: string) => headers.find((cell) => cell.includes(label)) ?? "";
-    expect(header(adminEventsSr.colModel)).toContain("width:10.5rem");
-    expect(header(adminEventsSr.colBrand)).toContain("hidden @6xl:table-cell");
-    expect(header(adminEventsSr.colModel)).not.toContain("hidden @");
-    expect(html).toContain("min-w-[10.5rem]");
   });
 
   test("Kartice show a photo fallback, the same badges and the open action", () => {
@@ -264,12 +223,6 @@ describe("A3 model detail", () => {
     expect(starter).toContain(detail.advancedOnly);
     expect(starter).toContain(`${detail.formTestDrive}: ${detail.formNotInPackage}`);
   });
-
-  test("ADMIN v3 V1: the detail sections are cards and the linked summaries are rows", () => {
-    const html = detailHtml("m1", {});
-    expect(html).toContain('data-admin-reveal="card"');
-    expect(html).toMatch(/<ul data-admin-reveal="rows" class="grid gap-3"><li /);
-  });
 });
 
 describe("A3 AdminHierarchyPicker select mode", () => {
@@ -278,7 +231,7 @@ describe("A3 AdminHierarchyPicker select mode", () => {
       { id: "m1", label: "TEST m1", exhibitorId: "a", exhibitorLabel: "TEST Izlagač A", brandId: "b1", brandLabel: "TEST Brend b1" },
       { id: "m2", label: "TEST m2", exhibitorId: "a", exhibitorLabel: "TEST Izlagač A", brandId: "b1", brandLabel: "TEST Brend b1", disabledReason: "TEST samo Napredni" },
     ]);
-    const html = renderToStaticMarkup(<AdminHierarchyPicker data={data} value={{}} onChange={() => undefined} label="TEST model" required />);
+    const html = renderToStaticMarkup(<AdminHierarchyPicker mode="select" data={data} value={{}} onChange={() => undefined} label="TEST model" required />);
     expect(html).toContain('role="combobox"');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('aria-required="true"');

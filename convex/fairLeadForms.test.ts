@@ -197,7 +197,8 @@ describe("A7 lead forms per exhibitor (ADMIN-UX §6 Forme, MASTER §8)", () => {
     await setDefault(f, f.a.participationId, "test_drive", { enabled: true, contactRequirement: "both", preferredContact: "phone" });
     await apply(f, f.a.participationId);
 
-    expect(await form(f, f.models.advanced, "test_drive")).toEqual({
+    // 30 Oct 2026: the test drive form also lists the exhibitor's models (modelChoices).
+    expect(await form(f, f.models.advanced, "test_drive")).toMatchObject({
       eventModelId: f.models.advanced, kind: "test_drive", state: "open", contactRequirement: "both", preferredContact: "phone",
       consent: { version: 1, text: "TEST saglasnost: ScanMe prima podatke i prosleđuje ih izlagaču TEST izlagač TA." },
     });

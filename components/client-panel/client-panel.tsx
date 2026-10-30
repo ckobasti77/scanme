@@ -15,7 +15,6 @@ import { ClientWordmark } from "@/components/client-panel/client-wordmark";
 import { ClientPanelChat } from "@/components/client-panel/client-panel-chat";
 import { VenuePanelSection } from "@/components/client-panel/venue-panel-section";
 import { MemoriesPanelSection } from "@/components/client-panel/memories-panel-section";
-import { MenuUlaz } from "@/components/menu/panel/ulaz";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MetricsBarChart } from "@/components/metrics-bar-chart";
 import { MetricsPeriodSelect } from "@/components/metrics-period-select";
@@ -26,7 +25,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type { MetricsRange } from "@/convex/lib/metrics";
 import { venuePanelSr } from "@/lib/i18n/sr/venue-panel";
 import { memoriesPanelSr } from "@/lib/i18n/sr/memories-panel";
-import { meniUlazMesto, meniUlazStanje } from "@/lib/menu/client-panel-entry";
 import { useRetainedQueryResult } from "@/lib/use-retained-query-result";
 
 const numberFormatter = new Intl.NumberFormat("sr-Latn-RS");
@@ -65,10 +63,6 @@ function ServicesPanel({ slug }: { slug: string }) {
   // TASK-18 — same additive, self-gating shape for Memories (a celebration
   // tenant reaches its panel through this query alone).
   const memories = useQuery(api.clientPanel.memoriesPanel, { slug });
-  // K08 — ScanMe Menu opens its own shell (/[slug]/client-panel/meni); here it
-  // is one extra entry block, self-gating like Venue/Memories ("none" for a
-  // venue without ScanMe Menu, so every other panel renders as before).
-  const menuEntry = useQuery(api.menuPanel.entry, { slug });
   const { signOut } = useAuthActions();
   const [selectedTab, setSelectedTab] = useState<ServiceTab | null>(null);
 
@@ -76,12 +70,6 @@ function ServicesPanel({ slug }: { slug: string }) {
 
   const venueSection = venue?.status === "available" ? venue : null;
   const memoriesSection = memories?.status === "available" ? memories : null;
-  const menuEntryPlace = meniUlazMesto({
-    overview: overview.status,
-    venue: Boolean(venueSection),
-    memories: Boolean(memoriesSection),
-    meni: meniUlazStanje(menuEntry),
-  });
 
   if (overview.status === "forbidden") {
     // A tenant that owns only Venue and/or Memories (no legacy Google Review
@@ -91,24 +79,12 @@ function ServicesPanel({ slug }: { slug: string }) {
     if (venueSection || memoriesSection) {
       return (
         <div className="grid gap-8">
-          {menuEntryPlace === "iznad-dodatnih" ? <MenuUlaz slug={slug} /> : null}
           <ExtraServicesOnly
             slug={slug}
             venueSection={venueSection}
             memoriesSection={memoriesSection}
             onSignOut={() => void signOut()}
           />
-          <ClientPanelChat slug={slug} />
-        </div>
-      );
-    }
-    // A venue with only ScanMe Menu: wait for its answer instead of flashing
-    // "no access", then show the entry in place of the access-denied screen.
-    if (menuEntryPlace === "ceka") return <PanelLoading />;
-    if (menuEntryPlace === "samo-meni") {
-      return (
-        <div className="grid gap-8">
-          <MenuUlaz slug={slug} naslovNivo={1} />
           <ClientPanelChat slug={slug} />
         </div>
       );
@@ -137,7 +113,6 @@ function ServicesPanel({ slug }: { slug: string }) {
 
   return (
     <div className="grid gap-8">
-    {menuEntryPlace === "iznad-tabova" ? <MenuUlaz slug={slug} /> : null}
     <Tabs value={tab} onValueChange={(value) => setSelectedTab(value as ServiceTab)}>
       <div className="mb-7 flex justify-end border-b border-border pb-5">
         <TabsList className="h-auto min-h-11 w-full flex-wrap sm:w-auto">

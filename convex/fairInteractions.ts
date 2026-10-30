@@ -26,6 +26,7 @@ import {
   fairPassportRequiredMembers,
   fairPublishedPassportForModel,
   fairQuestionOpen,
+  fairSurveyAllowed,
   fairSurveyAnswersProblem,
   fairVisitorSurveyResponse,
   fairVoteThreshold,
@@ -124,7 +125,7 @@ export const getMyModelState = query({
     const published = surveys.find((survey) => survey.status === "published");
     const survey: MyModelState["survey"] = answered
       ? { state: "submitted", surveyId: answered.survey._id, version: answered.survey.version, submittedAt: answered.response.submittedAt }
-      : published && getFairEntitlements(model.packageTier).survey
+      : published && (await fairSurveyAllowed(ctx, model, model.packageTier))
         ? { state: "open", surveyId: published._id, version: published.version }
         : { state: "none" };
 
@@ -294,7 +295,7 @@ export const submitSurvey = mutation({
     if (!survey || survey.status !== "published") fairInteractionError("SURVEY_NOT_OPEN");
     const { model } = await requireInteractiveModel(ctx, survey.eventModelId, now);
     const tier = await fairModelTierAt(ctx, model, now);
-    if (!getFairEntitlements(tier).survey) fairInteractionError("FEATURE_NOT_ENTITLED");
+    if (!(await fairSurveyAllowed(ctx, model, tier))) fairInteractionError("FEATURE_NOT_ENTITLED");
     const problem = fairSurveyAnswersProblem(survey, args.answers);
     if (problem) fairInteractionError(problem, { field: "answers" });
 
@@ -309,7 +310,7 @@ export const submitSurvey = mutation({
       eventId: model.eventId,
       eventModelId: model._id,
       surveyId: survey._id,
-      answers: args.answers.map((answer) => ({ questionId: answer.questionId, value: answer.value })),
+      answers: args.answers.map((answer) => ({ questionId: answer.questionId, value: answer.value, ...(answer.text !== undefined ? { text: answer.text } : {}) })),
       ...((await fairSessionAdminUserId(ctx)) !== null ? { isAdminExcluded: true } : {}),
       submittedAt: now,
     });

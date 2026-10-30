@@ -24,17 +24,18 @@ import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminS
 import {
   AdminDataCard,
   AdminDataView,
+  AdminFilterBar,
   AdminHierarchyPicker,
   adminFieldClass,
   adminPrimaryButtonClass,
   adminSecondaryButtonClass,
   adminTouchFieldClass,
   type AdminColumn,
+  type AdminFilterChip,
 } from "@/components/admin/admin-ui";
 import { BackLink, eventDateTime, Fact, Feedback, LoadMore, Meta, modelName, Section, type EventMessage } from "@/components/admin/events/event-ui";
-import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import { FairQrCodeImage, QrCodeImage, useFairQrUrl } from "@/components/admin/events/qr-code-image";
-import { buildHierarchy, type HierarchyData } from "@/lib/admin-v1/hierarchy";
+import { buildHierarchy, type HierarchyData, type HierarchyValue } from "@/lib/admin-v1/hierarchy";
 import { modelHierarchy } from "@/lib/admin-v1/model-filters";
 import { parseQrBulkText } from "@/lib/admin-v1/qr-bulk";
 import {
@@ -52,8 +53,6 @@ import {
 import { QR_FLOW_IDLE, qrFlowProblem, qrFlowReducer, type QrActiveFlow, type QrFlowAction } from "@/lib/admin-v1/qr-flow";
 import { isQrConflict } from "@/lib/admin-v1/qr-link";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
-import { hierarchyIntercept, hierarchySidebarOptions } from "@/lib/admin-v2/sidebar/hierarchy";
-import type { SidebarLive } from "@/lib/admin-v2/sidebar/types";
 import { FAIR_QR_BULK_MAX_ROWS, FAIR_QR_REASON_MAX_LENGTH, FAIR_QR_REASON_MIN_LENGTH } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
@@ -142,37 +141,55 @@ export type EventQrViewProps = {
   actions: Pick<EventsActions, "resolveTest">;
 };
 
-/** What the QR list sends to the sidebar: the options of izlagač, brend, model and stanje with the number of codes each would show. */
-export function qrSidebarLive(rows: readonly InventoryRowView[], modelsById: ReadonlyMap<string, ModelView>, hierarchy: HierarchyData, query: AdminQueryState): SidebarLive {
-  const counts = qrStateCounts(rows, modelsById, query);
-  const counted = qrHierarchyCountedIds(rows, modelsById, query);
-  return {
-    options: {
-      ...hierarchySidebarOptions(hierarchy, query, counted),
-      stanje: QR_STATES.map((state) => ({ value: state, label: list.states[state], count: counts[state] })),
-    },
-    intercept: hierarchyIntercept(hierarchy),
-  };
-}
-
 export function EventQrView({ catalog, inventory, stats, query, onQueryChange, qrHref, modelHref, bulk, actions }: EventQrViewProps) {
-  const rows = inventory.rows;
   const modelsById = useMemo(() => new Map(catalog.models.map((model) => [model.id, model])), [catalog.models]);
   const hierarchy = useMemo(() => modelHierarchy(catalog.models, modelName), [catalog.models]);
   const columns = useMemo(() => qrColumns(modelsById, modelHref, stats), [modelsById, modelHref, stats]);
-  const sidebar = useMemo(() => qrSidebarLive(rows, modelsById, hierarchy, query), [rows, modelsById, hierarchy, query]);
-  useAdminSidebarLive(catalog.qrConfigured ? sidebar : null);
 
-  if (!catalog.qrConfigured) return <AdminPanel><AdminEmptyState title={dict.qrNotConfiguredTitle} body={dict.qrNotConfigured} /></AdminPanel>;
+  if (!catalog.qrConfigured) return <AdminPanel><AdminEmptyState title={dict.sectionLabels.qr} body={dict.qrNotConfigured} /></AdminPanel>;
 
+  const rows = inventory.rows;
   const filtered = applyQrFilters(rows, modelsById, query);
+  const counts = qrStateCounts(rows, modelsById, query);
+  const counted = qrHierarchyCountedIds(rows, modelsById, query);
+  const value: HierarchyValue = { exhibitorId: query.izlagac, brandId: query.brend, modelId: query.model };
   const typedCode = qrCodeFromSearch(query.q);
 
+  const chips: AdminFilterChip[] = [];
+  const exhibitor = hierarchy.exhibitors.find((row) => row.id === query.izlagac);
+  const brand = hierarchy.brands.find((row) => row.id === query.brend);
+  const model = hierarchy.models.find((row) => row.id === query.model);
+  if (exhibitor) chips.push({ id: "izlagac", label: `${dict.colExhibitor}: ${exhibitor.label}`, onRemove: () => onQueryChange({ izlagac: null, brend: null, model: null }) });
+  if (brand) chips.push({ id: "brend", label: `${dict.colBrand}: ${brand.label}`, onRemove: () => onQueryChange({ brend: null, model: null }) });
+  if (model) chips.push({ id: "model", label: `${dict.colModel}: ${model.label}`, onRemove: () => onQueryChange({ model: null }) });
+  if (query.q) chips.push({ id: "q", label: fmt(list.searchChip, { q: query.q }), onRemove: () => onQueryChange({ q: null }) });
+  if (query.stanje && (QR_STATES as readonly string[]).includes(query.stanje)) {
+    chips.push({ id: "stanje", label: `${list.facetState}: ${list.states[query.stanje as QrStateKey]}`, onRemove: () => onQueryChange({ stanje: null }) });
+  }
   const clear = () => onQueryChange(clearQrFiltersPatch());
 
   return (
     <div className="grid min-w-0 gap-4">
-      <p data-admin-reveal="text" className="text-sm text-[var(--admin-text-muted)]">{dict.qrSubtitle}</p>
+      <p className="text-sm text-[var(--admin-text-muted)]">{dict.qrSubtitle}</p>
+      <AdminFilterBar
+        label={list.hierarchyLabel}
+        search={{ value: query.q ?? "", onChange: (q) => onQueryChange({ q: q || null }), label: list.searchLabel, placeholder: list.searchPlaceholder, touch: true }}
+        hierarchy={
+          <AdminHierarchyPicker
+            touch
+            data={hierarchy}
+            value={value}
+            counted={counted}
+            label={list.hierarchyLabel}
+            onChange={(next) => onQueryChange({ izlagac: next.exhibitorId ?? null, brend: next.brandId ?? null, model: next.modelId ?? null })}
+          />
+        }
+        facets={[{ id: "stanje", label: list.facetState, options: QR_STATES.map((state) => ({ value: state, label: list.states[state], count: counts[state] })) }]}
+        values={query}
+        onFacetChange={(id, next) => onQueryChange({ [id]: next ?? null })}
+        chips={chips}
+        onClear={clear}
+      />
       {typedCode ? (
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <Link href={qrHref(typedCode)} className={cn(adminSecondaryButtonClass, "min-h-9 px-3")}>
@@ -181,53 +198,55 @@ export function EventQrView({ catalog, inventory, stats, query, onQueryChange, q
           <span className="text-xs text-[var(--admin-text-muted)]">{list.openCodeHint}</span>
         </p>
       ) : null}
-      <AdminDataView
-        listKey="dogadjaji.qr"
-        caption={dict.sectionLabels.qr}
-        rows={inventory.status === "loading" ? undefined : filtered}
-        loadingLabel={dict.loading}
-        getRowId={(row) => row.cardId}
-        columns={columns}
-        tableClassName="min-w-[56rem]"
-        toolbar={
-          <div className="grid gap-0.5">
-            <p className="text-sm font-semibold" role="status" aria-live="polite">{fmt(list.count, { shown: filtered.length, total: rows.length })}</p>
-            {inventory.canLoadMore ? <Meta>{fmt(list.partial, { loaded: rows.length })}</Meta> : null}
-          </div>
-        }
-        empty={rows.length ? (
-          <div className="grid justify-items-center gap-2 pb-4">
-            <AdminEmptyState title={list.noMatchTitle} body={list.noMatchBody} className="min-h-40" />
-            <button type="button" onClick={clear} className={adminSecondaryButtonClass}>{adminUiSr.filters.clear}</button>
-          </div>
-        ) : { title: dict.sectionLabels.qr, body: dict.qrEmpty }}
-        renderCard={(row) => {
-          const rowModel = qrRowModel(row, modelsById);
-          const rowStats = stats ? stats.get(row.cardId) ?? null : undefined;
-          // Under the title: the codes the title does not show (SMQ and resolver code).
-          const codes = [qrPrintedLabel(row) ? row.smqCode : null, row.smqCode || qrPrintedLabel(row) ? row.resolverCode : null].filter(Boolean).join(" · ");
-          return (
-            <AdminDataCard
-              title={<span className="font-mono text-lg">{codeTitle(row)}</span>}
-              subtitle={codes ? <span className="font-mono">{codes}</span> : undefined}
-              aside={<FairQrCodeImage resolverCode={row.resolverCode} label={fmt(list.qrAria, { code: codeTitle(row) })} className="size-24 shrink-0" />}
-              badges={<QrStateBadge state={qrStateOf(row)} />}
-              fields={[
-                { label: list.colModel, value: <QrModelCell row={row} model={rowModel} modelHref={modelHref} /> },
-                { label: list.colScans, value: <ScansCell stats={rowStats} /> },
-                { label: list.colLastScan, value: lastScanText(rowStats) },
-              ]}
-            />
-          );
-        }}
-        rowActions={(row) => (
-          <Link href={qrHref(row.resolverCode)} aria-label={fmt(list.manageAria, { code: codeTitle(row) })} className={cn(adminSecondaryButtonClass, "min-h-9 px-3")}>
-            {list.manage}
-          </Link>
-        )}
-        footer={<LoadMore list={inventory} />}
-      />
-      <p data-admin-reveal="text" className="text-xs text-[var(--admin-text-muted)]">{list.statsNote}</p>
+      <Section title={dict.sectionLabels.qr}>
+        <AdminDataView
+          listKey="dogadjaji.qr"
+          caption={dict.sectionLabels.qr}
+          rows={inventory.status === "loading" ? undefined : filtered}
+          loadingLabel={dict.loading}
+          getRowId={(row) => row.cardId}
+          columns={columns}
+          tableClassName="min-w-[56rem]"
+          toolbar={
+            <div className="grid gap-0.5">
+              <p className="text-sm font-semibold" role="status" aria-live="polite">{fmt(list.count, { shown: filtered.length, total: rows.length })}</p>
+              {inventory.canLoadMore ? <Meta>{fmt(list.partial, { loaded: rows.length })}</Meta> : null}
+            </div>
+          }
+          empty={rows.length ? (
+            <div className="grid justify-items-center gap-2 pb-4">
+              <AdminEmptyState title={list.noMatchTitle} body={list.noMatchBody} className="min-h-40" />
+              <button type="button" onClick={clear} className={adminSecondaryButtonClass}>{adminUiSr.filters.clear}</button>
+            </div>
+          ) : { title: dict.sectionLabels.qr, body: dict.qrEmpty }}
+          renderCard={(row) => {
+            const rowModel = qrRowModel(row, modelsById);
+            const rowStats = stats ? stats.get(row.cardId) ?? null : undefined;
+            // Under the title: the codes the title does not show (SMQ and resolver code).
+            const codes = [qrPrintedLabel(row) ? row.smqCode : null, row.smqCode || qrPrintedLabel(row) ? row.resolverCode : null].filter(Boolean).join(" · ");
+            return (
+              <AdminDataCard
+                title={<span className="font-mono text-lg">{codeTitle(row)}</span>}
+                subtitle={codes ? <span className="font-mono">{codes}</span> : undefined}
+                aside={<FairQrCodeImage resolverCode={row.resolverCode} label={fmt(list.qrAria, { code: codeTitle(row) })} className="size-24 shrink-0" />}
+                badges={<QrStateBadge state={qrStateOf(row)} />}
+                fields={[
+                  { label: list.colModel, value: <QrModelCell row={row} model={rowModel} modelHref={modelHref} /> },
+                  { label: list.colScans, value: <ScansCell stats={rowStats} /> },
+                  { label: list.colLastScan, value: lastScanText(rowStats) },
+                ]}
+              />
+            );
+          }}
+          rowActions={(row) => (
+            <Link href={qrHref(row.resolverCode)} aria-label={fmt(list.manageAria, { code: codeTitle(row) })} className={cn(adminSecondaryButtonClass, "min-h-9 px-3")}>
+              {list.manage}
+            </Link>
+          )}
+          footer={<LoadMore list={inventory} />}
+        />
+        <p className="mt-3 text-xs text-[var(--admin-text-muted)]">{list.statsNote}</p>
+      </Section>
       <QrBulkPanel catalog={catalog} bulk={bulk} />
       <ResolvePanel actions={actions} />
     </div>
@@ -803,6 +822,7 @@ export function QrFlowForm({ flow, pickData, currentModelId, onTarget, onReason,
     <form className="grid gap-3 rounded-xl border border-[var(--admin-border)] p-4" onSubmit={(event) => { event.preventDefault(); onReview(); }}>
       {pickData ? (
         <AdminHierarchyPicker
+          mode="select"
           data={pickData}
           value={{ modelId: flow.targetModelId }}
           onChange={(next) => onTarget(next.modelId)}
@@ -854,7 +874,7 @@ function QrHistorySection({ detail, modelsById, modelHref }: { detail: QrDetailV
   return (
     <Section title={detailText.historyTitle}>
       {detail.history.length ? (
-        <ol data-admin-reveal="rows" className="grid gap-3">
+        <ol className="grid gap-3">
           {detail.history.map((row) => {
             const model = row.sameEvent ? modelsById.get(row.eventModelId) ?? null : null;
             const label = model ? modelName(model) : row.modelLabel ?? detailText.historyUnknownModel;

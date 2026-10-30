@@ -16,7 +16,7 @@ import {
   type FairSponsoredRotationView,
 } from "../lib/fair-contract";
 import { deriveFairCapabilities, getFairEntitlements } from "../lib/fair-entitlements";
-import { fairAudienceResult, fairModelQuestions, fairPassportState, fairQuestionOpen, fairVoteThreshold } from "./lib/fairInteractions";
+import { fairAudienceResult, fairModelQuestions, fairPassportState, fairQuestionOpen, fairSurveyAllowed, fairVoteThreshold } from "./lib/fairInteractions";
 import { fairActiveConsent, fairExhibitorName, fairLeadConfig, fairLeadsEnabled, fairRenderConsentText } from "./lib/fairLeads";
 import { FAIR_SPONSORED_ITEMS_CAP, fairActiveSponsoredSnapshot, fairSponsoredItems, fairSponsoredVisual } from "./lib/fairSponsored";
 import {
@@ -196,6 +196,8 @@ function projector(ctx: QueryCtx) {
       displayName: model.displayName,
       ...(model.variant ? { variant: model.variant } : {}),
       priceText: model.priceText,
+      ...(model.priceSecondaryText ? { priceSecondaryText: model.priceSecondaryText } : {}),
+      ...(model.externalUrl ? { externalUrl: model.externalUrl } : {}),
       specificationGroups: specificationGroups(model.specifications),
       ...(photoUrl ? { photoUrl } : {}),
       capabilities: deriveFairCapabilities(model.packageTier, {
@@ -204,6 +206,7 @@ function projector(ctx: QueryCtx) {
         inPublishedSponsoredSnapshot: sponsoredIds.has(model._id),
         interestLeadEnabled: interest?.enabled === true,
         testDriveLeadEnabled: testDrive?.enabled === true,
+        surveyAllTiers: participationRow.surveyAllTiers === true,
       }),
     };
   };
@@ -435,7 +438,7 @@ export const getSurveyForModel = query({
   returns: v.union(fairSurveyView, v.null()),
   handler: async (ctx, args) => {
     const model = await publishedModel(ctx, args.eventModelId);
-    if (!model || !getFairEntitlements(model.packageTier).survey) return null;
+    if (!model || !(await fairSurveyAllowed(ctx, model, model.packageTier))) return null;
     const survey = await ctx.db
       .query("fairSurveys")
       .withIndex("by_eventModelId_and_status", (q) => q.eq("eventModelId", model._id).eq("status", "published"))
@@ -453,6 +456,7 @@ export const getSurveyForModel = query({
           prompt: question.prompt,
           kind: question.kind,
           options: [...question.options].sort((a, b) => a.order - b.order),
+          ...(question.writeInLabel ? { writeInLabel: question.writeInLabel } : {}),
           order: question.order,
         })),
     };
@@ -504,12 +508,31 @@ export const getLeadForm = query({
     const consent = await fairActiveConsent(ctx, model.eventId, args.kind);
     const exhibitorName = await fairExhibitorName(ctx, model.participationId);
     if (!consent || !exhibitorName) return { ...base, state: "consent_not_configured" };
+    // 30 Oct 2026: model selector (test drive everywhere, interest where the
+    // exhibitor has the extra fields), scanned model first, then sortOrder.
+    const participation = await ctx.db.get(model.participationId);
+    const extraFields = args.kind === "interest" && participation?.leadInterestExtraFields === true;
+    let modelChoices: Array<{ id: string; brandName: string; displayName: string }> | undefined;
+    if (args.kind === "test_drive" || extraFields) {
+      const siblings = (await ctx.db.query("fairEventModels").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", model.eventId)).take(200))
+        .filter((row) => row.participationId === model.participationId && row.status === "published")
+        .sort((a, b) => Number(b._id === model._id) - Number(a._id === model._id) || a.sortOrder - b.sortOrder);
+      if (siblings.length > 1) {
+        modelChoices = [];
+        for (const row of siblings) {
+          const brand = await ctx.db.get(row.brandId);
+          modelChoices.push({ id: row._id, brandName: brand?.name ?? "", displayName: row.variant ? `${row.displayName} ${row.variant}` : row.displayName });
+        }
+      }
+    }
     return {
       ...base,
       state: "open",
       contactRequirement: config.contactRequirement,
       ...(config.preferredContact ? { preferredContact: config.preferredContact } : {}),
       consent: { version: consent.version, text: fairRenderConsentText(consent.text, exhibitorName) },
+      ...(modelChoices ? { modelChoices } : {}),
+      ...(extraFields ? { extraFields } : {}),
     };
   },
 });

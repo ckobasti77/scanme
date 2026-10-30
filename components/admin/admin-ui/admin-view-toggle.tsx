@@ -2,7 +2,6 @@
 
 import { LayoutGrid, Table2 } from "lucide-react";
 import { useRef, type KeyboardEvent } from "react";
-import { adminSegmentOnClass } from "./admin-controls";
 import { nextRadioIndex, type AdminViewMode } from "@/lib/admin-v1/view-mode";
 import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
@@ -63,9 +62,9 @@ export function AdminViewToggle({
             onClick={() => onChange(option.mode)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              "inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-semibold whitespace-nowrap transition-colors lg:min-h-9 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))] motion-reduce:transition-none",
+              "inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))] motion-reduce:transition-none",
               checked
-                ? adminSegmentOnClass
+                ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]"
                 : "text-[var(--admin-text-muted)] hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)]",
             )}
           >

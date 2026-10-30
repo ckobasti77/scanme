@@ -76,7 +76,7 @@ import type { FairGarageDict, FairModelDict } from "@/lib/i18n/types";
 import { FairEventShell } from "../event-shell";
 import { FairBrandMark } from "./fair-brand-mark";
 import styles from "./fair-garage.module.css";
-import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
+import { AMF_PUBLIC_GATE_OPENS_AT, FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 
 type RefreshState = "idle" | "loading" | "ready" | "error";
 type PassportLoad = { state: "loading" | "error" | "ready"; value: FairPassportState | null };
@@ -92,14 +92,12 @@ const SPONSORED_INTERVAL_MS = 12_000;
 const LONG_PRESS_MS = 430;
 const LONG_PRESS_DRIFT_PX = 9;
 const MAX_SELECTED_MODELS = 5;
-const AUTO_MOTO_FEST_STARTS_AT = Date.parse("2026-10-30T10:00:00+01:00");
-
 function eventIsLocked(event: FairGarageEventView, now: number) {
   // Future-event locking is a production rule. In development we must be able
   // to enter both garages and exercise their fixtures before either fair opens.
   if (process.env.NODE_ENV !== "production") return false;
   if (event.publicSlug !== "auto-moto-fest-2026") return false;
-  return now < (event.event?.startsAt ?? AUTO_MOTO_FEST_STARTS_AT);
+  return now < AMF_PUBLIC_GATE_OPENS_AT;
 }
 
 function createClientRequestId() {

@@ -79,12 +79,3 @@ describe("A9 Brisanje podataka: countdown, last dry run, what stays", () => {
     expect(renderToStaticMarkup(<AdminEventsRetention view={{ ...view, runs: [] }} actions={actions} />)).toContain(plan.lastDryRunNone);
   });
 });
-
-describe("ADMIN v3 V1 Brisanje", () => {
-  test("the subtitle is text, the purge preview is rows, the sections are cards", () => {
-    const markup = renderToStaticMarkup(<AdminEventsRetention view={view} actions={actions} />);
-    expect(markup).toContain('<p data-admin-reveal="text"');
-    expect(markup).toContain('<ul data-admin-reveal="rows" class="mt-4 grid divide-y');
-    expect(markup).toContain('data-admin-reveal="card"');
-  });
-});

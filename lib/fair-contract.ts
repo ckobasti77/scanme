@@ -43,8 +43,14 @@ export type FairQrAssignmentStatus = "assigned" | "released";
 export type FairAudienceQuestionStatus = "draft" | "published" | "closed";
 /** B0 placeholder: HANDOFF §5.3 names `fairSurveys.status` without values. */
 export type FairSurveyStatus = "draft" | "published" | "retired";
-export type FairSurveyQuestionKind = "yes_no" | "single_choice";
+/** 30 Oct 2026: `free_text` = a short typed answer (owner decision, AMF). */
+export type FairSurveyQuestionKind = "yes_no" | "single_choice" | "free_text";
 export type FairLeadKind = "interest" | "test_drive";
+/** 30 Oct 2026 (Nikom "Zainteresovan sam"): optional answers, labels in lib/i18n. */
+export type FairLeadPurchaseTiming = "now" | "within_3_months" | "in_3_6_months" | "just_researching";
+export type FairLeadFinancing = "cash" | "loan" | "leasing" | "undecided";
+export const FAIR_LEAD_PURCHASE_TIMINGS: readonly FairLeadPurchaseTiming[] = ["now", "within_3_months", "in_3_6_months", "just_researching"];
+export const FAIR_LEAD_FINANCINGS: readonly FairLeadFinancing[] = ["cash", "loan", "leasing", "undecided"];
 export type FairContactRequirement = "one_of" | "email" | "phone" | "both";
 export type FairPreferredContact = "email" | "phone";
 export type FairConsentStatus = "draft" | "active" | "retired";
@@ -155,13 +161,17 @@ export const FAIR_SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{24}$/;
 /**
  * Survey size. Owner decision 9 Oct 2026: the admin allows up to 10 questions
  * of up to 6 answers each; exhibitors are still told "5" (MASTER §9.2) and more
- * is agreed case by case. Glas publike keeps 2–5 answers.
+ * is agreed case by case. Owner decision 30 Oct 2026 (AMF): Glas publike and
+ * surveys keep every option the exhibitor gives, more than 5 included; long
+ * lists scroll. 12 is only a sanity bound.
  */
 export const FAIR_SURVEY_MAX_QUESTIONS = 10;
-export const FAIR_SURVEY_OPTIONS_MAX = 6;
-/** Audience question options: at least 2 (HANDOFF §5.3), at most 5 (DATA-INTAKE §6.5). */
+export const FAIR_SURVEY_OPTIONS_MAX = 12;
+/** Audience question options: at least 2 (HANDOFF §5.3); more than 5 allowed since 30 Oct 2026. */
 export const FAIR_AUDIENCE_OPTIONS_MIN = 2;
-export const FAIR_AUDIENCE_OPTIONS_MAX = 5;
+export const FAIR_AUDIENCE_OPTIONS_MAX = 12;
+/** 30 Oct 2026: a survey `free_text` answer and a write-in option's text. */
+export const FAIR_SURVEY_FREE_TEXT_MAX = 200;
 export const FAIR_RATING_MIN = 1;
 export const FAIR_RATING_MAX = 5;
 export const FAIR_RATING_STEP = 0.5;
@@ -353,6 +363,10 @@ export type FairPublicModel = {
   displayName: string;
   variant?: string;
   priceText: string;
+  /** AMF 30 Oct 2026: second price line, shown verbatim (e.g. "Osnovni model od 19.400 €"). */
+  priceSecondaryText?: string;
+  /** AMF 30 Oct 2026: the exhibitor's own page for this model (opens in a new tab). */
+  externalUrl?: string;
   /** Group and item order come from the server; never re-sort by label. */
   specificationGroups: FairSpecificationGroup[];
   photoUrl?: string;
@@ -507,8 +521,10 @@ export type FairSurveyQuestionView = {
   id: string;
   prompt: string;
   kind: FairSurveyQuestionKind;
-  /** Empty for `yes_no` (answers are "yes" / "no"). */
+  /** Empty for `yes_no` (answers are "yes" / "no") and `free_text`. */
   options: FairChoiceOptionView[];
+  /** `single_choice` only: a last "write your own" option ("Drugo – upiši sam"). */
+  writeInLabel?: string;
   order: number;
 };
 
@@ -521,8 +537,14 @@ export type FairSurveyView = {
   questions: FairSurveyQuestionView[];
 };
 
-/** `value` is "yes" | "no" for a `yes_no` question, else the chosen option id. */
-export type FairSurveyAnswerInput = { questionId: string; value: string };
+/**
+ * `value` is "yes" | "no" for a `yes_no` question, else the chosen option id;
+ * `free_text` and a write-in carry `value` FAIR_SURVEY_FREE_TEXT_VALUE /
+ * FAIR_SURVEY_WRITE_IN_VALUE plus the typed `text`.
+ */
+export type FairSurveyAnswerInput = { questionId: string; value: string; text?: string };
+export const FAIR_SURVEY_FREE_TEXT_VALUE = "free_text";
+export const FAIR_SURVEY_WRITE_IN_VALUE = "write_in";
 
 export type FairMySurveyState =
   | { state: "none" }
@@ -739,6 +761,10 @@ export type FairLeadFormView =
       preferredContact?: FairPreferredContact;
       /** The browser shows `text` and sends back `version` with `consentAccepted: true`. */
       consent: { version: number; text: string };
+      /** 30 Oct 2026: the exhibitor's published models (scanned first); absent with one model. */
+      modelChoices?: Array<{ id: string; brandName: string; displayName: string }>;
+      /** 30 Oct 2026 (Nikom): purchase timing + financing fields. */
+      extraFields?: boolean;
     };
 
 /** Body of `POST /api/fair/lead`. `submissionId` is the client idempotency key (FAIR_SUBMISSION_ID_PATTERN). */
@@ -751,6 +777,10 @@ export type FairLeadSubmitInput = {
   phone?: string;
   consentAccepted: boolean;
   consentVersion: number;
+  /** 30 Oct 2026: another model of the same exhibitor chosen in the form. */
+  selectedModelId?: string;
+  purchaseTiming?: FairLeadPurchaseTiming;
+  financing?: FairLeadFinancing;
 };
 
 /** `submitLead` result. Never carries a contact value. */
@@ -1196,6 +1226,15 @@ export function sortFairDashboardActions<T extends Pick<FairDashboardAction, "ru
  * which opens it) shows the map, `/sajam` opens the active fair's map, the nav
  * has Mapa, and the garage, passport and model page link to the map again.
  * Local development is enabled for the owner's map review (17 Oct 2026).
- * Production remains hidden until its exhibitor data is ready.
+ * 30 Oct 2026 (owner, AMF go-live): on in production; the AMF map is the
+ * app's start screen and the entrance panel QR opens it.
  */
-export const FAIR_PUBLIC_MAP_ENABLED = process.env.NODE_ENV === "development";
+export const FAIR_PUBLIC_MAP_ENABLED = true;
+
+/**
+ * 30 Oct 2026 (owner): the moment the public AMF pre-event screen ("Vidimo se
+ * uskoro") and the AMF garage lock end. Separate from the event's `startsAt`
+ * (10:00, the passport freeze), so the gate can open as soon as the go-live is
+ * verified. Model pages behind the stickers are never gated.
+ */
+export const AMF_PUBLIC_GATE_OPENS_AT = Date.parse("2026-10-30T10:00:00+01:00");

@@ -517,6 +517,8 @@ export type FairModelInput = {
   displayName: string;
   variant?: string;
   priceText?: string;
+  priceSecondaryText?: string;
+  externalUrl?: string;
   specifications: FairSpecificationInput[];
   photoUrl?: string;
   packageTier: FairPackageTier;
@@ -567,6 +569,10 @@ export async function upsertFairModel(ctx: MutationCtx, input: FairModelInput, a
   const { specifications, issues } = normalizeFairSpecifications(input.specifications, "specifications");
   throwFirstError(issues);
   if (input.photoUrl !== undefined && !isApprovedPhotoUrl(input.photoUrl)) fairAdminError("INVALID_INPUT", { field: "photoUrl" });
+  if (input.externalUrl !== undefined && !isSafePublicDestination(input.externalUrl)) fairAdminError("INVALID_INPUT", { field: "externalUrl" });
+  // Absent input keeps the stored value (the admin model form has no such fields).
+  const priceSecondaryText = input.priceSecondaryText === undefined ? existing?.priceSecondaryText : optionalText(input.priceSecondaryText, "priceSecondaryText", 120);
+  const externalUrl = input.externalUrl === undefined ? existing?.externalUrl : input.externalUrl;
   if (input.sortOrder !== undefined && !Number.isInteger(input.sortOrder)) fairAdminError("INVALID_INPUT", { field: "sortOrder" });
   const price = fairPriceText(input.priceText);
   const warnings: FairAdminIssue[] = [];
@@ -578,6 +584,8 @@ export async function upsertFairModel(ctx: MutationCtx, input: FairModelInput, a
     displayName,
     variant,
     priceText: price.priceText,
+    priceSecondaryText,
+    externalUrl,
     specifications,
     photoUrl: input.photoUrl,
     passportEligible: input.passportEligible,

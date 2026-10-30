@@ -38,15 +38,12 @@ export type EventSectionDef = {
   queryKeys: readonly AdminQueryKey[];
   /** `<path>/<id>` opens a detail page. */
   detail?: "model" | "qr" | "izlagac";
-  /** ADMIN v2 — false: a route that is not a navigation item (opened by a button in the page header). */
-  inNav?: false;
 };
 
 export const EVENT_SECTIONS: readonly EventSectionDef[] = [
   { path: "pregled", group: null, queryKeys: ["prikaz", "faza"] },
   // N2 — the sticker (`kod`, also what the /r/ admin shortcut opens), the exhibitor and the car being linked.
-  // ADMIN v2 — one entry only: the primary action of the page header, not also a navigation item.
-  { path: "povezi", group: null, queryKeys: ["kod", "izlagac", "model"], inNav: false },
+  { path: "povezi", group: null, queryKeys: ["kod", "izlagac", "model"] },
   { path: "modeli", group: "katalog", queryKeys: ["izlagac", "brend", "model", "q", "paket", "status", "problemi", "qr", "foto", "prikaz"], detail: "model" },
   { path: "qr", group: "katalog", queryKeys: ["izlagac", "brend", "model", "stanje", "q", "prikaz"], detail: "qr" },
   { path: "izlagaci", group: "katalog", queryKeys: ["q", "segment", "prikaz"] },
@@ -204,17 +201,13 @@ export function pickCurrentEvent<T extends EventForPick>(events: readonly T[], n
   return [...pool].sort((a, b) => b.endsAt - a.endsAt)[0];
 }
 
-/** ADMIN v2 — the heading of a section or its detail (the H1 of the screen); the area name when there is none. */
-export function eventSectionHeading(section: ResolvedEventSection | null) {
-  if (!section || section.kind !== "section") return dict.pageTitle;
-  if (!section.detailId) return dict.sectionLabels[section.path];
-  return section.path === "modeli" ? dict.detailModelTitle : section.path === "interakcije" ? dict.detailExhibitorTitle : dict.detailQrTitle;
-}
-
 /** Page title of a section or its detail (`generateMetadata`). */
 export function eventSectionTitle(section: ResolvedEventSection | null) {
   if (!section || section.kind !== "section") return dict.pageTitle;
-  return `${eventSectionHeading(section)} · ${dict.pageTitle}`;
+  const label = section.detailId
+    ? section.path === "modeli" ? dict.detailModelTitle : section.path === "interakcije" ? dict.detailExhibitorTitle : dict.detailQrTitle
+    : dict.sectionLabels[section.path];
+  return `${label} · ${dict.pageTitle}`;
 }
 
 const PARENT_LABELS: Record<EventSectionParent, string> = { leadovi: dict.navLeads };
@@ -226,7 +219,6 @@ const PARENT_LABELS: Record<EventSectionParent, string> = { leadovi: dict.navLea
 export function eventNavGroups(hrefFor: (path: EventSectionPath) => string, active: EventSectionPath | null): AdminSubnavGroup[] {
   const groups: AdminSubnavGroup[] = [];
   for (const section of EVENT_SECTIONS) {
-    if (section.inNav === false) continue;
     const groupId = section.group ?? "glavno";
     let group = groups.find((row) => row.id === groupId);
     if (!group) {

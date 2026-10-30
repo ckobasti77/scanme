@@ -94,8 +94,7 @@ export const AMF_ENTRANCE_ANCHORS: readonly Anchor[] = ([
   { key: "aodes", name: "AODES", aliases: ["Odes"], locationId: "ispred-s1-s2", x: 630, y: 890, rx: 145, ry: 100, area: "outdoor" },
   { key: "xtreme", name: "Xtreme Motors", locationId: "ispred-s3", x: 856, y: 880, rx: 128, ry: 81, area: "outdoor" },
   { key: "auto-happy-outdoor", name: "Auto Happy", locationId: "ispred-s4", x: 650, y: 1024, rx: 86, ry: 52, area: "outdoor" },
-  // S6 appears on the supplied newer plan but has no shared geometry ID yet.
-  { key: "swm", name: "SWM", locationId: null, x: 820, y: 1024, rx: 86, ry: 52, area: "outdoor" },
+  { key: "swm", name: "SWM", locationId: "ispred-s6", x: 820, y: 1024, rx: 86, ry: 52, area: "outdoor" },
   { key: "kia", name: "Kia", locationId: "ispred-s5", x: 990, y: 999, rx: 130, ry: 83, area: "outdoor" },
 ] satisfies Anchor[]).map((anchor) => {
   const footprint = anchor.area === "foyer" ? AMF_ENTRANCE_STANDS[anchor.key]?.map(amfEntrancePoint) : undefined;

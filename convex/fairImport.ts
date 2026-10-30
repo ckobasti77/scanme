@@ -65,6 +65,8 @@ const importModel = v.object({
   variant: v.optional(v.string()),
   slug: v.optional(v.string()),
   priceText: v.optional(v.string()),
+  priceSecondaryText: v.optional(v.string()),
+  externalUrl: v.optional(v.string()),
   packageTier: fairPackageTier,
   /** ISO 8601 with zone, e.g. 2026-10-09T09:00:00+02:00 (DATA-INTAKE §2). */
   packageActiveFrom: v.optional(v.string()),
@@ -301,6 +303,7 @@ export async function planFairImport(ctx: QueryCtx | MutationCtx, payload: FairI
         if (fairPriceText(m.priceText).missing) issues.push(fairIssue("warning", "FAIR_PRICE_MISSING", `${mPath}.priceText`));
         if (m.photoUrl === undefined) issues.push(fairIssue("warning", "FAIR_PHOTO_MISSING", `${mPath}.photoUrl`));
         else if (!isApprovedPhotoUrl(m.photoUrl)) issues.push(fairIssue("error", "INVALID_INPUT", `${mPath}.photoUrl`));
+        if (m.externalUrl !== undefined && !isApprovedPhotoUrl(m.externalUrl)) issues.push(fairIssue("error", "INVALID_INPUT", `${mPath}.externalUrl`));
         let packageActiveFrom: number | undefined;
         if (m.packageActiveFrom !== undefined) {
           packageActiveFrom = ISO_DATETIME.test(m.packageActiveFrom) ? Date.parse(m.packageActiveFrom) : Number.NaN;
@@ -433,6 +436,8 @@ export async function commitFairImport(ctx: MutationCtx, payload: FairImportPayl
           displayName: m.input.displayName,
           variant: m.input.variant,
           priceText: m.input.priceText,
+          priceSecondaryText: m.input.priceSecondaryText,
+          externalUrl: m.input.externalUrl,
           specifications: m.input.specifications,
           photoUrl: m.input.photoUrl,
           packageTier: m.input.packageTier,

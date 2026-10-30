@@ -282,11 +282,7 @@ export function compileMenuTokens(design: MenuDesign): Record<string, string> {
     [colors.page, colors.surface],
     4.5,
   );
-  const inputBorder = ensureContrast(
-    colors.border,
-    [colors.page, colors.surface],
-    3,
-  );
+  const inputBorder = ensureContrast(colors.border, colors.surface, 3);
   const values: TokenValues = {
     page: colors.page,
     surface: colors.surface,

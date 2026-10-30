@@ -4,39 +4,19 @@ import { usePaginatedQuery, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { Activity, ArrowRight, Search, X } from "lucide-react";
 import Link from "next/link";
-import { Component, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
-import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
-import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
+import { useSearchParams } from "next/navigation";
+import { Component, useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import {
-  actorOptions,
-  activityListArgs,
-  filterPreviewActivity,
-  filterPreviewResults,
-  PREVIEW_SCOPE,
-  scopePatch,
-  searchListArgs,
-  searchScope,
-  searchSidebarLive,
-  type ActivityCategory,
-  type SearchGroup,
-  type SearchScope,
-} from "@/lib/admin-v2/lists/search";
-import { SEARCH_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/search";
-import type { SidebarPatch, SidebarState } from "@/lib/admin-v2/sidebar/types";
-import { fmt } from "@/lib/i18n/format";
 import { adminSearchSr as dict } from "@/lib/i18n/sr/admin-search";
-import { adminUiSr as ui } from "@/lib/i18n/sr/admin-ui";
-import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus } from "./admin-primitives";
+import { cn } from "@/lib/utils";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel } from "./admin-primitives";
 
+type SearchGroup = "clients" | "venues" | "contacts" | "products" | "channels" | "orders";
+type ActivityCategory = "client" | "communication" | "task" | "order" | "finance" | "subscription" | "problem" | "product" | "service" | "support";
 type SearchResult = FunctionReturnType<typeof api.adminGlobalSearch.list>["page"][number];
-
-/** The typed text waits this long before it is written to the URL. */
-const SEARCH_DELAY_MS = 250;
+type Scope = { accountId?: Id<"accounts">; businessId?: Id<"businesses">; label: string };
 
 const GROUPS: { value: SearchGroup; label: string }[] = [
   { value: "clients", label: dict.groupClients },
@@ -232,32 +212,7 @@ function ResultCard({ result }: { result: SearchResult }) {
   );
 }
 
-type ScopePickerProps = { scope: SearchScope | null; onScope: (scope: SearchScope | null) => void };
-
-const suggestionClass = "block min-h-11 w-full min-w-0 rounded-lg px-2 py-1.5 text-left hover:bg-[var(--admin-surface-muted)] lg:min-h-9";
-
-/** The body of the sidebar group „Opseg“: the chosen scope with its remove button, or the picker (`children`). */
-function ScopeBody({ scope, onClear, children }: { scope: SearchScope | null; onClear: () => void; children: ReactNode }) {
-  return (
-    <div className="grid min-w-0 gap-2">
-      {scope ? (
-        <button
-          type="button"
-          onClick={onClear}
-          aria-label={fmt(ui.filters.removeChip, { label: scope.label })}
-          className="flex min-h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-left text-sm font-semibold lg:min-h-9"
-        >
-          <span className="min-w-0 truncate">{scope.label}</span>
-          <X className="size-4 shrink-0" aria-hidden="true" />
-        </button>
-      ) : children}
-      <p className="text-xs leading-4 text-[var(--admin-text-muted)]">{dict.scopeSuffixNote}</p>
-    </div>
-  );
-}
-
-/** Suggestions are in the flow of the group: a floating list would be clipped by the scroll of the sidebar. */
-function ScopePicker({ scope, onScope }: ScopePickerProps) {
+function ScopePicker({ scope, onScope }: { scope: Scope | null; onScope: (scope: Scope | null) => void }) {
   const [term, setTerm] = useState("");
   const deferred = useDeferredValue(term.trim());
   const groups = useQuery(api.adminGlobalSearch.preview, deferred ? { term: deferred, limitPerGroup: 4 } : "skip");
@@ -265,148 +220,94 @@ function ScopePicker({ scope, onScope }: ScopePickerProps) {
     () => (groups ?? []).flatMap((group) => group.results).filter((row) => row.group === "clients" || row.group === "venues"),
     [groups],
   );
+  if (scope) {
+    return (
+      <button type="button" onClick={() => onScope(null)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm font-semibold">
+        <span className="max-w-64 truncate">{scope.label}</span>
+        <X className="size-4" aria-hidden="true" />
+      </button>
+    );
+  }
   return (
-    <ScopeBody scope={scope} onClear={() => onScope(null)}>
-      <div className="grid min-w-0 gap-1">
-        <div className="relative min-w-0">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]" aria-hidden="true" />
-          <input
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-            placeholder={dict.scopePlaceholder}
-            aria-label={dict.scopePlaceholder}
-            autoComplete="off"
-            spellCheck={false}
-            className="min-h-11 w-full min-w-0 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] pr-3 pl-9 text-sm max-sm:text-base lg:min-h-9"
-          />
+    <div className="relative min-w-0 sm:max-w-sm">
+      <label className="relative block">
+        <span className="sr-only">{dict.groupClients}</span>
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]" aria-hidden="true" />
+        <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder={dict.scopePlaceholder} className="min-h-11 rounded-xl border-[var(--admin-border)] bg-[var(--admin-surface-strong)] pl-9" />
+      </label>
+      {deferred && options.length ? (
+        <div className="absolute top-full right-0 left-0 z-20 mt-1 max-h-64 overflow-y-auto rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-1 shadow-[var(--admin-shadow-md)]">
+          {options.map((option) => (
+            <button
+              key={`${option.group}:${option.id}`}
+              type="button"
+              onClick={() => {
+                onScope({
+                  accountId: option.group === "clients" ? option.id as Id<"accounts"> : undefined,
+                  businessId: option.group === "venues" ? option.id as Id<"businesses"> : undefined,
+                  label: [option.title, option.smkCode, option.smlCode].filter(Boolean).join(" · "),
+                });
+                setTerm("");
+              }}
+              className="block min-h-11 w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--admin-surface-muted)]"
+            >
+              <span className="block truncate text-sm font-semibold">{option.title}</span>
+              <span className="block text-xs text-[var(--admin-text-muted)]">{[option.smkCode, option.smlCode].filter(Boolean).join(" · ")}</span>
+            </button>
+          ))}
         </div>
-        {deferred && options.length ? (
-          <div className="grid min-w-0 gap-px">
-            {options.map((option) => (
-              <button
-                key={`${option.group}:${option.id}`}
-                type="button"
-                onClick={() => {
-                  onScope({
-                    ...(option.group === "clients" ? { accountId: option.id } : {}),
-                    ...(option.group === "venues" ? { businessId: option.id } : {}),
-                    label: [option.title, option.smkCode, option.smlCode].filter(Boolean).join(" · "),
-                  });
-                  setTerm("");
-                }}
-                className={suggestionClass}
-              >
-                <span className="block truncate text-sm font-semibold">{option.title}</span>
-                <span className="block truncate text-xs text-[var(--admin-text-muted)]">{[option.smkCode, option.smlCode].filter(Boolean).join(" · ")}</span>
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </ScopeBody>
-  );
-}
-
-/** The preview has one suggestion: the fixture client. */
-function PreviewScopePicker({ scope, onScope }: ScopePickerProps) {
-  return (
-    <ScopeBody scope={scope} onClear={() => onScope(null)}>
-      <div className="grid min-w-0 gap-1">
-        <p className="px-2 text-xs text-[var(--admin-text-muted)]">{dict.scopePlaceholder}</p>
-        <button type="button" onClick={() => onScope(PREVIEW_SCOPE)} className={suggestionClass}>
-          <span className="block truncate text-sm font-semibold">{PREVIEW_SCOPE.label}</span>
-        </button>
-      </div>
-    </ScopeBody>
-  );
-}
-
-/** The scope in the URL and the body of „Opseg“ for the sidebar; a choice is written to the URL. */
-function useScope(state: SidebarState, setState: (patch: SidebarPatch) => void, picker: (props: ScopePickerProps) => ReactNode) {
-  const { klijent, lokal, opseg } = state;
-  const scope = useMemo(() => searchScope({ klijent, lokal, opseg }), [klijent, lokal, opseg]);
-  const body = useMemo(() => picker({ scope, onScope: (next) => setState(scopePatch(next)) }), [picker, scope, setState]);
-  return { scope, body };
-}
-
-const renderScopePicker = (props: ScopePickerProps) => <ScopePicker {...props} />;
-const renderPreviewScopePicker = (props: ScopePickerProps) => <PreviewScopePicker {...props} />;
-
-/**
- * The one field that stays on the screen. The text is local while typing and
- * is written to the URL after a pause; a change from outside (Back, a link)
- * replaces the text unless the user is still typing.
- */
-function SearchInput({ value, onCommit }: { value: string; onCommit: (value: string) => void }) {
-  const [text, setText] = useState(value);
-  const [seen, setSeen] = useState(value);
-  const [typing, setTyping] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  if (value !== seen) {
-    setSeen(value);
-    if (!typing) setText(value);
-  }
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
-
-  function change(next: string) {
-    setText(next);
-    setTyping(true);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      setTyping(false);
-      onCommit(next.trim());
-    }, SEARCH_DELAY_MS);
-  }
-
-  return (
-    <div data-admin-reveal="text" className="relative min-w-0">
-      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]" aria-hidden="true" />
-      <Input
-        value={text}
-        onChange={(event) => change(event.target.value)}
-        aria-label={dict.searchLabel}
-        placeholder={dict.searchPlaceholder}
-        autoComplete="off"
-        spellCheck={false}
-        className="min-h-12 rounded-xl border-[var(--admin-border)] bg-[var(--admin-surface-strong)] pl-9 text-base"
-      />
+      ) : null}
     </div>
   );
 }
 
-type ViewProps = { state: SidebarState; setState: (patch: SidebarPatch) => void };
-
-function SearchView({ state, setState }: ViewProps) {
-  const args = searchListArgs(state);
+function SearchView() {
+  const searchParams = useSearchParams();
+  const [term, setTerm] = useState(searchParams.get("q") ?? "");
+  const [group, setGroup] = useState<SearchGroup>((searchParams.get("group") as SearchGroup | null) ?? "clients");
+  const [scope, setScope] = useState<Scope | null>(null);
+  const deferred = useDeferredValue(term.trim());
   const results = usePaginatedQuery(
     api.adminGlobalSearch.list,
-    args
+    deferred
       ? {
-          term: args.term,
-          group: args.group,
-          ...(args.accountId ? { accountId: args.accountId as Id<"accounts"> } : {}),
-          ...(args.businessId ? { businessId: args.businessId as Id<"businesses"> } : {}),
+          term: deferred,
+          group,
+          ...(scope?.accountId ? { accountId: scope.accountId } : {}),
+          ...(scope?.businessId ? { businessId: scope.businessId } : {}),
         }
       : "skip",
     { initialNumItems: 20 },
   );
-  const { scope, body } = useScope(state, setState, renderScopePicker);
-  const sidebar = useMemo(() => searchSidebarLive({ scope, scopeBody: body }), [scope, body]);
-  useAdminSidebarLive(sidebar);
-  const loading = args && results.status === "LoadingFirstPage";
+  const loading = deferred && results.status === "LoadingFirstPage";
   return (
     <div className="grid min-w-0 gap-4">
-      <SearchInput value={state.q ?? ""} onCommit={(value) => setState({ q: value || null })} />
-      {!args ? (
+      <AdminPanel className="relative z-10 grid min-w-0 gap-3 p-3 sm:p-4">
+        <label className="relative block min-w-0">
+          <span className="sr-only">{dict.searchLabel}</span>
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]" aria-hidden="true" />
+          <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder={dict.searchPlaceholder} className="min-h-12 rounded-xl border-[var(--admin-border)] bg-[var(--admin-surface-strong)] pl-9 text-base" />
+        </label>
+        <div className="flex min-w-0 flex-wrap gap-2">
+          {GROUPS.map((item) => (
+            <button key={item.value} type="button" onClick={() => setGroup(item.value)} aria-pressed={group === item.value} className={cn("min-h-10 rounded-full border px-3 text-xs font-semibold", group === item.value ? "border-[var(--admin-ink)] bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "border-[var(--admin-border)] bg-[var(--admin-surface-strong)]")}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <ScopePicker scope={scope} onScope={setScope} />
+          <p className="text-xs text-[var(--admin-text-muted)]">{dict.scopeSuffixNote}</p>
+        </div>
+      </AdminPanel>
+      {!deferred ? (
         <AdminPanel><AdminEmptyState title={dict.initialTitle} body={dict.initialBody} /></AdminPanel>
       ) : loading ? (
         <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel>
       ) : results.results.length === 0 ? (
         <AdminPanel><AdminEmptyState title={dict.emptyTitle} body={dict.emptyBody} /></AdminPanel>
       ) : (
-        <div data-admin-reveal="rows" className="grid gap-2">
+        <div className="grid gap-2">
           {results.results.map((result) => <ResultCard key={`${result.group}:${result.id}`} result={result} />)}
           {results.status === "CanLoadMore" || results.status === "LoadingMore" ? (
             <button type="button" disabled={results.status === "LoadingMore"} onClick={() => results.loadMore(20)} className="mx-auto mt-2 min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold">
@@ -419,71 +320,57 @@ function SearchView({ state, setState }: ViewProps) {
   );
 }
 
-type ActivityRow = {
-  id: string;
-  objectLabel: string;
-  category: string;
-  actorDisplayName: string;
-  actorKind: string;
-  reason: string | null;
-  occurredAt: number;
-  href: string;
-};
-
-function ActivityRowCard({ row }: { row: ActivityRow }) {
-  return (
-    <article className="grid gap-3 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-4 shadow-[var(--admin-shadow-xs)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start">
-      <span className="grid size-10 place-items-center rounded-xl bg-[var(--admin-surface-muted)]"><Activity className="size-4" aria-hidden="true" /></span>
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-semibold">{row.objectLabel}</h3>
-          <span className="rounded-full border border-[var(--admin-border)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--admin-text-muted)]">{CATEGORIES.find((item) => item.value === row.category)?.label}</span>
-        </div>
-        <p className="mt-1 text-sm text-[var(--admin-text-muted)]">{row.actorDisplayName} · {actorKindLabel(row.actorKind)}</p>
-        {row.reason ? <p className="mt-2 text-sm"><span className="font-semibold">{dict.activityReason}:</span> {row.reason}</p> : null}
-        <time className="mt-2 block text-xs text-[var(--admin-text-muted)]" dateTime={new Date(row.occurredAt).toISOString()}>{new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "medium", timeStyle: "short" }).format(row.occurredAt)}</time>
-      </div>
-      <Link href={row.href} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--admin-border)] px-3 text-xs font-semibold hover:border-[var(--admin-ink)]">
-        {dict.activityOpenSource}<ArrowRight className="size-4" aria-hidden="true" />
-      </Link>
-    </article>
-  );
-}
-
-function ActivityHeader() {
-  return (
-    <header data-admin-reveal="text">
-      <h2 className="text-2xl font-semibold tracking-[-0.03em]">{dict.activityTitle}</h2>
-      <p className="mt-1 text-sm text-[var(--admin-text-muted)]">{dict.activitySubtitle}</p>
-    </header>
-  );
-}
-
-function ActivityView({ state, setState }: ViewProps) {
-  const args = activityListArgs(state);
+function ActivityView() {
+  const [scope, setScope] = useState<Scope | null>(null);
+  const [category, setCategory] = useState<ActivityCategory | "all">("all");
+  const [actorKey, setActorKey] = useState("all");
   const actors = useQuery(api.adminActivity.listActors);
   const rows = usePaginatedQuery(api.adminActivity.list, {
-    ...(args.accountId ? { accountId: args.accountId as Id<"accounts"> } : {}),
-    ...(args.businessId ? { businessId: args.businessId as Id<"businesses"> } : {}),
-    ...(args.category ? { category: args.category } : {}),
-    ...(args.actorKey ? { actorKey: args.actorKey } : {}),
+    ...(scope?.accountId ? { accountId: scope.accountId } : {}),
+    ...(scope?.businessId ? { businessId: scope.businessId } : {}),
+    ...(category !== "all" ? { category } : {}),
+    ...(actorKey !== "all" ? { actorKey } : {}),
   }, { initialNumItems: 20 });
-  const { scope, body } = useScope(state, setState, renderScopePicker);
-  const sidebar = useMemo(
-    () => searchSidebarLive({ scope, scopeBody: body, actors: actors ? actorOptions(actors, actorKindLabel) : undefined }),
-    [scope, body, actors],
-  );
-  useAdminSidebarLive(sidebar);
   return (
     <div className="grid min-w-0 gap-4">
-      <ActivityHeader />
+      <header>
+        <h2 className="text-2xl font-semibold tracking-[-0.03em]">{dict.activityTitle}</h2>
+        <p className="mt-1 text-sm text-[var(--admin-text-muted)]">{dict.activitySubtitle}</p>
+      </header>
+      <AdminPanel className="relative z-10 grid gap-3 p-3 sm:grid-cols-[minmax(14rem,1fr)_auto_auto] sm:p-4">
+        <ScopePicker scope={scope} onScope={setScope} />
+        <select value={category} onChange={(event) => setCategory(event.target.value as ActivityCategory | "all")} className="min-h-11 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm font-semibold" aria-label={dict.activityAllCategories}>
+          <option value="all">{dict.activityAllCategories}</option>
+          {CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+        </select>
+        <select value={actorKey} onChange={(event) => setActorKey(event.target.value)} className="min-h-11 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm font-semibold" aria-label={dict.activityAllActors}>
+          <option value="all">{dict.activityAllActors}</option>
+          {(actors ?? []).map((actor) => <option key={actor.actorKey} value={actor.actorKey}>{actor.displayName} · {actorKindLabel(actor.actorKind)}</option>)}
+        </select>
+      </AdminPanel>
       {rows.status === "LoadingFirstPage" ? (
         <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel>
       ) : rows.results.length === 0 ? (
         <AdminPanel><AdminEmptyState title={dict.activityEmptyTitle} body={dict.activityEmptyBody} /></AdminPanel>
       ) : (
-        <div data-admin-reveal="rows" className="grid gap-2">
-          {rows.results.map((row) => <ActivityRowCard key={row.id} row={row} />)}
+        <div className="grid gap-2">
+          {rows.results.map((row) => (
+            <article key={row.id} className="grid gap-3 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-4 shadow-[var(--admin-shadow-xs)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start">
+              <span className="grid size-10 place-items-center rounded-xl bg-[var(--admin-surface-muted)]"><Activity className="size-4" aria-hidden="true" /></span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold">{row.objectLabel}</h3>
+                  <span className="rounded-full border border-[var(--admin-border)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--admin-text-muted)]">{CATEGORIES.find((item) => item.value === row.category)?.label}</span>
+                </div>
+                <p className="mt-1 text-sm text-[var(--admin-text-muted)]">{row.actorDisplayName} · {actorKindLabel(row.actorKind)}</p>
+                {row.reason ? <p className="mt-2 text-sm"><span className="font-semibold">{dict.activityReason}:</span> {row.reason}</p> : null}
+                <time className="mt-2 block text-xs text-[var(--admin-text-muted)]" dateTime={new Date(row.occurredAt).toISOString()}>{new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "medium", timeStyle: "short" }).format(row.occurredAt)}</time>
+              </div>
+              <Link href={row.href} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--admin-border)] px-3 text-xs font-semibold hover:border-[var(--admin-ink)]">
+                {dict.activityOpenSource}<ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
+            </article>
+          ))}
           {rows.status === "CanLoadMore" || rows.status === "LoadingMore" ? (
             <button type="button" disabled={rows.status === "LoadingMore"} onClick={() => rows.loadMore(20)} className="mx-auto mt-2 min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold">
               {rows.status === "LoadingMore" ? dict.loadingMore : dict.loadMore}
@@ -495,20 +382,13 @@ function ActivityView({ state, setState }: ViewProps) {
   );
 }
 
-const PREVIEW_ACTORS = [
-  { actorKey: "user:preview-admin", actorKind: "admin", displayName: "Ana Admin" },
-  { actorKey: "kind:shared_mailbox", actorKind: "shared_mailbox", displayName: dict.sharedMailboxEvent },
-];
-
 const PREVIEW_ACTIVITY = [
   {
     id: "preview-activity-admin",
     objectLabel: "Bistro Primer · SMK-00241",
     category: "client" as const,
-    accountId: PREVIEW_SCOPE.accountId,
-    actorKey: PREVIEW_ACTORS[0].actorKey,
-    actorDisplayName: PREVIEW_ACTORS[0].displayName,
-    actorKind: PREVIEW_ACTORS[0].actorKind,
+    actorDisplayName: "Ana Admin",
+    actorKind: "admin",
     reason: "Ažuriran kontakt klijenta",
     occurredAt: Date.UTC(2026, 8, 16, 9, 15),
     href: "/dev/admin-18-preview",
@@ -517,53 +397,86 @@ const PREVIEW_ACTIVITY = [
     id: "preview-activity-mailbox",
     objectLabel: "Bistro Primer · podrška",
     category: "communication" as const,
-    accountId: PREVIEW_SCOPE.accountId,
-    actorKey: PREVIEW_ACTORS[1].actorKey,
-    actorDisplayName: PREVIEW_ACTORS[1].displayName,
-    actorKind: PREVIEW_ACTORS[1].actorKind,
+    actorDisplayName: dict.sharedMailboxEvent,
+    actorKind: "shared_mailbox",
     reason: null,
     occurredAt: Date.UTC(2026, 8, 16, 8, 40),
     href: "/dev/admin-18-preview",
   },
 ];
 
-const PREVIEW_ACTOR_OPTIONS = actorOptions(PREVIEW_ACTORS, actorKindLabel);
-
 export function AdminSearchPreviewWorkspace({
   initialState = "loaded",
 }: {
   initialState?: "loaded" | "loading" | "empty" | "error";
 }) {
-  const [state, setState] = useAdminUrlState(SEARCH_URL_FIELDS);
+  const [view, setView] = useState<"search" | "activity">("search");
+  const [term, setTerm] = useState("SM");
+  const [group, setGroup] = useState<SearchGroup>("clients");
+  const [scoped, setScoped] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [fixtureState, setFixtureState] = useState(initialState);
-  // „Učitaj još“ opens the rest of the rows for this search only; another term, kind or scope starts folded again.
-  const [openedFor, setOpenedFor] = useState<string | null>(null);
-  const { scope, body } = useScope(state, setState, renderPreviewScopePicker);
-  const sidebar = useMemo(() => searchSidebarLive({ scope, scopeBody: body, actors: PREVIEW_ACTOR_OPTIONS }), [scope, body]);
-  useAdminSidebarLive(sidebar);
-  const searching = Boolean(searchListArgs(state));
-  const rows = filterPreviewResults<SearchResult>(PREVIEW_RESULTS, state);
-  const searchKey = [state.q, state.group, state.klijent, state.lokal].join("|");
-  const visibleRows = openedFor === searchKey ? rows : rows.slice(0, 1);
-  const previewActivityRows = filterPreviewActivity(PREVIEW_ACTIVITY, state);
+  const [previewCategory, setPreviewCategory] = useState<ActivityCategory | "all">("all");
+  const [previewActor, setPreviewActor] = useState<"all" | "admin" | "shared_mailbox">("all");
+  const normalized = term.trim().toLocaleLowerCase("sr-Latn-RS");
+  const partialProductTerm = group === "products" && /^#?\d+$/.test(term.trim());
+  const rows = PREVIEW_RESULTS[group].filter((result) =>
+    [result.title, result.code, result.ownerLabel, result.smkCode, result.venueLabel, result.smlCode, result.meta]
+      .filter(Boolean)
+      .some((value) => value!.toLocaleLowerCase("sr-Latn-RS").includes(normalized))
+      && (!partialProductTerm || scoped)
+      && (!scoped || result.smkCode === "SMK-00241"),
+  );
+  const visibleRows = showAll ? rows : rows.slice(0, 1);
+  const previewActivityRows = PREVIEW_ACTIVITY.filter((row) =>
+    (previewCategory === "all" || row.category === previewCategory)
+    && (previewActor === "all" || row.actorKind === previewActor),
+  );
 
   return (
     <div className="grid min-w-0 gap-5">
-      <AdminPageHeader title={dict.pageTitle} description={dict.pageSubtitle} badge={<AdminStatus label={adminV1Sr.fixtureBadge} tone="waiting" />} />
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-[clamp(2.2rem,4.5vw,4.4rem)] leading-none font-medium tracking-[-0.055em]">{dict.pageTitle}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)] sm:text-base">{dict.pageSubtitle}</p>
+        </div>
+        <div className="flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-1">
+          <button type="button" onClick={() => setView("search")} className={cn("min-h-10 rounded-full px-4 text-sm font-semibold", view === "search" && "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]")}>{dict.searchView}</button>
+          <button type="button" onClick={() => setView("activity")} className={cn("min-h-10 rounded-full px-4 text-sm font-semibold", view === "activity" && "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]")}>{dict.activityView}</button>
+        </div>
+      </header>
 
-      {state.view !== "activity" ? (
+      {view === "search" ? (
         <div className="grid min-w-0 gap-4">
-          <SearchInput value={state.q ?? ""} onCommit={(value) => setState({ q: value || null })} />
+          <AdminPanel className="relative z-10 grid min-w-0 gap-3 p-3 sm:p-4">
+            <label className="relative block min-w-0">
+              <span className="sr-only">{dict.searchLabel}</span>
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]" aria-hidden="true" />
+              <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder={dict.searchPlaceholder} className="min-h-12 rounded-xl border-[var(--admin-border)] bg-[var(--admin-surface-strong)] pl-9 text-base" />
+            </label>
+            <div className="flex min-w-0 flex-wrap gap-2">
+              {GROUPS.map((item) => (
+                <button key={item.value} type="button" onClick={() => { setGroup(item.value); setShowAll(false); }} aria-pressed={group === item.value} className={cn("min-h-10 rounded-full border px-3 text-xs font-semibold", group === item.value ? "border-[var(--admin-ink)] bg-[var(--admin-ink)] text-[var(--admin-on-ink)]" : "border-[var(--admin-border)] bg-[var(--admin-surface-strong)]")}>{item.label}</button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={() => setScoped((value) => !value)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm font-semibold">
+                {scoped ? "Bistro Primer · SMK-00241" : dict.scopePlaceholder}
+                {scoped ? <X className="size-4" aria-hidden="true" /> : null}
+              </button>
+              <p className="text-xs text-[var(--admin-text-muted)]">{dict.scopeSuffixNote}</p>
+            </div>
+          </AdminPanel>
           {fixtureState === "loading" ? (
             <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel>
           ) : fixtureState === "error" ? (
             <AdminPanel><AdminErrorState title={dict.errorTitle} body={dict.errorBody} /><div className="border-t border-[var(--admin-border)] p-3 text-center"><button type="button" onClick={() => setFixtureState("loaded")} className="min-h-11 rounded-full border border-[var(--admin-border)] px-5 text-sm font-semibold">{dict.retry}</button></div></AdminPanel>
-          ) : !searching ? (
+          ) : !normalized ? (
             <AdminPanel><AdminEmptyState title={dict.initialTitle} body={dict.initialBody} /></AdminPanel>
           ) : fixtureState !== "empty" && rows.length ? (
-            <div data-admin-reveal="rows" className="grid gap-2">
+            <div className="grid gap-2">
               {visibleRows.map((result) => <ResultCard key={`${result.group}:${result.id}`} result={result} />)}
-              {rows.length > visibleRows.length ? <button type="button" onClick={() => setOpenedFor(searchKey)} className="mx-auto mt-2 min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold">{dict.loadMore}</button> : null}
+              {rows.length > visibleRows.length ? <button type="button" onClick={() => setShowAll(true)} className="mx-auto mt-2 min-h-11 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-5 text-sm font-semibold">{dict.loadMore}</button> : null}
             </div>
           ) : (
             <AdminPanel><AdminEmptyState title={dict.emptyTitle} body={dict.emptyBody} /></AdminPanel>
@@ -571,9 +484,35 @@ export function AdminSearchPreviewWorkspace({
         </div>
       ) : (
         <div className="grid min-w-0 gap-4">
-          <ActivityHeader />
-          {previewActivityRows.length ? <div data-admin-reveal="rows" className="grid gap-2">
-            {previewActivityRows.map((row) => <ActivityRowCard key={row.id} row={row} />)}
+          <header>
+            <h2 className="text-2xl font-semibold tracking-[-0.03em]">{dict.activityTitle}</h2>
+            <p className="mt-1 text-sm text-[var(--admin-text-muted)]">{dict.activitySubtitle}</p>
+          </header>
+          <AdminPanel className="grid gap-3 p-3 sm:grid-cols-[minmax(14rem,1fr)_auto_auto] sm:p-4">
+            <button type="button" className="min-h-11 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-left text-sm font-semibold">{dict.scopePlaceholder}</button>
+            <select value={previewCategory} onChange={(event) => setPreviewCategory(event.target.value as ActivityCategory | "all")} className="min-h-11 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm font-semibold" aria-label={dict.activityAllCategories}>
+              <option value="all">{dict.activityAllCategories}</option>
+              {CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+            <select value={previewActor} onChange={(event) => setPreviewActor(event.target.value as "all" | "admin" | "shared_mailbox")} className="min-h-11 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-3 text-sm font-semibold" aria-label={dict.activityAllActors}>
+              <option value="all">{dict.activityAllActors}</option>
+              <option value="admin">Ana Admin · {dict.actorAdmin}</option>
+              <option value="shared_mailbox">{dict.sharedMailboxEvent} · {dict.actorSharedMailbox}</option>
+            </select>
+          </AdminPanel>
+          {previewActivityRows.length ? <div className="grid gap-2">
+            {previewActivityRows.map((row) => (
+              <article key={row.id} className="grid gap-3 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-4 shadow-[var(--admin-shadow-xs)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start">
+                <span className="grid size-10 place-items-center rounded-xl bg-[var(--admin-surface-muted)]"><Activity className="size-4" aria-hidden="true" /></span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{row.objectLabel}</h3><span className="rounded-full border border-[var(--admin-border)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--admin-text-muted)]">{CATEGORIES.find((item) => item.value === row.category)?.label}</span></div>
+                  <p className="mt-1 text-sm text-[var(--admin-text-muted)]">{row.actorDisplayName} · {actorKindLabel(row.actorKind)}</p>
+                  {row.reason ? <p className="mt-2 text-sm"><span className="font-semibold">{dict.activityReason}:</span> {row.reason}</p> : null}
+                  <time className="mt-2 block text-xs text-[var(--admin-text-muted)]" dateTime={new Date(row.occurredAt).toISOString()}>{new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "medium", timeStyle: "short" }).format(row.occurredAt)}</time>
+                </div>
+                <Link href={row.href} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--admin-border)] px-3 text-xs font-semibold">{dict.activityOpenSource}<ArrowRight className="size-4" aria-hidden="true" /></Link>
+              </article>
+            ))}
           </div> : <AdminPanel><AdminEmptyState title={dict.activityEmptyTitle} body={dict.activityEmptyBody} /></AdminPanel>}
         </div>
       )}
@@ -582,11 +521,21 @@ export function AdminSearchPreviewWorkspace({
 }
 
 export function AdminSearchWorkspace() {
-  const [state, setState] = useAdminUrlState(SEARCH_URL_FIELDS);
+  const searchParams = useSearchParams();
+  const [view, setView] = useState<"search" | "activity">(searchParams.get("view") === "activity" ? "activity" : "search");
   return (
     <div className="grid min-w-0 gap-5">
-      <AdminPageHeader title={dict.pageTitle} description={dict.pageSubtitle} />
-      {state.view === "activity" ? <ActivityView state={state} setState={setState} /> : <SearchView state={state} setState={setState} />}
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-[clamp(2.2rem,4.5vw,4.4rem)] leading-none font-medium tracking-[-0.055em]">{dict.pageTitle}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)] sm:text-base">{dict.pageSubtitle}</p>
+        </div>
+        <div className="flex rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-1">
+          <button type="button" onClick={() => setView("search")} className={cn("min-h-10 rounded-full px-4 text-sm font-semibold", view === "search" && "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]")}>{dict.searchView}</button>
+          <button type="button" onClick={() => setView("activity")} className={cn("min-h-10 rounded-full px-4 text-sm font-semibold", view === "activity" && "bg-[var(--admin-ink)] text-[var(--admin-on-ink)]")}>{dict.activityView}</button>
+        </div>
+      </header>
+      {view === "search" ? <SearchView /> : <ActivityView />}
     </div>
   );
 }

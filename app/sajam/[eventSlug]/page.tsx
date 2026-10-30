@@ -18,7 +18,7 @@ import { fairModelSr } from "@/lib/i18n/sr/fair-model";
 import { MapSection } from "./_mapa/map-section";
 import { MapSkeleton } from "./_mapa/map-skeleton";
 import { MapUnavailable } from "./_mapa/map-unavailable";
-import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
+import { AMF_PUBLIC_GATE_OPENS_AT, FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 
 // M1 — map / event home. Kodeks's shell and tokens are used as-is; the map
 // content streams under the shell. `?prikaz=ekran` forces the large-display
@@ -34,7 +34,6 @@ export const dynamic = "force-dynamic";
 // event `test-<slug>` (lib/fair-map fairMapEventSlugCandidates). The page then
 // reads everything (catalog, passport, links) by the resolved event's own slug.
 const DEV_TEST_FALLBACK = process.env.NODE_ENV === "development";
-const AUTO_MOTO_FEST_STARTS_AT = Date.parse("2026-10-30T10:00:00+01:00");
 const amfPreviewMapView = buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [], []);
 
 const getEvent = cache(async (slug: string) => {
@@ -82,9 +81,8 @@ export default async function FairEventMapPage({
     fetchFailed = true;
   }
 
-  const startsAt = event?.startsAt ?? AUTO_MOTO_FEST_STARTS_AT;
   // eslint-disable-next-line react-hooks/purity -- async server component: the lock is decided once per request
-  if (eventSlug === "auto-moto-fest-2026" && Date.now() < startsAt) {
+  if (eventSlug === "auto-moto-fest-2026" && Date.now() < AMF_PUBLIC_GATE_OPENS_AT) {
     return (
       <div
         className={`fair-event ${fairEventThemeClass(eventSlug)}`}

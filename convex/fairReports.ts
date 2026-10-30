@@ -10,7 +10,7 @@ import { fairAdminError } from "./lib/fairCatalog";
 import { fairModelTierAt } from "./lib/fairInteractions";
 import { fairExhibitorName, fairModelFullName, scheduleFairEmailSend } from "./lib/fairLeads";
 import { fairExhibitorModels, fairVisitorActivity } from "./lib/fairLeadActivity";
-import { fairPackageTier, fairReportFormat, fairReportStatus } from "./lib/fairValidators";
+import { fairLeadFinancing, fairLeadPurchaseTiming, fairPackageTier, fairReportFormat, fairReportStatus } from "./lib/fairValidators";
 import {
   assembleFairDailyDataset,
   fairDailyDataset,
@@ -614,6 +614,9 @@ export const leadsExportPage = internalQuery({
         phone: v.optional(v.string()),
         consentVersion: v.number(),
         consentedAt: v.number(),
+        scannedModelName: v.optional(v.string()),
+        purchaseTiming: v.optional(fairLeadPurchaseTiming),
+        financing: v.optional(fairLeadFinancing),
         tier: v.optional(fairPackageTier),
         activity: leadExportActivity,
       }),
@@ -668,6 +671,9 @@ export const leadsExportPage = internalQuery({
         ...(lead.phone !== undefined ? { phone: lead.phone } : {}),
         consentVersion: lead.consentVersion,
         consentedAt: lead.consentedAt,
+        ...(lead.scannedModelId !== undefined ? { scannedModelName: modelName(lead.scannedModelId) } : {}),
+        ...(lead.purchaseTiming !== undefined ? { purchaseTiming: lead.purchaseTiming } : {}),
+        ...(lead.financing !== undefined ? { financing: lead.financing } : {}),
         ...(tier ? { tier } : {}),
         ...(activity ? { activity } : {}),
       });

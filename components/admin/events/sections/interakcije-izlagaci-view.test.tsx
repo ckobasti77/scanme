@@ -3,21 +3,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import type { PackageModel } from "@/components/admin/events/exhibitor-packages";
 import { AdminViewModeOverride } from "@/components/admin/admin-ui";
-import { AdminSidebarView } from "@/components/admin/frame/admin-sidebar-view";
 import { interactionExhibitorHref } from "@/lib/admin-v1/event-sections";
-import { buildInteractionExhibitorRows, interactionListQuery, interactionPackageCounts, type InteractionExhibitorSource } from "@/lib/admin-v1/interaction-exhibitors";
+import { buildInteractionExhibitorRows, interactionListQuery, type InteractionExhibitorSource } from "@/lib/admin-v1/interaction-exhibitors";
 import type { AdminQueryState } from "@/lib/admin-v1/query-state";
-import { resolveAdminSidebar } from "@/lib/admin-v2/sidebar/registry";
-import type { SidebarState } from "@/lib/admin-v2/sidebar/types";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
-import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { EventInteractionExhibitorView } from "./interakcije-izlagac-view";
-import { EventInteractionExhibitorsView, interactionExhibitorsSidebarLive } from "./interakcije-izlagaci-view";
+import { EventInteractionExhibitorsView } from "./interakcije-izlagaci-view";
 
-// Izlagači 2026 / ADMIN v2 — `interakcije` as SSR markup (the filters are in
-// the sidebar of the admin frame, drawn here from the registry configuration
-// and what the list sends): one link, the exhibitor cards
+// Izlagači 2026 — `interakcije` as SSR markup: one link, the exhibitor cards
 // (default only with Starter/Napredni, "Svi izlagači" everyone), logo and
 // website on the card, packages right in the list, and the exhibitor's page
 // with its four parts. TEST data only.
@@ -83,16 +77,6 @@ function list(query: AdminQueryState = {}, rows = ROWS) {
   );
 }
 
-/** The sidebar of the list as the frame renders it: the registry configuration with what the list sends. */
-function sidebarHtml(query: AdminQueryState = {}, rows = ROWS) {
-  return renderToStaticMarkup(
-    <AdminSidebarView config={resolveAdminSidebar(`${BASE}/interakcije`)} live={interactionExhibitorsSidebarLive(rows, query)} state={query as SidebarState} onPatch={() => undefined} />,
-  );
-}
-
-/** A radio row of the sidebar: the label and the number next to it. */
-const option = (label: string, count: number) => new RegExp(`>${label}</span><span[^>]*>${count}</span>`);
-
 function exhibitorPage(id: string) {
   const row = ROWS.find((entry) => entry.id === id) ?? null;
   return renderToStaticMarkup(
@@ -124,46 +108,8 @@ describe("Interakcije: exhibitor cards", () => {
     expect(html).toContain(`aria-label="${fmt(t.packagesAria, { name: "TEST Izlagač A" })}"`);
     // Glas publike today: m1 has a published question, m2 none.
     expect(html).toContain(fmt(t.questionsValue, { covered: 1, required: 2 }));
-  });
-
-  test("ADMIN v2: the list has no filter block above it (no search, no package switch); the N od M counter stays", () => {
-    const html = list();
-    expect(html).not.toContain('data-admin-primitive="filter-bar"');
-    expect(html).not.toContain('type="search"');
-    expect(html).not.toContain("aria-pressed");
-    expect(html).toContain(fmt(t.count, { shown: 1, total: 3 }));
-    expect(html).toContain(t.subtitle);
-    // The section title would repeat the H1 of the screen.
-    expect(html).not.toContain(`<h2`);
-  });
-
-  test("ADMIN v2 sidebar: the five views with their counts, the default one checked, one search; no control for the passport state", () => {
-    const html = sidebarHtml();
-    const counts = { interakcije: 1, svi: 3, napredni: 1, starter: 1, "za-sve": 2 };
-    for (const [filter, count] of Object.entries(counts)) expect(html).toMatch(option(t.packages[filter as keyof typeof counts], count));
-    expect(html).toMatch(new RegExp(`<input type="radio"[^>]*checked=""[^>]*/><span[^>]*>${t.packages.interakcije}</span>`));
-    expect(html).toContain(t.searchLabel);
-    expect(html).toContain(`placeholder="${t.searchPlaceholder}"`);
-    expect(html.match(/type="search"/g)).toHaveLength(1);
-    // The passport state arrives by a link from Pregled: a chip only, never a group.
-    // X6 (RX V2) — the only toggle is the folded section navigation („Sekcija“).
-    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(1);
-    expect(html).toMatch(/id="[^"]+-sekcija-toggle" data-admin-filter-toggle=""/);
-    for (const row of ROWS) expect(html).not.toContain(row.name);
-  });
-
-  test("ADMIN v2 sidebar: search and passport state show as chips; the counts follow them; Očisti sve is offered", () => {
-    const query: AdminQueryState = { paket: "svi", q: "test", stanje: "aktivan" };
-    const html = sidebarHtml(query);
-    expect(html).toContain(`${t.searchLabel}: test`);
-    expect(html).toContain(`${adminEventsSr.passportAuto.facetState}: ${adminEventsSr.passportAuto.states.active}`);
-    expect(html).toContain(`>${adminUiSr.filters.clearAll}</button>`);
-    // Under the passport state only the exhibitor with an active passport counts.
-    expect(html).toMatch(option(t.packages.svi, 1));
-    expect(html).toMatch(option(t.packages.interakcije, 1));
-    expect(html).toMatch(option(t.packages.starter, 1));
-    expect(html).toMatch(new RegExp(`<input type="radio"[^>]*checked=""[^>]*/><span[^>]*>${t.packages.svi}</span>`));
-    expect(interactionExhibitorsSidebarLive(ROWS, query).viewCounts).toEqual(interactionPackageCounts(ROWS, query));
+    expect(html).toContain(`${t.packages.interakcije}`);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Sa interakcijama/);
   });
 
   test("`Svi izlagači` shows everyone; without a logo the initials, without cars a short note; filters travel to the page", () => {
@@ -227,14 +173,5 @@ describe("Interakcije: the exhibitor's page", () => {
     const missing = exhibitorPage("nema");
     expect(missing).toContain(page.notFoundTitle);
     expect(missing).toContain(`href="${BASE}/interakcije?paket=svi"`);
-  });
-});
-
-describe("ADMIN v3 V1 Interakcije", () => {
-  test("the subtitle is text, the exhibitor cards are rows; the exhibitor page header is a card", () => {
-    const markup = list();
-    expect(markup).toContain('<p data-admin-reveal="text"');
-    expect(markup).toContain('data-admin-reveal="rows"');
-    expect(exhibitorPage(ROWS[0].id)).toContain('data-admin-reveal="card"');
   });
 });

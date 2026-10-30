@@ -52,8 +52,7 @@ const ENUMS: Partial<Record<AdminQueryKey, readonly string[]>> = {
   segment: ["event-only", "standard"],
   tip: ["zainteresovan", "probna-voznja"],
   isporuka: ["da", "ne"],
-  // "dan3" = the dev preview of Pregled on the last fair day (the same totals as the Analitika preview).
-  faza: ["pre", "sajam", "dan3", "posle"],
+  faza: ["pre", "sajam", "posle"],
   prikaz: ["tabela", "kartice"],
 };
 const PATTERNS: Partial<Record<AdminQueryKey, RegExp>> = {

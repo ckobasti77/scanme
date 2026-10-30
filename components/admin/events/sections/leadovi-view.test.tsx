@@ -2,21 +2,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import type { CatalogView, ModelView } from "@/components/admin/admin-events";
 import { leadDeliveryDeadline, leadInboxFilter, clearLeadInboxPatch, hasLeadInboxFilter } from "@/components/admin/events/leads-logic";
-import { AdminSidebarView } from "@/components/admin/frame/admin-sidebar-view";
 import { modelHierarchy } from "@/lib/admin-v1/model-filters";
-import type { AdminQueryState } from "@/lib/admin-v1/query-state";
-import { resolveAdminSidebar } from "@/lib/admin-v2/sidebar/registry";
-import type { SidebarState } from "@/lib/admin-v2/sidebar/types";
 import { belgradeLocalToEpoch } from "@/lib/belgrade-time";
 import { FAIR_LEAD_DELIVERY_DEADLINE_MS, FAIR_PII_PURGE_AT_MS } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
-import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
-import { EventLeadsInboxView, LeadDetailPanel, leadsSidebarLive, type InboxLead, type LeadDetail, type LeadInboxActions } from "./leadovi-view";
+import { EventLeadsInboxView, LeadDetailPanel, type InboxLead, type LeadDetail, type LeadInboxActions } from "./leadovi-view";
 
-// Admin UX A8 / ADMIN v2 — `leadovi`: the inbox (the filters are in the sidebar
-// of the admin frame; Tabela/Kartice, delivery and the hand-over of the PII
-// file per exhibitor stay in the screen) and the lead detail with the
+// Admin UX A8 — `leadovi`: the inbox (filters, Tabela/Kartice, delivery,
+// hand-over of the PII file per exhibitor) and the lead detail with the
 // visitor's activity on that exhibitor's models only. SSR markup + the pure
 // logic in components/admin/events/leads-logic.ts.
 
@@ -75,87 +69,16 @@ function render(overrides: Partial<Parameters<typeof EventLeadsInboxView>[0]> = 
   );
 }
 
-const BASE = "/admin/dogadjaji/test-sajam";
-const FILTERED: AdminQueryState = { izlagac: "p-a", tip: "probna-voznja", isporuka: "ne", od: "2026-10-09", do: "2026-10-10" };
-const leadHierarchy = () => modelHierarchy(catalog.models, (row) => row.displayName);
-
-/** The sidebar of the Leadovi page as the frame renders it: the registry configuration with what the inbox sends. */
-function sidebarHtml(query: AdminQueryState) {
-  return renderToStaticMarkup(
-    <AdminSidebarView config={resolveAdminSidebar(`${BASE}/leadovi`)} live={leadsSidebarLive(leadHierarchy(), query, () => undefined)} state={query as SidebarState} onPatch={() => undefined} />,
-  );
-}
-
 describe("A8 lead inbox", () => {
-  test("ADMIN v2: the list has no filter block above it (no filter bar, selects or date fields in the screen)", () => {
-    const html = render({ query: FILTERED });
-    expect(html).not.toContain('data-admin-primitive="filter-bar"');
-    expect(html).not.toContain('data-admin-primitive="hierarchy-picker"');
-    expect(html).not.toContain("<select");
-    expect(html).not.toContain('type="date"');
-    expect(html).not.toContain(t.filtersLabel);
-    expect(html).not.toContain(fmt(t.chipFrom, { date: "2026-10-09" }));
+  test("filters (hierarchy, type, delivery, dates), Tabela/Kartice, delivery state and links; no raw codes", () => {
+    const html = render({ query: { izlagac: "p-a", tip: "probna-voznja", isporuka: "ne", od: "2026-10-09", do: "2026-10-10" } });
+    expect(html).toContain('data-admin-primitive="filter-bar"');
+    expect(html).toContain('data-admin-primitive="hierarchy-picker"');
     expect(html).toContain('data-admin-primitive="data-view"');
-  });
-
-  test("ADMIN v2 sidebar: the six groups, the two date fields in Period; no control lists the leads", () => {
-    const html = sidebarHtml({});
-    for (const label of [adminUiSr.hierarchy.exhibitor, adminUiSr.hierarchy.brand, adminUiSr.hierarchy.model, adminUiSr.filters.period, t.facetKind, t.facetDelivery]) {
-      expect(html).toContain(`>${label}</span>`);
-    }
-    // X6 (RX V2) — one more toggle: the section navigation is the folded group „Sekcija“ on a page with filters.
-    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(7);
-    expect(html).not.toContain('aria-expanded="true"');
-    // The same fields, labels and bounds as before the move.
     expect(html.match(/type="date"/g)).toHaveLength(2);
-    expect(html).toContain(`>${t.fromLabel}</label>`);
-    expect(html).toContain(`>${t.toLabel}</label>`);
-    expect(html.match(/min="2026-10-01"/g)).toHaveLength(2);
-    expect(html.match(/max="2026-11-15"/g)).toHaveLength(2);
-    expect(html).toContain("TEST Izlagač A");
-    expect(html).toContain(t.kindOptions["probna-voznja"]);
-    expect(html).toContain(t.deliveryOptions.ne);
-    for (const row of leads) expect(html).not.toContain(row.contactName);
-  });
-
-  test("ADMIN v2 sidebar: chips for the active filters, the period included, and Očisti sve", () => {
-    const html = sidebarHtml(FILTERED);
-    const chip = (label: string) => `aria-label="${adminUiSr.filters.removeChip.replace("{label}", label)}"`;
-    const period = `${fmt(t.chipFrom, { date: "2026-10-09" })} · ${fmt(t.chipTo, { date: "2026-10-10" })}`;
-    expect(html).toContain(chip(`${adminUiSr.hierarchy.exhibitor}: TEST Izlagač A`));
-    expect(html).toContain(chip(`${t.facetKind}: ${t.kindOptions["probna-voznja"]}`));
-    expect(html).toContain(chip(`${t.facetDelivery}: ${t.deliveryOptions.ne}`));
-    expect(html).toContain(chip(`${adminUiSr.filters.period}: ${period}`));
-    expect(html).toContain(`>${adminUiSr.filters.clearAll}</button>`);
-    // The header of the Period group names the choice.
-    expect(html).toContain(`>${adminUiSr.filters.period}</span><span class="text-[var(--admin-text-muted)]"> · ${period}</span>`);
-    // One date gives one part; none gives no summary (and no chip).
-    expect(leadsSidebarLive(leadHierarchy(), { do: "2026-10-10" }, () => undefined).custom?.period.summary).toBe(fmt(t.chipTo, { date: "2026-10-10" }));
-    expect(leadsSidebarLive(leadHierarchy(), { od: "2026-10-09" }, () => undefined).custom?.period.summary).toBe(fmt(t.chipFrom, { date: "2026-10-09" }));
-    expect(leadsSidebarLive(leadHierarchy(), {}, () => undefined).custom?.period.summary).toBe("");
-    const none = sidebarHtml({});
-    expect(none).not.toContain(`>${adminUiSr.filters.clearAll}</button>`);
-    expect(none).not.toContain(adminUiSr.filters.removeChip.replace(": {label}", ""));
-  });
-
-  test("ADMIN v2 sidebar: the date fields write od and do; a brand sets its exhibitor, clearing the exhibitor clears the brand", () => {
-    const patches: unknown[] = [];
-    const live = leadsSidebarLive(leadHierarchy(), {}, (patch) => patches.push(patch));
-    const body = live.custom?.period.body as { props: { children: { props: { label: string; onChange: (next: string | null) => void } }[] } };
-    const [from, to] = body.props.children;
-    expect([from.props.label, to.props.label]).toEqual([t.fromLabel, t.toLabel]);
-    from.props.onChange("2026-10-09");
-    to.props.onChange(null);
-    expect(patches).toEqual([{ od: "2026-10-09" }, { do: null }]);
-    expect(live.intercept?.({ brend: "b-om" }, {})).toEqual({ brend: "b-om", izlagac: "p-b", model: null });
-    expect(live.intercept?.({ izlagac: null }, { izlagac: "p-a", brend: "b-volta" })).toEqual({ izlagac: null, brend: null, model: null });
-    expect(live.intercept?.({ tip: "zainteresovan" }, { izlagac: "p-a" })).toEqual({ tip: "zainteresovan" });
-  });
-
-  test("Tabela/Kartice, delivery state and links; no raw codes", () => {
-    const html = render({ query: FILTERED });
-    expect(html).toContain('data-admin-primitive="data-view"');
     for (const text of [
+      t.facetKind, t.facetDelivery, t.fromLabel, t.toLabel, t.kindOptions["probna-voznja"], t.deliveryOptions.ne,
+      fmt(t.chipKind, { value: t.kindOptions["probna-voznja"] }), fmt(t.chipFrom, { date: "2026-10-09" }),
       t.colLead, t.colReceived, t.colKindModel, t.colExhibitor, t.colDelivery, t.colEmails,
       t.delivered, t.notDelivered, t.markDelivered, t.open,
       fmt(t.undelivered, { count: 2 }), fmt(t.deadlineDays, { days: 37 }),
@@ -251,13 +174,5 @@ describe("A8 inbox logic", () => {
     expect(leadDeliveryDeadline(Date.parse("2026-11-15T00:10:00+01:00"))).toEqual({ kind: "today" });
     expect(leadDeliveryDeadline(FAIR_LEAD_DELIVERY_DEADLINE_MS)).toEqual({ kind: "today" });
     expect(leadDeliveryDeadline(FAIR_PII_PURGE_AT_MS)).toEqual({ kind: "passed" });
-  });
-});
-
-describe("ADMIN v3 V1 lead inbox", () => {
-  test("the status panel is a card and the list is rows", () => {
-    const markup = render();
-    expect(markup).toContain('data-admin-reveal="card"');
-    expect(markup).toContain('data-admin-reveal="rows"');
   });
 });

@@ -177,7 +177,7 @@ describe("Auto Moto Fest 2026 geometry stays as it was (N3 changes only the Elek
     expect(AUTO_MOTO_FEST_2026_MAP.capturedOn).toBe("2026-09-30");
     expect(AUTO_MOTO_FEST_2026_MAP.zones.map((zone) => [zone.id, zone.locations.map((row) => row.id)])).toEqual([
       ["hala", ["hala-1", "hala-2", "hala-3", "hala-5", "hala-6-7", "hala-8", "hala-9", "hala-10", "hala-11"]],
-      ["ispred", ["ispred-12", "ispred-13", "ispred-14", "ispred-15", "ispred-16", "ispred-17", "ispred-18", "ispred-19", "ispred-20", "ispred-21", "ispred-22", "ispred-s1-s2", "ispred-s3", "ispred-s4", "ispred-s5", "scanme"]],
+      ["ispred", ["ispred-12", "ispred-13", "ispred-14", "ispred-15", "ispred-16", "ispred-17", "ispred-18", "ispred-19", "ispred-20", "ispred-21", "ispred-22", "ispred-s1-s2", "ispred-s3", "ispred-s4", "ispred-s5", "ispred-s6", "scanme"]],
     ]);
     expect(AUTO_MOTO_FEST_2026_MAP.zones[1].locations.at(-1)).toMatchObject({ id: "scanme", kind: "scanme", placement: "placeholder" });
   });

@@ -1,14 +1,5 @@
 # RFC-003: ScanMe Menu (Meni)
 
-> **Napomena (K33, 21. 10. 2026., noćni run MENI): šta je zamenjeno.** Za ScanMe Menu V1 izvor istine je master specifikacija (`ScanMe-Menu-Jovan-Claude-Handoff/docs/SCANME-MENU-MASTER-SPEC.md`), a tehnički ugovor recept [`docs/menu/MENU-ARHITEKTURA.md`](../menu/MENU-ARHITEKTURA.md). Zamenjeno je:
-> - grupa kao jedinica izgleda (pet oblika), `menuItems`/`itemVariants`/`itemPairings` i dayparts → stranice menija, sekcije, zajednički artikal sa jednom osnovnom cenom, prikazi bez cene, varijante i grupe dodataka (`menuPages`, `menuSections`, `menuArticles`, `menuPlacements`, recept §1–§2, §5); layouti javnog menija su `Tok`, `Kategorije`, `Kompaktno`;
-> - editor kao kopija Venue editora → novi editor u klijentskom panelu (`/[slug]/client-panel/meni/editor`, recept §8, §10); `/[slug]/meni/editor` ostaje samo za stari model;
-> - Basic/Premium → Standard/Premium kroz `lib/menu/capabilities.ts` (recept §5);
-> - živi javni render iz radnih podataka → nacrt, `Objavi` i nepromenljive verzije (poslednjih 20) uz živi sloj dostupnosti (`convex/menuPublic.ts`, recept §6–§7);
-> - granice pretplata, budžeti performansi i bezbednosni model → recept §7, §14 i §15.
->
-> Stari model i njegove rute rade dok lokal ne pređe (recept §12.4). Tekst ispod je istorija i ne menja se.
-
 | | |
 |---|---|
 | **Status** | Draft for review |

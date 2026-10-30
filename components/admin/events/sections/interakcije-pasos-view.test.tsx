@@ -1,17 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
-import { AdminSidebarView } from "@/components/admin/frame/admin-sidebar-view";
 import { buildPassportRows, type PassportOverviewSource } from "@/lib/admin-v1/passport-overview";
 import type { AdminQueryState } from "@/lib/admin-v1/query-state";
-import { resolveAdminSidebar } from "@/lib/admin-v2/sidebar/registry";
-import type { SidebarState } from "@/lib/admin-v2/sidebar/types";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
-import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
-import { EventPassportsView, passportsSidebarLive, type PassportsActions } from "./interakcije-pasos-view";
+import { EventPassportsView, type PassportsActions } from "./interakcije-pasos-view";
 
-// Admin UX A7 / ADMIN v2 — `interakcije/pasos` (SSR markup; the state filter
-// is in the sidebar of the admin frame): the condition with its
+// Admin UX A7 — `interakcije/pasos` (SSR markup): the condition with its
 // reasons, the five states in Serbian, the members with the emergency
 // removal of a withdrawn car, Sakrij/Prikaži with the brand in the name,
 // the explanation of the freeze, filters and the empty/loading states. No
@@ -56,14 +51,6 @@ const exhibitors = [{ id: "p1", name: "TEST Izlagač A" }, { id: "p2", name: "TE
 const ROWS = buildPassportRows(source, names, NOW);
 const render = (query: AdminQueryState = {}, rows: typeof ROWS | undefined = ROWS) =>
   renderToStaticMarkup(<EventPassportsView rows={rows} eventStartsAt={OPENING} exhibitors={exhibitors} query={query} onQueryChange={() => undefined} actions={actions} />);
-const BASE = "/admin/dogadjaji/test-sajam";
-/** The sidebar of the exhibitor's page as the frame renders it: the registry configuration with what the passport list sends. */
-const sidebarHtml = (query: AdminQueryState = {}, rows = ROWS) =>
-  renderToStaticMarkup(
-    <AdminSidebarView config={resolveAdminSidebar(`${BASE}/interakcije/p1`)} live={passportsSidebarLive(rows, query)} state={query as SidebarState} onPatch={() => undefined} />,
-  );
-/** A radio row of a sidebar group: the option and the number next to it. */
-const option = (label: string, count: number) => new RegExp(`>${label}</span><span[^>]*>${count}</span>`);
 /** Visible text only (attribute values such as option values are not shown). */
 const text = (html: string) => html.replace(/<[^>]+>/g, " ");
 
@@ -100,36 +87,11 @@ describe("A7 Pasoš brenda view", () => {
     expect(html).toContain(p.states.frozen);
   });
 
-  test("ADMIN v2: the list has no filter block above it; the N od M counter stays", () => {
-    const html = render({ prikaz: "tabela" });
-    expect(html).not.toContain('data-admin-primitive="filter-bar"');
-    expect(html).not.toContain(`aria-label="${p.filterLabel}"`);
-    expect(html).not.toContain("<select");
-    expect(html).toContain(fmt(p.count, { shown: 6, total: 6 }));
-  });
-
-  test("ADMIN v2 sidebar: the states with counts; the brand is a chip only; the state and Očisti sve show as chips", () => {
-    const html = sidebarHtml();
-    expect(html).toContain(`>${p.facetState}</span>`);
-    const counts = { active: 1, frozen: 1, hidden: 1, not_eligible: 2, missing: 1 } as const;
-    for (const [state, count] of Object.entries(counts)) expect(html).toMatch(option(p.states[state as keyof typeof counts], count));
-    // The brand arrives by a link from the model page: no group, no list of brands.
-    expect(html).not.toContain(`>${adminUiSr.hierarchy.brand}</span>`);
-    expect(html).not.toContain("TEST Faradej");
-    const chosen = sidebarHtml({ stanje: "bez-uslova", brend: "b1" });
-    expect(chosen).toContain(`${p.facetState}: ${p.states.not_eligible}`);
-    expect(chosen).toContain(`${adminUiSr.hierarchy.brand}: TEST Volta`);
-    expect(chosen).toContain(`>${adminUiSr.filters.clearAll}</button>`);
-    // The counts follow the other filters (the brand), as the list does.
-    expect(sidebarHtml({ brend: "b3" })).toMatch(option(p.states.not_eligible, 1));
-    expect(passportsSidebarLive(ROWS, {}).options?.brend).toContainEqual({ value: "b1", label: "TEST Volta" });
-  });
-
-  test("filters: exhibitor and state from the link still filter the list; no match offers Očisti; loading and no brands", () => {
+  test("filters: exhibitor, state and the brand chip from the model detail; no match offers Očisti; loading and no brands", () => {
     const filtered = render({ izlagac: "p2", stanje: "bez-uslova", prikaz: "tabela" });
     expect(filtered).toContain(fmt(p.count, { shown: 2, total: 6 }));
     expect(filtered).not.toContain(">TEST Volta<");
-    expect(render({ brend: "b1", prikaz: "tabela" })).toContain(fmt(p.count, { shown: 1, total: 6 }));
+    expect(render({ brend: "b1", prikaz: "tabela" })).toContain(fmt(p.brandChip, { brand: "TEST Volta" }));
     const none = render({ izlagac: "p1", stanje: "bez-uslova" });
     expect(none).toContain(p.noMatchTitle);
     expect(renderToStaticMarkup(<EventPassportsView rows={undefined} eventStartsAt={undefined} exhibitors={exhibitors} query={{}} onQueryChange={() => undefined} actions={actions} />)).toContain(adminEventsSr.loading);

@@ -19,10 +19,11 @@ describe("AdminOptionRows", () => {
     expect(html).toContain("<legend");
     expect(html).toContain(`aria-label="${dict.option.replace("{n}", "1")}"`);
     expect(html).toContain('value="TEST ne"');
-    expect(html).toContain(dict.count.replace("{count}", "2").replace("{max}", "5"));
+    // 30 Oct 2026: more than 5 options allowed (12 is the bound).
+    expect(html).toContain(dict.count.replace("{count}", "2").replace("{max}", "12"));
   });
 
-  test("the first row cannot move up, the last cannot move down, 2 rows cannot be removed, 5 rows cannot grow", () => {
+  test("the first row cannot move up, the last cannot move down, 2 rows cannot be removed, 12 rows cannot grow", () => {
     const two = render(["A", "B"]);
     expect(button(two, dict.moveUp.replace("{n}", "1"))).toContain('disabled=""');
     expect(button(two, dict.moveDown.replace("{n}", "1"))).not.toContain('disabled=""');
@@ -30,7 +31,7 @@ describe("AdminOptionRows", () => {
     expect(button(two, dict.remove.replace("{n}", "1"))).toContain('disabled=""');
     const three = render(["A", "B", "C"]);
     expect(button(three, dict.remove.replace("{n}", "2"))).not.toContain('disabled=""');
-    const five = render(["A", "B", "C", "D", "E"]);
+    const five = render([..."ABCDEFGHIJKL"]);
     expect(five).toMatch(new RegExp(`<button[^>]*disabled=""[^>]*>(?:(?!</button>).)*${dict.add}`));
   });
 

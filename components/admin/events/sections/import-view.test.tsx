@@ -47,9 +47,9 @@ describe("A5 import guide", () => {
 
   test("mapping: headers recognised by synonym (auto badge), unknown column ignored, every column has its own select", () => {
     const markup = render("mapiranje");
-    const selects = markup.match(/<select aria-label="Gde se upisuje kolona[\s\S]*?<\/select>/g) ?? [];
+    const selects = markup.match(/<select aria-label="Polje importa za kolonu[\s\S]*?<\/select>/g) ?? [];
     expect(selects).toHaveLength(9);
-    const selected = (column: string) => selects.find((select) => select.includes(`kolona ${column}"`))?.match(/<option value="([^"]+)" selected=""/)?.[1];
+    const selected = (column: string) => selects.find((select) => select.includes(`kolonu ${column}"`))?.match(/<option value="([^"]+)" selected=""/)?.[1];
     expect(selected("Izlagač")).toBe("field:exhibitor");
     expect(selected("Marka")).toBe("field:brand");
     expect(selected("Naziv modela")).toBe("field:model");
@@ -91,7 +91,7 @@ describe("A5 import guide", () => {
       [null, guide.wholeImport, "error", adminEventsSr.issues.FAIR_IMPORT_TOO_LARGE],
       [2, "Naziv modela", "error", adminEventsSr.issues.FAIR_SLUG_TAKEN],
       [2, "Marka", "error", adminEventsSr.issues.FAIR_LINK_NOT_FOUND],
-      [2, "Link fotografije · nema kolone", "warning", adminEventsSr.issues.FAIR_PHOTO_MISSING],
+      [2, "URL fotografije · nema kolone", "warning", adminEventsSr.issues.FAIR_PHOTO_MISSING],
       [3, "Paket", "error", guide.rowIssues.IMPORT_PACKAGE_INVALID],
     ]);
     const markup = renderToStaticMarkup(<AdminViewModeOverride value="tabela"><ImportIssuesList rows={rows} /></AdminViewModeOverride>);

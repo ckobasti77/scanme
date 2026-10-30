@@ -1,5 +1,7 @@
 import { Suspense, type ReactNode } from "react";
+import { AdminGuard } from "@/components/admin/admin-guard";
 import { AdminLoadingState, AdminPanel } from "@/components/admin/admin-primitives";
+import { AdminShell } from "@/components/admin/admin-shell";
 import { AdminEventFrame, AdminEventsErrorBoundary } from "@/components/admin/events/event-frame";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 
@@ -9,10 +11,14 @@ import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
 export default async function EventLayout({ children, params }: { children: ReactNode; params: Promise<{ eventSlug: string }> }) {
   const { eventSlug } = await params;
   return (
-    <AdminEventsErrorBoundary>
-      <Suspense fallback={<AdminPanel><AdminLoadingState label={adminEventsSr.loading} /></AdminPanel>}>
-        <AdminEventFrame eventSlug={eventSlug}>{children}</AdminEventFrame>
-      </Suspense>
-    </AdminEventsErrorBoundary>
+    <AdminGuard>
+      <AdminShell>
+        <AdminEventsErrorBoundary>
+          <Suspense fallback={<AdminPanel><AdminLoadingState label={adminEventsSr.loading} /></AdminPanel>}>
+            <AdminEventFrame eventSlug={eventSlug}>{children}</AdminEventFrame>
+          </Suspense>
+        </AdminEventsErrorBoundary>
+      </AdminShell>
+    </AdminGuard>
   );
 }

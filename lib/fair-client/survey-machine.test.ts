@@ -15,6 +15,15 @@ import {
 const run = (state: SurveyState, ...actions: SurveyAction[]) => actions.reduce(surveyReducer, state);
 
 describe("survey state machine", () => {
+  it("30 Oct 2026: typed answers count only with text, keep the text and send it trimmed", () => {
+    let state = run(initialSurveyState(2), { type: "text", value: "free_text", text: "  " });
+    expect(state.answers[0]).toBeNull();
+    state = run(state, { type: "text", value: "free_text", text: " Audi " }, { type: "next" }, { type: "text", value: "write_in", text: "Cena" }, { type: "choose", value: "o1" });
+    expect(state.answers).toEqual(["free_text", "o1"]);
+    expect(state.texts[1]).toBe("Cena");
+    expect(surveyAnswersPayload(state, ["q1", "q2"])).toEqual([{ questionId: "q1", value: "free_text", text: "Audi" }, { questionId: "q2", value: "o1" }]);
+  });
+
   it("caps at ten questions (owner, 9 Oct 2026) and starts fresh", () => {
     const state = initialSurveyState(12);
     expect(state.total).toBe(10);

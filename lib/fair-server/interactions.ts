@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import {
   FAIR_ERROR_CODES,
   FAIR_LEAD_INPUT_REASONS,
+  FAIR_SURVEY_FREE_TEXT_MAX,
   FAIR_SURVEY_MAX_QUESTIONS,
   type FairContactRequirement,
   type FairErrorCode,
@@ -168,12 +169,14 @@ export const parseVote = (body: Body) =>
 export function parseSurvey(body: Body) {
   if (!onlyKeys(body, ["surveyId", "submissionId", "answers"]) || !str(body.surveyId) || !str(body.submissionId, 80)) return null;
   if (!Array.isArray(body.answers) || body.answers.length > FAIR_SURVEY_MAX_QUESTIONS) return null;
-  const answers: Array<{ questionId: string; value: string }> = [];
+  const answers: Array<{ questionId: string; value: string; text?: string }> = [];
   for (const raw of body.answers as unknown[]) {
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
     const answer = raw as Body;
-    if (!onlyKeys(answer, ["questionId", "value"]) || !str(answer.questionId) || !str(answer.value)) return null;
-    answers.push({ questionId: answer.questionId, value: answer.value });
+    if (!onlyKeys(answer, ["questionId", "value", "text"]) || !str(answer.questionId) || !str(answer.value)) return null;
+    // 30 Oct 2026: free_text / write-in; Convex re-validates trim, length and characters.
+    if (answer.text !== undefined && !str(answer.text, FAIR_SURVEY_FREE_TEXT_MAX)) return null;
+    answers.push({ questionId: answer.questionId, value: answer.value, ...(answer.text !== undefined ? { text: answer.text as string } : {}) });
   }
   return { surveyId: body.surveyId, submissionId: body.submissionId, answers };
 }

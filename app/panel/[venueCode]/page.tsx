@@ -20,7 +20,6 @@ import { fmt } from "@/lib/i18n/format";
 import { orderingPanelSr as dict } from "@/lib/i18n/sr/ordering-panel";
 import { WaiterPanel } from "@/components/ordering/panel/waiter-panel";
 import { readShiftBearer } from "@/components/ordering/panel-identity-server";
-import { menuNaslov } from "@/lib/menu-naslovi";
 
 export const dynamic = "force-dynamic";
 
@@ -43,8 +42,8 @@ export async function generateMetadata({
   const code = normalizeCode(venueCode);
   if (!code) return { robots };
   const state = await getState(code);
-  if (state.status !== "available") return { robots, title: menuNaslov(dict.pinHeading) };
-  return { title: menuNaslov(fmt(dict.metaTitle, { name: state.businessName })), robots };
+  if (state.status !== "available") return { robots, title: dict.pinHeading };
+  return { title: fmt(dict.metaTitle, { name: state.businessName }), robots };
 }
 
 export default async function WaiterPanelPage({

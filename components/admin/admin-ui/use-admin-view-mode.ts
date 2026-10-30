@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import {
   ADMIN_VIEW_CHANGE_EVENT,
   createViewModeStore,
@@ -49,24 +49,21 @@ export function useAdminViewMode(listKey: string): [AdminViewMode | null, (mode:
   return [stored, setStored];
 }
 
-/** The list's auto breakpoints in rem: the container queries `@2xl` and `@4xl` of AdminDataView. */
-const WIDE_REM = { md: 42, lg: 56 } as const;
+const WIDE_QUERY = { md: "(min-width: 48rem)", lg: "(min-width: 64rem)" } as const;
 
-/**
- * Whether the list (the element of the returned ref) is at/above its auto
- * breakpoint (before the first measure: wide = Tabela). ADMIN v2: the width
- * of the list, not of the window (the sidebar takes part of the screen).
- */
-export function useIsWideContainer(breakpoint: keyof typeof WIDE_REM): [RefObject<HTMLDivElement | null>, boolean] {
-  const ref = useRef<HTMLDivElement>(null);
-  const [wide, setWide] = useState(true);
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const observer = new ResizeObserver(([entry]) => setWide(entry.contentRect.width >= WIDE_REM[breakpoint] * rem));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [breakpoint]);
-  return [ref, wide];
+/** Whether the viewport is at/above the list's auto breakpoint (server: wide = Tabela). */
+export function useIsWideViewport(breakpoint: keyof typeof WIDE_QUERY): boolean {
+  const query = WIDE_QUERY[breakpoint];
+  return useSyncExternalStore(
+    useCallback(
+      (onChange: () => void) => {
+        const media = window.matchMedia(query);
+        media.addEventListener("change", onChange);
+        return () => media.removeEventListener("change", onChange);
+      },
+      [query],
+    ),
+    () => window.matchMedia(query).matches,
+    () => true,
+  );
 }

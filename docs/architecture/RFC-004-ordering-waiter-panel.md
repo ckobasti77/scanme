@@ -1,14 +1,5 @@
 # RFC-004: ScanMe poručivanje i panel konobara (Ordering & Waiter Panel)
 
-> **Napomena (K33, 21. 10. 2026., noćni run MENI): šta je zamenjeno.** Za ScanMe Menu V1 izvor istine je master specifikacija (`ScanMe-Menu-Jovan-Claude-Handoff/docs/SCANME-MENU-MASTER-SPEC.md`, §8–§10), a tehnički ugovor recept [`docs/menu/MENU-ARHITEKTURA.md`](../menu/MENU-ARHITEKTURA.md). Zamenjeno je:
-> - `serviceRequests`/`orderingGuests` i model prihvatanja sa otkucajem tableta i rokom od 7 minuta → zahtevi gosta `menuRequests` sa statusima `Novi → Prihvaćen → Završen` i ishodom `Otkazan`, bez „Stiže" i bez automatskog prosleđivanja (recept §2.1g);
-> - identitet stola kroz karticu → pozicije i QR veze Menu usluge (`menuPositions`, `menuQrLinks`, recept §2.1f); gost ne bira sto, link bez pozicije ne izmišlja poziciju;
-> - smena i `staffPins` → osoblje Menu usluge sa trocifrenim PIN-om (heš uz pepper), blokadama po uređaju, lokalu i IP-u, sesijom uređaja do 12 h i tajnim kodom panela (`menuStaff`, `menuStaffSessions`, `menuPinAttempts`, recept §2.1h); konobarski panel je `/[slug]/konobar/[kod]`;
-> - sala, zone, zauzetost i rezervacije → recept §2.1i–§2.1j;
-> - granice pretplata, budžeti performansi i bezbednosni model → recept §7, §14 i §15.
->
-> Postojeće poručivanje i panel `/panel/[venueCode]` rade kao pre dok vlasnik ne odluči o njima (recept §12.1). Tekst ispod je istorija i ne menja se.
-
 | | |
 |---|---|
 | **Status** | Draft for review |

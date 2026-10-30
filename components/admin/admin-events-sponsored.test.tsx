@@ -139,12 +139,3 @@ describe("A9 admin Sponzorisano (automatic list)", () => {
     expect(renderToStaticMarkup(<AdminEventsSponsored view={clean} actions={actions} />)).toContain(a.warningsNone);
   });
 });
-
-describe("ADMIN v3 V1 Sponzorisano", () => {
-  test("the subtitle is text, the warnings are rows, the technical details block is a card", () => {
-    const markup = renderToStaticMarkup(<AdminEventsSponsored view={auto} actions={actions} />);
-    expect(markup).toContain('<p data-admin-reveal="text"');
-    expect(markup).toContain('<ul data-admin-reveal="rows" class="grid gap-2">');
-    expect(markup).toMatch(/<details data-admin-reveal="card"/);
-  });
-});

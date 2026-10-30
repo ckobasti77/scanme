@@ -380,6 +380,8 @@ export type FairCapabilityContext = {
   interestLeadEnabled: boolean;
   /** fairLeadConfigs.enabled for `test_drive` (absent config = false). */
   testDriveLeadEnabled: boolean;
+  /** 30 Oct 2026: owner override, the exhibitor's survey also on Starter (fairParticipations.surveyAllTiers). */
+  surveyAllTiers?: boolean;
 };
 
 export function deriveFairCapabilities(
@@ -392,7 +394,7 @@ export function deriveFairCapabilities(
     canSubmitInterest: rights.interest && context.interestLeadEnabled,
     canRequestTestDrive: rights.testDrive && context.testDriveLeadEnabled,
     hasAudienceQuestions: rights.audienceQuestionsPerDay > 0 && context.hasOpenAudienceQuestions,
-    hasSurvey: rights.survey && context.hasPublishedSurvey,
+    hasSurvey: (rights.survey || (tier !== "included" && context.surveyAllTiers === true)) && context.hasPublishedSurvey,
     isSponsored:
       (rights.sponsoredMapRotation || rights.sponsoredGarageRotation) &&
       context.inPublishedSponsoredSnapshot,

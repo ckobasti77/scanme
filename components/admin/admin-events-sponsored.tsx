@@ -121,7 +121,7 @@ export function AdminEventsSponsored({ view, actions }: { view: SponsoredView | 
   const autoRun = useRunner();
   const resultRun = useRunner();
   const now = useRotationNow(view?.now ?? 0);
-  if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.loading} body={dict.sponsoredUnavailable} /></AdminPanel>;
+  if (!view || !actions) return <AdminPanel><AdminEmptyState title={dict.tabSponsored} body={dict.sponsoredUnavailable} /></AdminPanel>;
 
   const a = dict.sponsoredAuto;
   const models = new Map(view.models.map((model) => [model.id, model]));
@@ -151,7 +151,7 @@ export function AdminEventsSponsored({ view, actions }: { view: SponsoredView | 
 
   return (
     <div className="grid min-w-0 gap-5">
-      <p data-admin-reveal="text" className="text-sm text-[var(--admin-text-muted)]">{dict.sponsoredSubtitle}</p>
+      <p className="text-sm text-[var(--admin-text-muted)]">{dict.sponsoredSubtitle}</p>
 
       <Section title={dict.sponsoredTitle} help={dict.sponsoredHelp}>
         <div className="flex flex-wrap items-center gap-2">
@@ -185,7 +185,7 @@ export function AdminEventsSponsored({ view, actions }: { view: SponsoredView | 
 
       <Section title={a.warningsTitle} help={a.warningsHelp}>
         {warnings.noPhoto.length || warnings.noQuestion.length || warnings.fewVotes.length ? (
-          <ul data-admin-reveal="rows" className="grid gap-2">
+          <ul className="grid gap-2">
             {warnings.noPhoto.length ? (
               <li className="flex min-w-0 flex-wrap items-start gap-2">
                 <AdminStatus label={a.warnTag} tone="waiting" />
@@ -216,7 +216,7 @@ export function AdminEventsSponsored({ view, actions }: { view: SponsoredView | 
               listKey="dogadjaji.sponzorisano.redosled"
               caption={a.orderTitle}
               rows={items}
-              empty={{ title: dict.sponsoredItemsEmptyTitle, body: dict.sponsoredItemsEmpty }}
+              empty={{ title: a.orderTitle, body: dict.sponsoredItemsEmpty }}
               getRowId={(item) => item.modelId}
               columns={[
                 { id: "order", header: dict.colOrder, align: "end", sortValue: (item) => item.order, cell: (item) => <span className="tabular-nums">{item.order + 1}</span> },
@@ -253,7 +253,7 @@ export function AdminEventsSponsored({ view, actions }: { view: SponsoredView | 
           listKey="dogadjaji.sponzorisano.kandidati"
           caption={dict.sponsoredResultTitle}
           rows={view.candidates}
-          empty={{ title: dict.sponsoredResultNoModelsTitle, body: dict.sponsoredResultNoModels }}
+          empty={{ title: dict.sponsoredResultTitle, body: dict.sponsoredResultNoModels }}
           getRowId={(candidate) => candidate.modelId}
           columns={[
             { id: "model", header: dict.colModel, rowHeader: true, sortValue: (candidate) => name(candidate.modelId), cell: (candidate) => <strong className="font-semibold">{name(candidate.modelId)}</strong> },
@@ -298,7 +298,7 @@ export function AdminEventsSponsored({ view, actions }: { view: SponsoredView | 
         />
       </Section>
 
-      <details data-admin-reveal="card" className="min-w-0 rounded-[var(--admin-radius-panel)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[var(--admin-shadow-sm)] sm:p-5">
+      <details className="min-w-0 rounded-[var(--admin-radius-panel)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[var(--admin-shadow-sm)] sm:p-5">
         <summary className="cursor-pointer text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]">{a.technicalTitle}</summary>
         <div className="mt-3 grid min-w-0 gap-3">
           {view.active ? <Meta>{fmt(a.technicalVersion, { version: view.active.version, dayKey: view.active.dayKey })}</Meta> : null}

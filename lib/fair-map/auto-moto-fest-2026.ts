@@ -48,6 +48,9 @@ export const AUTO_MOTO_FEST_2026_MAP: FairMapGeometry = {
         fairMapStand("ispred-s3", "S3", [[914, 660], [981, 788], [800, 883], [731, 757]]),
         fairMapStand("ispred-s4", "S4", [[707, 993], [843, 993], [846, 1076], [708, 1079]]),
         fairMapStand("ispred-s5", "S5", [[927, 944], [1119, 944], [1119, 1079], [928, 1079]]),
+        // 30 Oct 2026 (owner): SWM's S6 from the newer plan, between S4 and S5;
+        // only the shared ID, the topographic drawing is unchanged.
+        fairMapStand("ispred-s6", "S6", [[848, 993], [925, 993], [925, 1079], [848, 1079]]),
         // Not on the organizer map: the ScanMe stand position is still open
         // (old 30.9 notes only say "ulaz"). Placeholder near the main entrance.
         { id: "scanme", label: "ScanMe", kind: "scanme", placement: "placeholder", polygon: [[60, 782], [150, 782], [150, 818], [60, 818]] },
