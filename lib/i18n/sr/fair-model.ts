@@ -169,7 +169,7 @@ export const fairModelSr = {
   surveyPartialMeta: "Nastavite gde ste stali",
   surveyReadyMessage: "Odgovori su spremni",
   surveyReadyMeta: "Samo još potvrdite slanje",
-  surveyDismiss: "Sakrij anketu",
+  surveyDismiss: "Zatvori poruku",
   surveySheetTitle: "Kratka anketa · {brand}",
   surveySheetSubtitle: "Odgovori idu izlagaču {exhibitor}",
   surveyProgressAria: "Napredak ankete: odgovoreno {answered} od {total}",

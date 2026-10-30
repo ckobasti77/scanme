@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { EMPTY_CONTACT_DRAFT, contactFormState, type ContactDraft } from "@/lib/fair-client/contact-form";
 import { fairErrorText } from "@/lib/fair-client/fair-errors";
 import { fairHaptic } from "@/lib/fair-client/haptics";
+import { keepAboveKeyboard } from "@/lib/fair-client/keyboard";
 import {
   answeredCount,
   canSendSurvey,
@@ -147,6 +148,7 @@ export function SurveySheet() {
                 autoComplete="off"
                 enterKeyHint="next"
                 placeholder={dict.surveyFreeTextPlaceholder}
+                onFocus={(event) => keepAboveKeyboard(event.currentTarget)}
                 value={state.texts[index] ?? ""}
                 onChange={(event) => dispatch({ type: "text", value: FAIR_SURVEY_FREE_TEXT_VALUE, text: event.target.value })}
                 onKeyDown={(event) => {
@@ -197,6 +199,7 @@ export function SurveySheet() {
                   autoComplete="off"
                   enterKeyHint="next"
                   placeholder={question.writeInLabel}
+                  onFocus={(event) => keepAboveKeyboard(event.currentTarget)}
                   value={state.texts[index] ?? ""}
                   onChange={(event) => dispatch({ type: "text", value: FAIR_SURVEY_WRITE_IN_VALUE, text: event.target.value })}
                   onKeyDown={(event) => {

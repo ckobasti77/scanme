@@ -146,6 +146,18 @@ export function fairModelKeySpecs(items: readonly FairKeySpecSource[], compact =
   return picked.map(toKeySpec);
 }
 
+/**
+ * A spec value written as a small table (AMF engine choices, 30 Oct 2026):
+ * rows separated by "; ", cells by ", ", the first row is the header. Null
+ * unless every row has the same number (2–4) of non-empty cells.
+ */
+export function fairSpecTable(value: string): { head: string[]; rows: string[][] } | null {
+  const rows = value.split(/;\s+/).map((row) => row.split(/,\s+/).map((cell) => cell.trim()));
+  const width = rows[0].length;
+  if (rows.length < 3 || width < 2 || width > 4 || rows.some((row) => row.length !== width || row.some((cell) => !cell))) return null;
+  return { head: rows[0], rows: rows.slice(1) };
+}
+
 /** Only positive powertrain evidence; mHEV alternatives do not confirm a battery. */
 export function fairModelHasTractionBattery(items: readonly FairKeySpecSource[]): boolean {
   return items.some((item) => /baterij/.test(fold(item.label)) && /kwh/i.test(item.value)

@@ -250,7 +250,8 @@ function ChatHead({ survey }: { survey: FairSurveyController }) {
               type="button"
               className="fair-survey-preview__dismiss"
               aria-label={dict.surveyDismiss}
-              onClick={survey.dismissHead}
+              // Closes only the bubble, like its own timeout; the chat head stays.
+              onClick={() => setPreview(null)}
             >
               <X aria-hidden="true" />
             </button>

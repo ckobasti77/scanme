@@ -90,7 +90,7 @@ function ConsentKind({ kind, versions, actions }: { kind: FairLeadKind; versions
   return (
     <details className="group min-w-0 rounded-xl border border-[var(--admin-border)] [&_summary::-webkit-details-marker]:hidden">
       <summary className="flex min-h-12 cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 rounded-xl px-4 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))]">
-        <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
+        <ChevronDown className="size-4 shrink-0 transition-transform group-open:-rotate-180 motion-reduce:transition-none" aria-hidden="true" />
         <span className="font-semibold">{dict.leadKinds[kind]}</span>
         <AdminStatus label={active ? dict.consentStatus.active : dict.leadSettings.summaryNone} tone={active ? "active" : "waiting"} />
         {summary ? <span className="text-sm text-[var(--admin-text-muted)]">{summary}</span> : null}

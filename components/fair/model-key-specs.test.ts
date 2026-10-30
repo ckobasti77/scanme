@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { fairModelHasTractionBattery, fairModelKeySpecs, fairModelSpecGroups, splitSpecValue } from "./model-key-specs";
+import { fairModelHasTractionBattery, fairModelKeySpecs, fairModelSpecGroups, fairSpecTable, splitSpecValue } from "./model-key-specs";
 import amf from "../../docs/events/auto-moto-fest-2026/intake/prod-2026-10-30/b1-payload.json";
 
 const spec = (id: string, label: string, value: string, isHighlight = false) => ({ id, label, value, isHighlight });
@@ -139,5 +139,16 @@ describe("AMF key tiles (hotfix 30 Oct 2026)", () => {
     expect(tiles("ineos-grenadier").map((k) => k.kind)).toEqual(["power", "engine", "transmission", "drive"]);
     expect(tiles("skoda-kodiaq").map((k) => [k.kind, k.value])).toEqual([["power", "142"], ["engine", "2,0"], ["transmission", "DSG"], ["consumption", "6,3"]]);
     expect(tiles("dongfeng-box").map((k) => k.kind)).toEqual(["range", "battery", "power", "charging"]);
+  });
+});
+
+describe("fairSpecTable", () => {
+  test("engine choices become a header and rows; anything irregular stays text", () => {
+    expect(fairSpecTable("Motor, Snaga, Menjač; 1,0 EcoBoost mHEV, 92 kW / 125 KS, ručni 6; 1,0 EcoBoost mHEV, 114 kW / 155 KS, automatski 7")).toEqual({
+      head: ["Motor", "Snaga", "Menjač"],
+      rows: [["1,0 EcoBoost mHEV", "92 kW / 125 KS", "ručni 6"], ["1,0 EcoBoost mHEV", "114 kW / 155 KS", "automatski 7"]],
+    });
+    expect(fairSpecTable("BMW 3,0 l Benzin / BMW 3,0 l Dizel")).toBeNull();
+    expect(fairSpecTable("A, B; 1, 2; 3")).toBeNull();
   });
 });

@@ -95,7 +95,7 @@ export function ClientPanelChat({ slug }: { slug: string }) {
         </span>
         <span className="inline-flex shrink-0 items-center gap-2 text-xs font-semibold text-primary">
           <span className="hidden sm:inline">{open ? dict.clientClose : dict.clientOpen}</span>
-          <ChevronDown className={cn("size-4 transition-transform motion-reduce:transition-none", open && "rotate-180")} aria-hidden="true" />
+          <ChevronDown className={cn("size-4 transition-transform motion-reduce:transition-none", open && "-rotate-180")} aria-hidden="true" />
         </span>
       </button>
       {open ? (
@@ -160,7 +160,7 @@ export function ClientPanelChatPreview() {
     <section className="border border-border bg-card" aria-labelledby="client-chat-preview-title">
       <button type="button" aria-expanded={open} aria-controls="client-chat-preview-content" onClick={() => setOpen((value) => !value)} className="flex min-h-16 w-full items-center justify-between gap-4 px-4 text-left transition-colors hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50 sm:px-6">
         <span className="flex min-w-0 items-center gap-3"><span className="grid size-10 shrink-0 place-items-center bg-primary/10 text-primary"><MessageSquareText className="size-5" aria-hidden="true" /></span><span className="min-w-0"><strong id="client-chat-preview-title" className="block truncate">{dict.clientTitle}</strong><span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{dict.clientSubtitle}</span></span></span>
-        <span className="inline-flex shrink-0 items-center gap-2 text-xs font-semibold text-primary"><span className="hidden sm:inline">{open ? dict.clientClose : dict.clientOpen}</span><ChevronDown className={cn("size-4 transition-transform motion-reduce:transition-none", open && "rotate-180")} aria-hidden="true" /></span>
+        <span className="inline-flex shrink-0 items-center gap-2 text-xs font-semibold text-primary"><span className="hidden sm:inline">{open ? dict.clientClose : dict.clientOpen}</span><ChevronDown className={cn("size-4 transition-transform motion-reduce:transition-none", open && "-rotate-180")} aria-hidden="true" /></span>
       </button>
       {open ? (
         <div id="client-chat-preview-content" className="grid gap-5 border-t border-border p-4 sm:p-6">
