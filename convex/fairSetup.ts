@@ -7,9 +7,20 @@ import { normalizeAdminSearchText } from "./lib/adminV1Validators";
 import { fairEventByCode, fairIssueValidator, setFairModelStatus, upsertFairEvent, upsertFairEventDay } from "./lib/fairCatalog";
 import { scheduleFairBrandPassportSync } from "./lib/fairPassportSync";
 import { syncFairSponsoredSnapshot } from "./lib/fairSponsored";
+import { fairModelTierAt } from "./lib/fairInteractions";
+import { applyDestination, prepareDestination, syncChannel } from "./lib/accessOperations";
+import { fairContactRequirement, fairLeadKind } from "./lib/fairValidators";
+import type { Doc } from "./_generated/dataModel";
 import { createEventOnlyClient } from "./fairAdmin";
 import { commitFairImport, fairImportPayload, planFairImport } from "./fairImport";
-import { FAIR_ADMIN_LIST_LIMIT } from "../lib/fair-contract";
+import {
+  FAIR_ADMIN_LIST_LIMIT,
+  FAIR_AUDIENCE_OPTIONS_MAX,
+  FAIR_AUDIENCE_OPTIONS_MIN,
+  FAIR_SURVEY_MAX_QUESTIONS,
+  FAIR_SURVEY_OPTIONS_MAX,
+} from "../lib/fair-contract";
+import { getFairEntitlements } from "../lib/fair-entitlements";
 
 // Fair events — REAL event setup (docs/events/sajam-automobila-2026/
 // RUNBOOK-EVENT-SETUP.md). Internal only, run with `npx convex run` (DEV first,
@@ -249,5 +260,273 @@ export const publishEventModels = internalMutation({
     }
     await syncFairSponsoredSnapshot(ctx, event._id, now, actorUserId);
     return { published, alreadyPublished, warnings };
+  },
+});
+
+const audienceGroup = v.object({
+  modelSlugs: v.array(v.string()),
+  questions: v.array(v.object({ prompt: v.string(), options: v.array(v.string()) })),
+  /** "all": every question every day; "perDay": day N gets question N. */
+  mode: v.union(v.literal("all"), v.literal("perDay")),
+  /** 1-based question shown with the model's sponsored rotation (Advanced only). */
+  sponsoredQuestion: v.optional(v.number()),
+});
+
+/**
+ * AMF 30 Oct 2026: publishes the exhibitors' Glas publike questions per fair
+ * day (idempotent by externalKey `q-<slug>-<dateKey>-<n>`), within the same
+ * per-day package quota as fairInteractionsAdmin.publishAudienceQuestion. The
+ * sponsored flag goes on the `sponsorDateKey` instance of that question.
+ */
+export const setupAudienceQuestions = internalMutation({
+  args: { actorEmail: v.string(), eventCode: v.string(), sponsorDateKey: v.string(), groups: v.array(audienceGroup) },
+  returns: v.object({ created: v.number(), updated: v.number(), unchanged: v.number(), sponsored: v.number() }),
+  handler: async (ctx, args) => {
+    const actorUserId = await setupActor(ctx, args.actorEmail);
+    const event = await fairEventByCode(ctx, args.eventCode);
+    if (!event) throw new Error("fair_setup_event_missing");
+    const now = Date.now();
+    const days = (await ctx.db.query("fairEventDays").withIndex("by_eventId_and_dateKey", (q) => q.eq("eventId", event._id)).take(10))
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    const counts = { created: 0, updated: 0, unchanged: 0, sponsored: 0 };
+    for (const group of args.groups) {
+      for (const slug of group.modelSlugs) {
+        const model = await ctx.db.query("fairEventModels").withIndex("by_eventId_and_slug", (q) => q.eq("eventId", event._id).eq("slug", slug)).unique();
+        if (!model) throw new Error(`fair_setup_model_missing:${slug}`);
+        const perDay = getFairEntitlements(await fairModelTierAt(ctx, model, now)).audienceQuestionsPerDay;
+        let sponsoredId = null;
+        for (const [dayIndex, day] of days.entries()) {
+          const numbers = group.mode === "all" ? group.questions.map((_, i) => i + 1) : group.questions[dayIndex] ? [dayIndex + 1] : [];
+          if (numbers.length > perDay) throw new Error(`fair_setup_question_quota:${slug}:${day.dateKey}`);
+          for (const n of numbers) {
+            const question = group.questions[n - 1];
+            if (question.options.length < FAIR_AUDIENCE_OPTIONS_MIN || question.options.length > FAIR_AUDIENCE_OPTIONS_MAX) throw new Error(`fair_setup_question_options:${slug}:${n}`);
+            const externalKey = `q-${slug}-${day.dateKey}-${n}`;
+            const fields = {
+              eventDayId: day._id,
+              prompt: question.prompt.trim(),
+              options: question.options.map((label, i) => ({ id: `o${i + 1}`, label: label.trim(), order: i + 1 })),
+              status: "published" as const,
+              sortOrder: n,
+              startsAt: day.startsAt,
+              endsAt: day.endsAt,
+            };
+            const existing = await ctx.db.query("fairAudienceQuestions").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id).eq("externalKey", externalKey)).first();
+            let id = existing?._id;
+            if (!existing) {
+              id = await ctx.db.insert("fairAudienceQuestions", { eventId: event._id, eventModelId: model._id, externalKey, ...fields, showOnSponsoredRotation: false, createdAt: now, updatedAt: now });
+              counts.created += 1;
+            } else if (JSON.stringify([existing.prompt, existing.options, existing.status, existing.sortOrder, existing.startsAt, existing.endsAt]) !== JSON.stringify([fields.prompt, fields.options, fields.status, fields.sortOrder, fields.startsAt, fields.endsAt])) {
+              await ctx.db.patch(existing._id, { ...fields, updatedAt: now });
+              counts.updated += 1;
+            } else counts.unchanged += 1;
+            if (group.sponsoredQuestion === n && day.dateKey === args.sponsorDateKey) sponsoredId = id;
+          }
+        }
+        if (group.sponsoredQuestion !== undefined && getFairEntitlements(model.packageTier).sponsoredMapRotation) {
+          const all = await ctx.db.query("fairAudienceQuestions").withIndex("by_eventModelId_and_eventDayId", (q) => q.eq("eventModelId", model._id)).take(50);
+          for (const row of all) {
+            const want = row._id === sponsoredId;
+            if (row.showOnSponsoredRotation !== want) await ctx.db.patch(row._id, { showOnSponsoredRotation: want, updatedAt: now });
+          }
+          if (sponsoredId) counts.sponsored += 1;
+        }
+      }
+    }
+    await syncFairSponsoredSnapshot(ctx, event._id, now, actorUserId);
+    await writeAdminAudit(ctx, { actorUserId, action: "fair_setup_audience_questions", detail: { eventCode: event.code, ...counts }, now });
+    return counts;
+  },
+});
+
+/**
+ * AMF 30 Oct 2026: one published survey per listed model (questions verbatim;
+ * `free_text` and a single_choice `writeInLabel` allowed). Idempotent: an
+ * identical published version is left as is, a different one is replaced by a
+ * new version (the old one is retired, its answers stay). `surveyAllTiers`
+ * marks the owner override for the participation (Nikom: Starter included).
+ */
+export const setupSurveys = internalMutation({
+  args: {
+    actorEmail: v.string(),
+    eventCode: v.string(),
+    groups: v.array(v.object({
+      modelSlugs: v.array(v.string()),
+      surveyAllTiers: v.boolean(),
+      questions: v.array(v.object({
+        prompt: v.string(),
+        kind: v.union(v.literal("single_choice"), v.literal("free_text")),
+        options: v.array(v.string()),
+        writeInLabel: v.optional(v.string()),
+      })),
+    })),
+  },
+  returns: v.object({ published: v.number(), unchanged: v.number() }),
+  handler: async (ctx, args) => {
+    const actorUserId = await setupActor(ctx, args.actorEmail);
+    const event = await fairEventByCode(ctx, args.eventCode);
+    if (!event) throw new Error("fair_setup_event_missing");
+    const now = Date.now();
+    const counts = { published: 0, unchanged: 0 };
+    for (const group of args.groups) {
+      if (group.questions.length < 1 || group.questions.length > FAIR_SURVEY_MAX_QUESTIONS) throw new Error("fair_setup_survey_size");
+      const questions = group.questions.map((question, index) => {
+        if (question.kind === "single_choice" && (question.options.length < FAIR_AUDIENCE_OPTIONS_MIN || question.options.length > FAIR_SURVEY_OPTIONS_MAX)) throw new Error(`fair_setup_survey_options:${index + 1}`);
+        if (question.kind === "free_text" && (question.options.length || question.writeInLabel)) throw new Error(`fair_setup_survey_free_text:${index + 1}`);
+        return {
+          id: `q${index + 1}`,
+          prompt: question.prompt.trim(),
+          kind: question.kind,
+          options: question.options.map((label, i) => ({ id: `o${i + 1}`, label: label.trim(), order: i + 1 })),
+          ...(question.writeInLabel ? { writeInLabel: question.writeInLabel.trim() } : {}),
+          required: false,
+          order: index + 1,
+        };
+      });
+      for (const slug of group.modelSlugs) {
+        const model = await ctx.db.query("fairEventModels").withIndex("by_eventId_and_slug", (q) => q.eq("eventId", event._id).eq("slug", slug)).unique();
+        if (!model) throw new Error(`fair_setup_model_missing:${slug}`);
+        const participation = await ctx.db.get(model.participationId);
+        if (!participation) throw new Error(`fair_setup_participation_missing:${slug}`);
+        if ((participation.surveyAllTiers === true) !== group.surveyAllTiers) await ctx.db.patch(participation._id, { surveyAllTiers: group.surveyAllTiers, updatedAt: now });
+        const tier = await fairModelTierAt(ctx, model, now);
+        if (!getFairEntitlements(tier).survey && !(group.surveyAllTiers && tier !== "included")) throw new Error(`fair_setup_survey_not_entitled:${slug}`);
+        const versions = await ctx.db.query("fairSurveys").withIndex("by_eventModelId_and_status", (q) => q.eq("eventModelId", model._id)).take(20);
+        const current = versions.find((row) => row.status === "published");
+        if (current && JSON.stringify(current.questions) === JSON.stringify(questions)) {
+          counts.unchanged += 1;
+          continue;
+        }
+        for (const row of versions) if (row.status === "published" || row.status === "draft") await ctx.db.patch(row._id, { status: "retired", updatedAt: now });
+        await ctx.db.insert("fairSurveys", {
+          eventId: event._id,
+          eventModelId: model._id,
+          status: "published",
+          questions,
+          version: versions.reduce((max, row) => Math.max(max, row.version), 0) + 1,
+          createdAt: now,
+          updatedAt: now,
+        });
+        counts.published += 1;
+      }
+    }
+    await writeAdminAudit(ctx, { actorUserId, action: "fair_setup_surveys", detail: { eventCode: event.code, ...counts }, now });
+    return counts;
+  },
+});
+
+/**
+ * AMF 30 Oct 2026: retires the given inventory stickers (redirect off →
+ * channel `inactive`, reversible) and points one panel's dynamic link at a new
+ * URL through the regular retarget path (applyDestination), never by editing
+ * the link alone. Panels are refused in `retireLabels`. `dryRun` only reports.
+ */
+export const amfQrHousekeeping = internalMutation({
+  args: { actorEmail: v.string(), inventorySmlCode: v.string(), retireLabels: v.array(v.string()), panelLabel: v.string(), panelUrl: v.string(), dryRun: v.boolean() },
+  returns: v.array(v.object({ label: v.string(), before: v.string(), after: v.string() })),
+  handler: async (ctx, args) => {
+    const actorUserId = await setupActor(ctx, args.actorEmail);
+    const inventory = await ctx.db.query("businesses").withIndex("by_smlCode", (q) => q.eq("smlCode", args.inventorySmlCode)).first();
+    if (!inventory) throw new Error("fair_qr_inventory_business_missing");
+    const now = Date.now();
+    const actor = { kind: "admin" as const, userId: actorUserId };
+    const describe = async (subject: Doc<"accessSubjects">) => {
+      const target = subject.currentTargetId ? await ctx.db.get(subject.currentTargetId) : null;
+      if (target?.kind === "url") return target.url ?? "url";
+      if (target?.kind === "fair_model" && target.fairEventModelId) {
+        const model = await ctx.db.get(target.fairEventModelId);
+        const event = model ? await ctx.db.get(model.eventId) : null;
+        return `${event?.code ?? "?"}/${model?.slug ?? "?"}`;
+      }
+      return target?.kind ?? "none";
+    };
+    const out: Array<{ label: string; before: string; after: string }> = [];
+    for (const label of [...args.retireLabels, args.panelLabel]) {
+      const card = await ctx.db.query("cards").withIndex("by_businessId_and_label", (q) => q.eq("businessId", inventory._id).eq("label", label)).first();
+      const channel = card?.accessChannelId ? await ctx.db.get(card.accessChannelId) : null;
+      const subject = channel ? await ctx.db.get(channel.subjectId) : null;
+      if (!card || !channel || !subject) throw new Error(`fair_setup_qr_missing:${label}`);
+      const before = `${channel.state} → ${await describe(subject)}`;
+      if (label !== args.panelLabel) {
+        if (label.startsWith("PANEL")) throw new Error(`fair_setup_panel_in_retire_list:${label}`);
+        if (!args.dryRun && channel.redirectEnabled) await syncChannel(ctx, { ...channel, redirectEnabled: false }, subject, actor, "AMF 2026: SA26-001…015 povučeni (Sajam elektromobilnosti)", now);
+        out.push({ label, before, after: args.dryRun ? before : `inactive → ${await describe(subject)}` });
+        continue;
+      }
+      const input = subject.destinationInput;
+      if (input?.kind !== "dynamic_link") throw new Error(`fair_setup_panel_not_dynamic:${label}`);
+      if (!args.dryRun) {
+        const link = await ctx.db.get(input.dynamicLinkId);
+        if (!link) throw new Error("fair_setup_panel_link_missing");
+        await ctx.db.patch(link._id, { destinationUrl: args.panelUrl, updatedAt: now });
+        const prepared = await prepareDestination(ctx, subject.businessId, input);
+        await applyDestination(ctx, subject, input, prepared, actorUserId, "AMF 2026: glavni pano vodi na mapu sajma", now);
+      }
+      const fresh = (await ctx.db.get(subject._id))!;
+      const freshChannel = (await ctx.db.get(channel._id))!;
+      out.push({ label, before, after: args.dryRun ? `${before} (dry run → ${args.panelUrl})` : `${freshChannel.state} → ${await describe(fresh)}` });
+    }
+    if (!args.dryRun) await writeAdminAudit(ctx, { actorUserId, businessId: inventory._id, action: "fair_setup_amf_qr_housekeeping", detail: { retired: args.retireLabels, panel: args.panelLabel, panelUrl: args.panelUrl }, now });
+    return out;
+  },
+});
+
+/**
+ * AMF 30 Oct 2026: lead forms. Activates the consent text per lead kind with
+ * the legal approval record given by the owner, and writes the exhibitor
+ * default + per-model fairLeadConfigs (only where the package has the right:
+ * interest Starter+, test drive Napredni). Leads stay ScanMe-only (no
+ * exhibitor recipient is configured anywhere). Idempotent.
+ */
+export const setupLeads = internalMutation({
+  args: {
+    actorEmail: v.string(),
+    eventCode: v.string(),
+    consentText: v.string(),
+    legalApprovedBy: v.string(),
+    configs: v.array(v.object({
+      participationExternalKey: v.string(),
+      leadKind: fairLeadKind,
+      contactRequirement: fairContactRequirement,
+    })),
+  },
+  returns: v.object({ consents: v.number(), defaults: v.number(), modelConfigs: v.number(), skippedNotEntitled: v.number() }),
+  handler: async (ctx, args) => {
+    const actorUserId = await setupActor(ctx, args.actorEmail);
+    const event = await fairEventByCode(ctx, args.eventCode);
+    if (!event) throw new Error("fair_setup_event_missing");
+    const now = Date.now();
+    const counts = { consents: 0, defaults: 0, modelConfigs: 0, skippedNotEntitled: 0 };
+    for (const leadKind of ["interest", "test_drive"] as const) {
+      const active = await ctx.db.query("fairConsentConfigs").withIndex("by_eventId_and_leadKind_and_status", (q) => q.eq("eventId", event._id).eq("leadKind", leadKind).eq("status", "active")).first();
+      if (active?.text === args.consentText) continue;
+      if (active) await ctx.db.patch(active._id, { status: "retired", updatedAt: now });
+      const last = await ctx.db.query("fairConsentConfigs").withIndex("by_eventId_and_leadKind_and_version", (q) => q.eq("eventId", event._id).eq("leadKind", leadKind)).order("desc").first();
+      await ctx.db.insert("fairConsentConfigs", { eventId: event._id, leadKind, version: (last?.version ?? 0) + 1, text: args.consentText, status: "active", activatedAt: now, legalApprovedBy: args.legalApprovedBy, legalApprovedAt: now, createdAt: now, updatedAt: now });
+      counts.consents += 1;
+    }
+    for (const config of args.configs) {
+      const participation = await ctx.db.query("fairParticipations").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id).eq("externalKey", config.participationExternalKey)).unique();
+      if (!participation) throw new Error(`fair_setup_participation_missing:${config.participationExternalKey}`);
+      const fields = { enabled: true, contactRequirement: config.contactRequirement, updatedByUserId: actorUserId, updatedAt: now };
+      const existingDefault = await ctx.db.query("fairParticipationLeadDefaults").withIndex("by_participationId_and_leadKind", (q) => q.eq("participationId", participation._id).eq("leadKind", config.leadKind)).first();
+      if (existingDefault) await ctx.db.patch(existingDefault._id, fields);
+      else await ctx.db.insert("fairParticipationLeadDefaults", { eventId: event._id, participationId: participation._id, leadKind: config.leadKind, ...fields, createdAt: now });
+      counts.defaults += 1;
+      const models = await ctx.db.query("fairEventModels").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id)).take(FAIR_ADMIN_LIST_LIMIT);
+      for (const model of models.filter((row) => row.participationId === participation._id && row.status !== "withdrawn")) {
+        const rights = getFairEntitlements(await fairModelTierAt(ctx, model, now));
+        if (config.leadKind === "interest" ? !rights.interest : !rights.testDrive) {
+          counts.skippedNotEntitled += 1;
+          continue;
+        }
+        const existing = await ctx.db.query("fairLeadConfigs").withIndex("by_eventModelId_and_leadKind", (q) => q.eq("eventModelId", model._id).eq("leadKind", config.leadKind)).first();
+        if (existing) await ctx.db.patch(existing._id, { ...fields, source: "default" });
+        else await ctx.db.insert("fairLeadConfigs", { eventModelId: model._id, leadKind: config.leadKind, ...fields, source: "default", createdAt: now });
+        counts.modelConfigs += 1;
+      }
+    }
+    await writeAdminAudit(ctx, { actorUserId, action: "fair_setup_leads", detail: { eventCode: event.code, legalApprovedBy: args.legalApprovedBy, ...counts }, now });
+    return counts;
   },
 });
