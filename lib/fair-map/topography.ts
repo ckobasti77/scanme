@@ -150,8 +150,10 @@ export function fairMapTopographicLevel(
   exhibits: readonly AmfTopographicExhibit[],
   locations: ReadonlyMap<string, number>,
   participations?: ReadonlyMap<string, number>,
+  brands?: ReadonlyMap<string, number>,
 ): number {
   if (!exhibit.paid) return 0;
+  if (exhibit.brandId && brands) return brands.get(exhibit.brandId) ?? 0;
   if (exhibit.participationId && participations) return participations.get(exhibit.participationId) ?? 0;
   if (!exhibit.locationId) return 0;
   const mixed = exhibits.some((other) => other.locationId === exhibit.locationId && other.participationId && !other.paid);
@@ -185,7 +187,8 @@ export function buildAmfTopographicExhibits(view: FairMapView): AmfTopographicEx
     if (paidByParticipation.has(source.participationId)) continue;
     const rows = sources.filter((row) => row.participationId === source.participationId) as FairMapHeatSource[];
     const flags = rows.map((row) => row.heatEligible).filter((value): value is boolean => typeof value === "boolean");
-    paidByParticipation.set(source.participationId, flags.length ? flags.every(Boolean) : rows.some(fairMapHeatEligible));
+    // Owner, 30 Oct 2026: any ScanMe package (a published model) tints the booth on the AMF map.
+    paidByParticipation.set(source.participationId, flags.length ? flags.every(Boolean) : rows.some((row) => fairMapHeatEligible(row) || (row.brands?.some((brand) => brand.models.length > 0) ?? false)));
   }
   const consumed = new Set<string>();
   const result: AmfTopographicExhibit[] = [...AMF_HALL_ANCHORS, ...AMF_ENTRANCE_ANCHORS].map((anchor) => {

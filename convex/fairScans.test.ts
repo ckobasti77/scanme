@@ -228,6 +228,17 @@ describe("admin exclusion and 24/7 counting (HANDOFF §5.2, §12)", () => {
     expect(card?.totalScans).toBe(1);
   });
 
+  test("AMF (owner, 30 Oct 2026): an admin scan counts like a visitor scan; the row keeps its admin", async () => {
+    const f = await setup();
+    await f.t.run(async (ctx) => ctx.db.patch(f.amf.eventId, { code: "auto-moto-fest-2026" }));
+    expect(await scan(f.admin, f.amfX1.code, newVisitor().hash)).toMatchObject({ kind: "fair_model", fairScan: "recorded" });
+    const [row] = await rows(f, "fairScanEvents");
+    expect(row).toMatchObject({ isAdminExcluded: false, adminUserId: f.adminId });
+    expect((await counts(f, f.amfX1.modelId)).model).toEqual({ total: 1, unique: 1 });
+    // Another event keeps the B2 rule.
+    expect(await scan(f.admin, f.emX1.code, newVisitor().hash)).toMatchObject({ fairScan: "admin_excluded" });
+  });
+
   test("a signed-in non-admin and an anonymous scan both count", async () => {
     const f = await setup();
     await scan(f.member, f.emX1.code, newVisitor().hash);

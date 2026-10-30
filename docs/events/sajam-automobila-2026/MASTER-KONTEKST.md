@@ -740,6 +740,12 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 
 ## 20. Dnevnik izmena
 
+### 30. oktobar 2026. (live hotfix: skenovi, pečati, mapa)
+
+- Jovanova odluka iz zadatka (AMF, do kraja sajma): **admin skenovi na Auto Moto Fest 2026 broje se kao skenovi posetilaca** — ukupno, jedinstveno, toplotna mapa, izveštaji — i dobijaju pečat u pasošu. Red skena i dalje čuva `adminUserId` (revizija), ali `isAdminExcluded` je `false`. Lista `FAIR_ADMIN_SCANS_COUNTED_EVENT_CODES` sadrži samo `auto-moto-fest-2026`; ostali događaji zadržavaju staro B2 pravilo.
+- Već napravljeni admin skenovi AMF-a su nadoknađeni jednom (`fairAmfReview.backfillAmfScans`, idempotentno po redu/requestId).
+- AMF mapa: svaki izlagač sa objavljenim ScanMe modelom (bilo koji paket) ima svetlo narandžastu osnovu i sa 0 skenova; intenzitet raste sa skenovima. U hali koju dele više izlagača boja dolazi iz nivoa po brendu (`brandLevels` u `fairHeat.getMapHeat`), ne iz nivoa cele hale.
+
 ### 30. oktobar 2026. (ispravke posle live pregleda)
 
 - Aleksina odluka iz zadatka: **AMF Starter uključuje i „Zainteresovan sam” i „Probna vožnja”.** Jedini autoritet je `FAIR_ENTITLEMENT_CATALOG`; event kontekst prolazi kroz javni prikaz, submitLead, admin forme, dashboard i izveštaje.

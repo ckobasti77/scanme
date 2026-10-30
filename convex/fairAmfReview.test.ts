@@ -78,3 +78,25 @@ test.each([1, 2])("vote cleanup with %i candidates corrects counters only when u
   } else await expect(run()).rejects.toThrow("AMF_VOTE_AMBIGUOUS");
   expect(await t.run(ctx => readFairCount(ctx, fairAudienceVoteKey(ids.questionId, "kodiaq")))).toBe(count === 1 ? 0 : 2);
 });
+
+test("AMF scan backfill counts admin-excluded rows once, keyed by the row", async () => {
+  const { t, eventId, models } = await setup();
+  const model = models[0];
+  const visitorId = await t.run(ctx => ctx.db.insert("fairVisitors", { visitorHash: "a".repeat(64), firstSeenAt: now, lastSeenAt: now }));
+  for (const requestId of ["req-1", "req-2"]) {
+    await t.run(ctx => ctx.db.insert("fairScanEvents", {
+      requestId, visitorId, eventId, eventModelId: model._id, standId: model.standId, brandId: model.brandId,
+      occurredAt: now, dateKey: "2026-10-30", hourKey: "2026-10-30T08", isAdminExcluded: true,
+    }));
+  }
+  expect(await t.mutation(internal.fairAmfReview.backfillAmfScans, { dryRun: true })).toEqual({ adminExcludedFound: 2, restored: 0, stampsAdded: 0, genericWithoutFairRow: 0 });
+  const first = await t.mutation(internal.fairAmfReview.backfillAmfScans, { dryRun: false });
+  expect(first).toMatchObject({ adminExcludedFound: 2, restored: 2 });
+  expect(await t.mutation(internal.fairAmfReview.backfillAmfScans, { dryRun: false })).toEqual({ adminExcludedFound: 0, restored: 0, stampsAdded: 0, genericWithoutFairRow: 0 });
+  const unique = await t.run(ctx => ctx.db.query("fairUniqueScans").collect());
+  expect(unique).toHaveLength(1);
+  expect(unique[0].totalScanCount).toBe(2);
+  expect(await t.run(ctx => readFairCount(ctx, `scan_total:model:${model._id}`))).toBe(2);
+  expect(await t.run(ctx => readFairCount(ctx, `scan_unique:model:${model._id}`))).toBe(1);
+  expect((await t.run(ctx => ctx.db.query("fairScanEvents").collect())).every(row => !row.isAdminExcluded)).toBe(true);
+});

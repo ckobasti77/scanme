@@ -1,8 +1,9 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { fairHeatLevels } from "../lib/fair-heat";
+import { fairHeatLevels, type FairHeatPeriod, type FairHeatResult } from "../lib/fair-heat";
 import { requireFairGateway } from "./lib/fairGateway";
-import { fairHeatWindow, fairStandWindowCounts, fairStandsWithModels } from "./lib/fairHeat";
+import { fairScanCountKey } from "./lib/fairCountShards";
+import { fairHeatWindow, fairStandWindowCounts, fairStandsWithModels, fairWindowCounts } from "./lib/fairHeat";
 
 // =============================================================================
 // SAJAM SUPER Korak 3 — „Gde je gužva“ on the public map.
@@ -24,7 +25,15 @@ const SLUG_MAX = 120;
 const heatResult = v.object({
   enough: v.boolean(),
   levels: v.array(v.object({ locationId: v.string(), level: v.number() })),
+  // 30 Oct 2026 (AMF map): the same scale per brand, for brands that share a
+  // hall location with other exhibitors. Only published models are read.
+  brandLevels: v.array(v.object({ brandId: v.string(), level: v.number() })),
 });
+
+function withBrands(result: FairHeatResult, brands: ReadonlyMap<string, number>, period: FairHeatPeriod) {
+  const brandLevels = result.enough ? fairHeatLevels(brands, period).levels.map((row) => ({ brandId: row.locationId, level: row.level })) : [];
+  return { ...result, brandLevels };
+}
 
 export const getMapHeat = query({
   args: { gatewaySecret: v.string(), eventSlug: v.string(), at: v.number() },
@@ -38,7 +47,7 @@ export const getMapHeat = query({
       .first();
     if (!event || event.status === "draft") return null;
     const window = fairHeatWindow(event, args.at);
-    const { stands } = await fairStandsWithModels(ctx, event._id);
+    const { stands, models } = await fairStandsWithModels(ctx, event._id);
     const today = new Map<string, number>();
     const hour = new Map<string, number>();
     for (const stand of stands) {
@@ -46,6 +55,14 @@ export const getMapHeat = query({
       today.set(stand.mapLocationId, (today.get(stand.mapLocationId) ?? 0) + counts.today);
       hour.set(stand.mapLocationId, (hour.get(stand.mapLocationId) ?? 0) + counts.hour);
     }
-    return { at: args.at, today: fairHeatLevels(today, "today"), hour: fairHeatLevels(hour, "hour") };
+    const brandToday = new Map<string, number>();
+    const brandHour = new Map<string, number>();
+    for (const model of models) {
+      if (model.status !== "published") continue;
+      const counts = await fairWindowCounts(ctx, fairScanCountKey("scan_unique", "model", model._id), window);
+      brandToday.set(model.brandId, (brandToday.get(model.brandId) ?? 0) + counts.today);
+      brandHour.set(model.brandId, (brandHour.get(model.brandId) ?? 0) + counts.hour);
+    }
+    return { at: args.at, today: withBrands(fairHeatLevels(today, "today"), brandToday, "today"), hour: withBrands(fairHeatLevels(hour, "hour"), brandHour, "hour") };
   },
 });

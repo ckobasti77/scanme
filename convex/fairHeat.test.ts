@@ -115,13 +115,14 @@ describe("SAJAM SUPER: getMapHeat", () => {
 
   test("levels only (no counts); a location shared by two stands adds up; quiet periods say `enough: false`", async () => {
     const f = await setup();
-    expect(await heat(f, TEN_THIRTY)).toEqual({ at: TEN_THIRTY, today: { enough: false, levels: [] }, hour: { enough: false, levels: [] } });
+    expect(await heat(f, TEN_THIRTY)).toEqual({ at: TEN_THIRTY, today: { enough: false, levels: [], brandLevels: [] }, hour: { enough: false, levels: [], brandLevels: [] } });
     for (let index = 0; index < 10; index += 1) await scanAt(f, TEN_FIVE, f.codes.nine, visitor());
     for (let index = 0; index < 2; index += 1) await scanAt(f, TEN_FIVE, f.codes.sixA, visitor());
     for (let index = 0; index < 2; index += 1) await scanAt(f, TEN_FIVE, f.codes.sixB, visitor());
     const result = await heat(f, TEN_THIRTY);
     // hala-9: 10, hala-6: 2 + 2 = 4; hot end = max(p95 = 10, 8) = 10 → 1 and (0.4)^0.75.
-    expect(result?.today).toEqual({ enough: true, levels: [{ locationId: "hala-6", level: 0.5 }, { locationId: "hala-9", level: 1 }] });
+    expect(result?.today).toMatchObject({ enough: true, levels: [{ locationId: "hala-6", level: 0.5 }, { locationId: "hala-9", level: 1 }] });
+    expect(result?.today.brandLevels.length).toBeGreaterThan(0);
     for (const row of result!.today.levels) expect(Object.keys(row).sort()).toEqual(["level", "locationId"]);
   });
 

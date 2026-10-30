@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { fairSpecification } from "./lib/fairValidators";
 import { removePreEventRow } from "./fairPreEvent";
+import { countFairScan } from "./lib/fairScans";
 
 // Narrow, compare-before-write operations for the owner's 30 Oct live review.
 // CLI/internal only; backups and DEV rehearsal precede the production calls.
@@ -72,5 +73,51 @@ export const removeReviewLead = internalMutation({
     if (event?.code !== "auto-moto-fest-2026" || lead.contactName !== "TEST AMF REVIEW DELETE" || lead.email !== "amf-review-20261030@example.invalid") throw new Error("AMF_REVIEW_NOT_TEST_LEAD");
     await removePreEventRow(ctx, event, "leads", lead);
     return { deleted: 1 };
+  },
+});
+
+/**
+ * Owner decision of 30 Oct 2026 (MASTER §20): AMF admin scans count. Backfills
+ * the AMF scans that were not counted: every admin-excluded fairScanEvents row
+ * gets its unique row, scan counters and passport stamp at its own time, and
+ * becomes a counted row. Idempotent per requestId: a counted row is never
+ * touched again. Generic sticker scans without any fair row are only reported
+ * (no visitor is known for them).
+ */
+export const backfillAmfScans = internalMutation({
+  args: { dryRun: v.boolean() },
+  returns: v.object({
+    adminExcludedFound: v.number(),
+    restored: v.number(),
+    stampsAdded: v.number(),
+    genericWithoutFairRow: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const event = await ctx.db.query("fairEvents").withIndex("by_code", q => q.eq("code", "auto-moto-fest-2026")).unique();
+    if (!event) throw new Error("AMF_REVIEW_SCOPE");
+    const rows = await ctx.db.query("fairScanEvents").withIndex("by_eventId_and_occurredAt", q => q.eq("eventId", event._id)).take(4001);
+    if (rows.length > 4000) throw new Error("AMF_BACKFILL_TOO_MANY");
+    const excluded = rows.filter(row => row.isAdminExcluded);
+    let stampsAdded = 0;
+    if (!args.dryRun) {
+      for (const row of excluded) {
+        const model = await ctx.db.get(row.eventModelId);
+        if (!model) throw new Error("AMF_REVIEW_MODEL_MISSING");
+        await ctx.db.patch(row._id, { isAdminExcluded: false });
+        if (await countFairScan(ctx, { visitorId: row.visitorId, model, now: row.occurredAt }) === "stamped") stampsAdded++;
+      }
+    }
+    const fairRequestIds = new Set(rows.map(row => row.requestId));
+    const assignments = await ctx.db.query("fairQrAssignments").withIndex("by_eventId_and_status", q => q.eq("eventId", event._id)).take(500);
+    let genericWithoutFairRow = 0;
+    for (const assignment of assignments) {
+      const scans = await ctx.db.query("cardScanEvents").withIndex("by_cardId_and_occurredAt", q => {
+        const from = q.eq("cardId", assignment.cardId).gte("occurredAt", assignment.assignedAt);
+        return assignment.releasedAt === undefined ? from : from.lt("occurredAt", assignment.releasedAt);
+      }).take(4001);
+      if (scans.length > 4000) throw new Error("AMF_BACKFILL_TOO_MANY");
+      genericWithoutFairRow += scans.filter(scan => scan.targetKind === "fair_model" && !fairRequestIds.has(scan.requestId)).length;
+    }
+    return { adminExcludedFound: excluded.length, restored: args.dryRun ? 0 : excluded.length, stampsAdded, genericWithoutFairRow };
   },
 });
