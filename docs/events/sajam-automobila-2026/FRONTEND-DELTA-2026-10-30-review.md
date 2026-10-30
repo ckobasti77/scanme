@@ -1,0 +1,9 @@
+# AMF live review — 30. oktobar 2026.
+
+- `FAIR_ENTITLEMENT_CATALOG.starter.testDriveEvents` uključuje `auto-moto-fest-2026`. `getFairEntitlements`, `fairReportMetrics` i feature/history helperi primaju opcioni `eventCode`; bez konteksta zadržavaju ranija prava. Elektromobilnost zadržava Starter bez probne vožnje.
+- Kontekst je povezan u javnim capabilities/formama, `submitLead`, `setupLeads`, admin formama/defaultima, dashboard pravilima i novim dnevnim izveštajima. Interni `reportContext.event` dobija `code`; javni request ostaje isti. Otvorena AMF forma sa obaveznim telefonom aditivno vraća `collectOptionalEmail?: true`, da email ostane opciono dostupan bez slabljenja zahteva za telefonom.
+- `setupLeads` ponavlja postojeću aktivnu saglasnost i konfiguracije: Grand Motors telefon (email polje ostaje), Škoda oba, ostali postojeći default. Nikom `surveyAllTiers` i ScanMe-only isporuka nisu menjani.
+- AMF specifikacije i oba intake payload-a normalizovani su istim `scripts/fair/normalize-amf-specs.mjs`; generator ga primenjuje pre izvoza. Cene se ne menjaju; Karoq gubi samo dupliranu sekundarnu liniju.
+- Zajednički parser prepoznaje kW (KS) i rezervoar, a AMF kompaktna projekcija čuva sve detalje u listi. Naslov se izvodi iz potvrđenih podataka o pogonu/bateriji; stari Elektromobilnost prikaz zadržava svoj put.
+- Hala/Ulaz koristi jednu translateX pilulu; `SponsoredStrip` koristi jednu zajedničku traku za sliku i sadržaj, ulaz zdesna/izlaz ulevo, swipe i tastaturu, uz reduced motion. URL i sponsored-question day logika iz `85864d5` nisu menjani.
+- `fairAmfReview` sadrži samo internal, poređenjem zaštićene operacije za ovaj pregled: specifikacije/sekundarna cena, jedinstveni glas iz zadatog prozora i strogo označen probni lead. Glas koristi isti helper za oduzimanje brojača kao postojeći admin reset.

@@ -7,7 +7,7 @@ import { fairSpecificationIcon, type FairModelSpecificationIcon } from "./model-
 
 export type FairKeySpecSource = { id: string; label: string; value: string; isHighlight: boolean };
 
-export type FairKeySpecKind = FairModelSpecificationIcon | "other";
+export type FairKeySpecKind = FairModelSpecificationIcon | "tank" | "consumption" | "emissions" | "displacement" | "engines" | "wheels" | "screen" | "suspension" | "transmission" | "other";
 
 export type FairKeySpec = {
   id: string;
@@ -34,13 +34,16 @@ const fold = (value: string) =>
     .replace(/\p{M}/gu, "");
 
 function kindOf(label: string): FairKeySpecKind {
+  // A fuel tank or boot capacity is never a traction battery.
+  if (/rezervoar/.test(fold(label))) return "tank";
+  if (/prtljaznik/.test(fold(label))) return "other";
   return fairSpecificationIcon(label) ?? "other";
 }
 
 /** "Domet (CLTC)" → "CLTC"; "DC punjenje 30-80%" → "30-80%". */
 function qualifierOf(label: string, kind: FairKeySpecKind): string {
   const parenthesis = label.match(/\(([^)]+)\)/);
-  if (parenthesis) return parenthesis[1].trim();
+  if (parenthesis && !/^(kw|ks|km\/h|sek\.?|kg)$/i.test(parenthesis[1])) return parenthesis[1].trim();
   if (kind === "charging" || kind === "acceleration") {
     const range = label.match(/\d+\s*[-–]\s*\d+\s*(%|km\/h)?/);
     if (range) return range[0].replace(/\s+/g, "");
@@ -54,6 +57,8 @@ function qualifierOf(label: string, kind: FairKeySpecKind): string {
  */
 export function splitSpecValue(raw: string): { value: string; unit: string } {
   const head = raw.split(" / ")[0].replace(/\([^)]*\)/g, "").replace(/^do\s+/i, "").trim();
+  const consumption = head.match(/^([\d.,]+(?:[–-][\d.,]+)?)\s*(l\/100\s*km)$/);
+  if (consumption) return { value: consumption[1], unit: "l/100 km" };
   const match = head.match(/^([<>~≈]?\s?\d[\d.,]*(?:\s?[-–]\s?\d[\d.,]*)?)\s*([^\d\s][^\d]{0,7})?$/u);
   if (!match) return { value: raw.trim(), unit: "" };
   return { value: match[1].replace(/\s+/g, ""), unit: (match[2] ?? "").trim() };
@@ -61,11 +66,49 @@ export function splitSpecValue(raw: string): { value: string; unit: string } {
 
 function toKeySpec(item: FairKeySpecSource): FairKeySpec {
   const kind = kindOf(item.label);
-  const { value, unit } = splitSpecValue(item.value);
+  const { value, unit: parsedUnit } = splitSpecValue(item.value);
+  const unit = parsedUnit || (/\bkw\s*\(ks\)/i.test(item.label) ? "kW" : "");
   return { id: item.id, kind, value, unit, qualifier: qualifierOf(item.label, kind), label: item.label };
 }
 
-export function fairModelKeySpecs(items: readonly FairKeySpecSource[]): FairKeySpec[] {
+function compactSpec(item: FairKeySpecSource): FairKeySpec {
+  const spec = toKeySpec(item);
+  const label = fold(item.label);
+  if (spec.kind === "charging") {
+    const charging = item.value.match(/(?:^|za\s+)(\d+(?:[.,]\d+)?)\s*(min|h|kW)\b/);
+    if (charging) return { ...spec, value: charging[1], unit: charging[2] };
+  }
+  if (/potrosnj/.test(label)) spec.kind = "consumption";
+  else if (/emisija co/.test(label)) spec.kind = "emissions";
+  else if (/^zapremina$/.test(label)) spec.kind = "displacement";
+  else if (/dostupni motori/.test(label)) {
+    const volumes = [...new Set(item.value.match(/\d[.,]\d(?=\s*l|–litarski|-litarski)/g))];
+    if (volumes.length) return { ...spec, kind: "engines", value: volumes.join(" / "), unit: "l", qualifier: "" };
+  } else if (/naplatci|tockovi|ekran|tabla/.test(label)) {
+    const inches = item.value.match(/^(\d+(?:[.,]\d+)?)"/);
+    if (inches) return { ...spec, kind: /naplatci|tockovi/.test(label) ? "wheels" : "screen", value: inches[1], unit: "″", qualifier: "" };
+  } else if (/ogibljenje/.test(label) && item.value === "Sportsko ogibljenje") {
+    return { ...spec, kind: "suspension", value: "Sportsko", unit: "", qualifier: "" };
+  } else if (/menjac/.test(label)) {
+    const gears = item.value.match(/\((\d+)\)/);
+    if (gears) return { ...spec, kind: "transmission", value: gears[1], unit: "", qualifier: "" };
+  }
+  return spec;
+}
+
+export function fairModelKeySpecs(items: readonly FairKeySpecSource[], compact = false): FairKeySpec[] {
+  if (compact) {
+    const parsed = items.map(compactSpec);
+    const priority: FairKeySpecKind[] = ["range", "battery", "power", "charging", "speed", "acceleration", "tank", "torque", "displacement", "consumption", "engines", "wheels", "screen", "suspension", "transmission"];
+    const flagged = parsed.filter((_, index) => items[index].isHighlight);
+    const candidates = flagged.length ? flagged : [...parsed].sort((a, b) => {
+      const rank = (kind: FairKeySpecKind) => { const index = priority.indexOf(kind); return index < 0 ? 99 : index; };
+      return rank(a.kind) - rank(b.kind);
+    });
+    // Unconfirmed equipment/engine descriptions stay complete in the full list;
+    // only compact measurements (or a short equipment value) belong in tiles.
+    return candidates.filter((s) => s.unit || s.value.length <= 8).slice(0, FAIR_KEY_SPECS_MAX);
+  }
   const flagged = items.filter((item) => item.isHighlight);
   if (flagged.length > 0) return flagged.slice(0, FAIR_KEY_SPECS_MAX).map(toKeySpec);
 
@@ -87,6 +130,12 @@ export function fairModelKeySpecs(items: readonly FairKeySpecSource[]): FairKeyS
   return picked.map(toKeySpec);
 }
 
+/** Only positive powertrain evidence; mHEV alternatives do not confirm a battery. */
+export function fairModelHasTractionBattery(items: readonly FairKeySpecSource[]): boolean {
+  return items.some((item) => /baterij/.test(fold(item.label)) && /kwh/i.test(item.value)
+    || /motor|pogon/.test(fold(item.label)) && /elektric|hibrid|hybrid|\bhev\b/.test(fold(item.value)));
+}
+
 export type FairSpecGroup<T extends FairKeySpecSource> = { id: string; label: string; items: T[] };
 
 const DRIVETRAIN: FairModelSpecificationIcon[] = ["power", "torque", "range", "battery", "charging"];
@@ -98,7 +147,7 @@ const DRIVETRAIN_WORDS = /pogon|motor|potrosnj|menjac|gorivo/;
  */
 export function fairModelSpecGroups<T extends FairKeySpecSource>(
   groups: ReadonlyArray<FairSpecGroup<T>>,
-  labels: { drivetrain: string; performance: string },
+  labels: { drivetrain: string; performance: string; fallback?: string },
 ): FairSpecGroup<T>[] {
   if (groups.length !== 1) return [...groups];
   const [only] = groups;
@@ -106,10 +155,10 @@ export function fairModelSpecGroups<T extends FairKeySpecSource>(
   const performance: T[] = [];
   for (const item of only.items) {
     const kind = fairSpecificationIcon(item.label);
-    if ((kind && DRIVETRAIN.includes(kind)) || DRIVETRAIN_WORDS.test(fold(item.label))) drivetrain.push(item);
+    if ((kind && DRIVETRAIN.includes(kind)) || DRIVETRAIN_WORDS.test(fold(item.label)) || (labels.fallback && /^(zapremina|rezervoar)$/.test(fold(item.label)))) drivetrain.push(item);
     else performance.push(item);
   }
-  if (drivetrain.length === 0 || performance.length === 0) return [...groups];
+  if (drivetrain.length === 0 || performance.length === 0) return labels.fallback ? [{ ...only, label: labels.fallback }] : [...groups];
   return [
     { id: `${only.id}-drivetrain`, label: labels.drivetrain, items: drivetrain },
     { id: `${only.id}-performance`, label: labels.performance, items: performance },

@@ -201,6 +201,7 @@ function projector(ctx: QueryCtx) {
       specificationGroups: specificationGroups(model.specifications),
       ...(photoUrl ? { photoUrl } : {}),
       capabilities: deriveFairCapabilities(model.packageTier, {
+        eventCode: eventRow.code,
         hasOpenAudienceQuestions: questions.some((question) => question.status === "published"),
         hasPublishedSurvey: survey !== null,
         inPublishedSponsoredSnapshot: sponsoredIds.has(model._id),
@@ -502,7 +503,8 @@ export const getLeadForm = query({
     if (!fairLeadsEnabled()) return { ...base, state: "leads_disabled" };
     const model = await publishedModel(ctx, args.eventModelId);
     if (!model) return { ...base, state: "unavailable" };
-    const rights = getFairEntitlements(model.packageTier);
+    const event = await ctx.db.get(model.eventId);
+    const rights = getFairEntitlements(model.packageTier, event?.code);
     const config = await fairLeadConfig(ctx, model._id, args.kind);
     if (!(args.kind === "interest" ? rights.interest : rights.testDrive) || !config?.enabled) return { ...base, state: "unavailable" };
     const consent = await fairActiveConsent(ctx, model.eventId, args.kind);
@@ -529,6 +531,7 @@ export const getLeadForm = query({
       ...base,
       state: "open",
       contactRequirement: config.contactRequirement,
+      ...(event?.code === "auto-moto-fest-2026" && config.contactRequirement === "phone" ? { collectOptionalEmail: true } : {}),
       ...(config.preferredContact ? { preferredContact: config.preferredContact } : {}),
       consent: { version: consent.version, text: fairRenderConsentText(consent.text, exhibitorName) },
       ...(modelChoices ? { modelChoices } : {}),

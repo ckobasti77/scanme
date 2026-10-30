@@ -211,8 +211,8 @@ function has(metrics: readonly FairReportMetric[], metric: FairReportMetric) {
 }
 
 /** One model, cut down to the groups its package has. */
-export function projectFairReportModel(raw: FairReportModelRaw): FairReportModel {
-  const metrics = fairReportMetrics(raw.tier);
+export function projectFairReportModel(raw: FairReportModelRaw, eventCode?: string): FairReportModel {
+  const metrics = fairReportMetrics(raw.tier, eventCode);
   const ratingFields =
     has(metrics, "rating_overall") ? ["overall"] : has(metrics, "rating_dimensions") ? ["appearance", "specifications", "price"] : [];
   return {
@@ -248,7 +248,7 @@ const COMPARISON: readonly ComparisonSource[] = [
 ];
 
 export type FairDailyDatasetContext = {
-  event: { _id: FairDailyDataset["eventId"]; title: string; slug: string };
+  event: { _id: FairDailyDataset["eventId"]; title: string; slug: string; code?: string };
   day: { _id: FairDailyDataset["eventDayId"]; dateKey: string; label: string; startsAt: number; endsAt: number };
   previousDay: { _id: FairDailyDataset["eventDayId"]; dateKey: string } | null;
   participationId: FairDailyDataset["participationId"];
@@ -265,9 +265,9 @@ export type FairDailyDatasetContext = {
  */
 export function assembleFairDailyDataset(context: FairDailyDatasetContext, raws: readonly FairReportModelRaw[]): FairDailyDataset {
   const ordered = [...raws].sort((a, b) => a.sortOrder - b.sortOrder || a.displayName.localeCompare(b.displayName, "sr"));
-  const models = ordered.map(projectFairReportModel);
+  const models = ordered.map(raw => projectFairReportModel(raw, context.event.code));
 
-  const hourlySources = ordered.filter((raw) => has(fairReportMetrics(raw.tier), "hourly_scans") && raw.hourly);
+  const hourlySources = ordered.filter((raw) => has(fairReportMetrics(raw.tier, context.event.code), "hourly_scans") && raw.hourly);
   let hourly: FairDailyDataset["hourly"];
   if (hourlySources.length) {
     const sums = new Map<string, { total: number; unique: number }>();
@@ -282,16 +282,16 @@ export function assembleFairDailyDataset(context: FairDailyDatasetContext, raws:
   }
 
   let comparison: FairDailyDataset["comparison"];
-  if (context.previousDay && ordered.some((raw) => has(fairReportMetrics(raw.tier), "day_comparison"))) {
+  if (context.previousDay && ordered.some((raw) => has(fairReportMetrics(raw.tier, context.event.code), "day_comparison"))) {
     const rows: NonNullable<FairDailyDataset["comparison"]>["rows"] = [];
     for (const source of COMPARISON) {
       let current = 0;
       let previous = 0;
       let counted = 0;
       for (const raw of ordered) {
-        const now = fairReportMetrics(raw.tier);
+        const now = fairReportMetrics(raw.tier, context.event.code);
         if (!has(now, "day_comparison") || !has(now, source.group) || !raw.previous) continue;
-        if (!has(fairReportMetrics(raw.previous.tier), source.group)) continue;
+        if (!has(fairReportMetrics(raw.previous.tier, context.event.code), source.group)) continue;
         const a = source.read(raw);
         const b = source.read(raw.previous);
         if (a === undefined || b === undefined) continue;

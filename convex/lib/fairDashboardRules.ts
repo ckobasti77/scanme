@@ -77,6 +77,7 @@ export type FairDashboardFacts = {
   /** Hour of `at` in Europe/Belgrade (0–23). */
   belgradeHour: number;
   event: {
+    code?: string;
     startsAt: number;
     endsAt: number;
     piiPurgeAt: number;
@@ -215,7 +216,7 @@ export function buildFairDashboard(facts: FairDashboardFacts) {
   const models = facts.models;
   const live = models.filter((model) => model.status !== "withdrawn");
   const published = models.filter((model) => model.status === "published");
-  const rights = (tier: FairPackageTier) => getFairEntitlements(tier);
+  const rights = (tier: FairPackageTier) => getFairEntitlements(tier, event.code);
   const tierNow = (model: FairDashboardModelFact) => fairDashboardTierAt(model, at);
 
   const actions: FairDashboardAction[] = [];

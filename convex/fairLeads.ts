@@ -125,7 +125,7 @@ export const submitLead = mutation({
 
     const { model, event } = await requireInteractiveModel(ctx, args.eventModelId, now);
     const tier = await fairModelTierAt(ctx, model, now);
-    const rights = getFairEntitlements(tier);
+    const rights = getFairEntitlements(tier, event.code);
     if (args.kind === "interest" ? !rights.interest : !rights.testDrive) fairInteractionError("FEATURE_NOT_ENTITLED");
     const config = await fairLeadConfig(ctx, model._id, args.kind);
     if (!config || !config.enabled) fairInteractionError("FEATURE_NOT_ENTITLED");

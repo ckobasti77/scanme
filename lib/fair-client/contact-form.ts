@@ -46,7 +46,8 @@ export const EMPTY_CONTACT_DRAFT: ContactDraft = {
   remember: false,
 };
 
-export function contactFields(requirement: FairContactRequirement): ContactField[] {
+export function contactFields(requirement: FairContactRequirement, collectOptionalEmail = false): ContactField[] {
+  if (requirement === "phone" && collectOptionalEmail) return ["phone", "email"];
   if (requirement === "one_of") return ["contact"];
   if (requirement === "both") return ["email", "phone"];
   return [requirement];
@@ -62,9 +63,9 @@ function channels(draft: ContactDraft, requirement: FairContactRequirement) {
   return {};
 }
 
-export function contactFormState(draft: ContactDraft, requirement: FairContactRequirement): ContactFormState {
+export function contactFormState(draft: ContactDraft, requirement: FairContactRequirement, collectOptionalEmail = false): ContactFormState {
   const name = draft.name.trim();
-  const typed = contactFields(requirement).map((field) => draft[field].trim());
+  const typed = contactFields(requirement, collectOptionalEmail).map((field) => draft[field].trim());
   const empty = !name && typed.every((value) => !value);
   const fail = (hint: ContactHint): ContactFormState => ({ empty, ok: false, hint, payload: null });
 

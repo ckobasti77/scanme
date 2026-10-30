@@ -31,6 +31,15 @@ const ICONS: Record<FairKeySpecKind, LucideIcon> = {
   acceleration: Timer,
   torque: Settings2,
   other: SlidersHorizontal,
+  tank: Gauge,
+  consumption: Gauge,
+  emissions: SlidersHorizontal,
+  displacement: Settings2,
+  engines: Settings2,
+  wheels: Settings2,
+  screen: SlidersHorizontal,
+  suspension: SlidersHorizontal,
+  transmission: Settings2,
 };
 
 type Group = { id: string; label: string; items: Array<{ id: string; label: string; value: string }> };
@@ -44,6 +53,15 @@ function shortLabel(spec: FairKeySpec, dict: FairModelDict) {
     speed: dict.keySpecSpeed,
     acceleration: dict.keySpecAcceleration,
     torque: dict.keySpecTorque,
+    tank: dict.keySpecTank,
+    consumption: dict.keySpecConsumption,
+    emissions: dict.keySpecEmissions,
+    displacement: dict.keySpecDisplacement,
+    engines: dict.keySpecEngines,
+    wheels: dict.keySpecWheels,
+    screen: dict.keySpecScreen,
+    suspension: dict.keySpecSuspension,
+    transmission: dict.keySpecTransmission,
   };
   return labels[spec.kind] ?? spec.label;
 }
@@ -54,12 +72,14 @@ export function ModelSpecsCard({
   description,
   defaultOpen,
   dict,
+  uniformValues = false,
 }: {
   keySpecs: FairKeySpec[];
   groups: Group[];
   description?: string;
   defaultOpen: boolean;
   dict: FairModelDict;
+  uniformValues?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const reducedMotion = useReducedMotion();
@@ -69,7 +89,7 @@ export function ModelSpecsCard({
   if (keySpecs.length === 0 && !hasList) return null;
 
   return (
-    <section className="fair-specs" data-open={open} aria-label={dict.keySpecsAria}>
+    <section className="fair-specs" data-open={open} data-uniform-values={uniformValues || undefined} aria-label={dict.keySpecsAria}>
       {keySpecs.length > 0 ? (
         <div className="fair-specs__keys" style={{ "--fair-key-count": keySpecs.length } as React.CSSProperties}>
           {keySpecs.map((spec) => {
@@ -77,7 +97,7 @@ export function ModelSpecsCard({
             return (
               <div key={spec.id} className="fair-specs__key">
                 <Icon aria-hidden="true" />
-                <strong data-long={spec.unit === "" && spec.value.length > 6 ? "true" : undefined}>
+                <strong data-long={!uniformValues && spec.unit === "" && spec.value.length > 6 ? "true" : undefined} data-wrap-unit={uniformValues && spec.value.length > 5 && spec.unit !== "" || undefined}>
                   {spec.value}
                   {spec.unit ? <i>{spec.unit}</i> : null}
                 </strong>

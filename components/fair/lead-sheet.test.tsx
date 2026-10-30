@@ -28,8 +28,9 @@ function open(kind: "interest" | "test_drive", contactRequirement: FairContactRe
   return { eventModelId: MODEL.id, kind, state: "open", contactRequirement, consent: { version: 1, text: CONSENT } };
 }
 
-function sheet(kind: LeadSheetKind, requirement: FairContactRequirement) {
+function sheet(kind: LeadSheetKind, requirement: FairContactRequirement, collectOptionalEmail = false) {
   const form = open(kind === "testDrive" ? "test_drive" : "interest", requirement);
+  if (form.state === "open" && collectOptionalEmail) form.collectOptionalEmail = true;
   return renderToStaticMarkup(
     <FairModelInteractionsProvider
       dict={fairModelSr}
@@ -46,6 +47,14 @@ function sheet(kind: LeadSheetKind, requirement: FairContactRequirement) {
 const inputs = (html: string) => [...html.matchAll(/<input [^>]*>/g)].map((match) => match[0]);
 
 describe("lead sheets as Aleksa built them", () => {
+  test("AMF phone rule collects an optional email without weakening the phone requirement", () => {
+    const html = sheet("testDrive", "phone", true);
+    expect(inputs(html).filter(tag => !tag.includes('type="checkbox"')).map(tag => tag.match(/name="([^"]+)"/)![1])).toEqual(["name", "phone", "email"]);
+    expect(html).toContain(fairModelSr.emailOptionalLabel);
+    const draft = { ...EMPTY_CONTACT_DRAFT, name: "TEST AMF", email: "test@example.invalid", consent: true };
+    expect(contactFormState(draft, "phone", true)).toMatchObject({ ok: false, hint: "phone" });
+    expect(contactFormState({ ...draft, phone: "+381600000004" }, "phone", true)).toMatchObject({ ok: true, payload: { email: "test@example.invalid", phone: "+381600000004" } });
+  });
   test("Zainteresovan sam (one_of): name + one 'Email ili telefon' field, the consent with Prihvatam/Odbijam, send disabled", () => {
     const html = sheet("interest", "one_of");
     const fields = inputs(html).filter((tag) => !tag.includes('type="checkbox"'));

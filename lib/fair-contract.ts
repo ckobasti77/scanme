@@ -758,6 +758,8 @@ export type FairLeadFormView =
       kind: FairLeadKind;
       state: "open";
       contactRequirement: FairContactRequirement;
+      /** AMF phone-required forms also collect an optional email. */
+      collectOptionalEmail?: boolean;
       preferredContact?: FairPreferredContact;
       /** The browser shows `text` and sends back `version` with `consentAccepted: true`. */
       consent: { version: number; text: string };

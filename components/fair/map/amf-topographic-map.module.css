@@ -71,9 +71,11 @@
 
 .iconButton { width: 44px; padding: 0; }
 .iconButton svg, .listButton svg { width: 19px; height: 19px; }
-.tabs { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; }
-.tabs button { border: 0; border-radius: 6px; background: none; color: inherit; font-size: 14px; font-weight: 650; }
-.tabs button[aria-pressed="true"] { background: var(--topo-orange); color: var(--topo-ink); }
+.tabs { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 3px; }
+.tabs::before { position: absolute; inset: 3px auto 3px 3px; width: calc((100% - 6px) / 2); border-radius: 6px; background: var(--topo-orange); content: ""; transform: translateX(0); pointer-events: none; }
+.tabs[data-zone="ispred"]::before { transform: translateX(100%); }
+.tabs button { position: relative; z-index: 1; border: 0; border-radius: 6px; background: none; color: var(--fair-ink-muted); font-size: 14px; font-weight: 650; }
+.tabs button[aria-pressed="true"] { color: var(--topo-ink); }
 .searchField input { width: 100%; height: 100%; min-width: 0; padding: 0 10px; border: 0; border-radius: inherit; background: none; color: inherit; font-size: 16px; }
 
 .mapStage { position: relative; flex: 1 1 0; min-height: 0; }
@@ -215,13 +217,15 @@
 
 @media (hover: hover) {
   .controls button:hover, .fit:hover, .heatRetry:hover, .website:hover, .popupHead button:hover, .directory button:hover, .searchResults button:hover, .demoHeat button:hover { background-color: rgb(37 34 30 / 0.045); }
-  .tabs button[aria-pressed="true"]:hover { background: var(--topo-orange); }
+  .tabs button[aria-pressed="true"]:hover { background: none; }
   .summit:hover .focusRing { stroke: var(--topo-orange); stroke-opacity: 0.6; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .root[data-demo] .canvas path { transition: fill-opacity 220ms linear; }
   .root button, .focusRing { transition: background-color 150ms ease, stroke 150ms ease; }
+  .tabs::before { transition: transform var(--fair-dur-focal, 480ms) var(--fair-ease-move, cubic-bezier(0.65, 0, 0.35, 1)); }
+  .tabs button { transition: color var(--fair-dur-focal, 480ms) var(--fair-ease-move, cubic-bezier(0.65, 0, 0.35, 1)); }
 }
 
 @media (min-width: 768px) {

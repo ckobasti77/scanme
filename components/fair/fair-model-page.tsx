@@ -16,7 +16,7 @@ import { FairEventShell } from "./event-shell";
 import { GarageSaveButton } from "./garage-controls";
 import { ModelActionsCheckpoint } from "./model-actions-checkpoint";
 import { FairModelInteractionsProvider } from "./model-interactions";
-import { fairModelKeySpecs, fairModelSpecGroups } from "./model-key-specs";
+import { fairModelHasTractionBattery, fairModelKeySpecs, fairModelSpecGroups } from "./model-key-specs";
 import { ModelNewStamp } from "./model-new-stamp";
 import { ModelSpecsCard } from "./model-specs-card";
 import { SurveyChatHead } from "./survey/survey-chat-head";
@@ -174,10 +174,14 @@ export function FairModelPage({
   /** Admin DEV tools (components/fair/admin): null for every visitor. */
   adminTools?: ReactNode;
 }) {
-  const keySpecs = fairModelKeySpecs(model.specificationGroups.flatMap((group) => group.items));
+  const amf = model.eventSlug === "auto-moto-fest-2026";
+  const specs = model.specificationGroups.flatMap((group) => group.items);
+  const keySpecs = fairModelKeySpecs(specs, amf);
+  const drivetrainTitle = amf && !fairModelHasTractionBattery(specs) ? dict.specsGroupEngine : dict.specsGroupDrivetrain;
   const specGroups = fairModelSpecGroups(model.specificationGroups, {
-    drivetrain: dict.specsGroupDrivetrain,
+    drivetrain: drivetrainTitle,
     performance: dict.specsGroupPerformance,
+    fallback: amf ? drivetrainTitle : undefined,
   });
   const actions = [
     ...(model.capabilities.canSubmitInterest
@@ -267,7 +271,7 @@ export function FairModelPage({
               {model.variant ? <p>{model.variant}</p> : null}
             </div>
             <p className="fair-model-price">
-              <small>{dict.priceLabel}</small>
+              <small>{amf && model.brandName === "Škoda" ? dict.exhibitedPriceLabel : dict.priceLabel}</small>
               <span>{priceValue(model.priceText, dict)}</span>
               {model.priceSecondaryText ? <small className="fair-model-price__secondary">{model.priceSecondaryText}</small> : null}
             </p>
@@ -278,6 +282,7 @@ export function FairModelPage({
         <ModelNewStamp eventSlug={model.eventSlug} modelSlug={model.modelSlug} />
 
         <ModelSpecsCard
+          uniformValues={amf}
           keySpecs={keySpecs}
           groups={specGroups}
           description={model.description || undefined}

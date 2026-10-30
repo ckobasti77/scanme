@@ -46,6 +46,7 @@ export function ContactBlock({
   draft,
   onChange,
   dict,
+  collectOptionalEmail = false,
 }: {
   idPrefix: string;
   requirement: FairContactRequirement;
@@ -53,14 +54,15 @@ export function ContactBlock({
   draft: ContactDraft;
   onChange: (draft: ContactDraft) => void;
   dict: FairModelDict;
+  collectOptionalEmail?: boolean;
 }) {
   const [saved, setSaved] = useState<FairSavedContact | null>(() => readSavedContact(browserContactStorage()));
   const [touched, setTouched] = useState(false);
   const acceptRef = useRef<HTMLButtonElement>(null);
-  const state = contactFormState(draft, requirement);
+  const state = contactFormState(draft, requirement, collectOptionalEmail);
   const hint = touched && !state.empty ? state.hint : null;
   const fieldLabel = (field: ContactField) =>
-    field === "contact" ? dict.contactOneOfLabel : field === "email" ? dict.emailLabel : dict.phoneLabel;
+    field === "contact" ? dict.contactOneOfLabel : field === "email" ? collectOptionalEmail ? dict.emailOptionalLabel : dict.emailLabel : dict.phoneLabel;
 
   function setConsent(consent: boolean) {
     setTouched(true);
@@ -114,7 +116,7 @@ export function ContactBlock({
         />
       </label>
 
-      {contactFields(requirement).map((field) => (
+      {contactFields(requirement, collectOptionalEmail).map((field) => (
         <label key={field} className="fair-field" htmlFor={`${idPrefix}-${field}`}>
           <span>{fieldLabel(field)}</span>
           <input
