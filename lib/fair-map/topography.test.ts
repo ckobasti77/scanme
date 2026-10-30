@@ -49,7 +49,8 @@ describe("AMF topographic geometry and catalog", () => {
     expect(AMF_ENTRANCE_ANCHORS.filter((item) => item.area === "outdoor").map((item) => item.key)).toEqual(["aodes", "xtreme", "auto-happy-outdoor", "swm", "kia"]);
     const [x, y] = amfEntrancePoint([380, 205]);
     expect(items.find((item) => item.key === "scanme")).toMatchObject({ locationId: "ispred-14", x, y, paid: false });
-    expect(items.find((item) => item.key === "swm")?.locationId).toBeNull();
+    // 30 Oct 2026 (owner): SWM's S6 got its shared location id.
+    expect(items.find((item) => item.key === "swm")?.locationId).toBe("ispred-s6");
   });
   test("foyer booths cannot heat, even if the same paid exhibitor also has outdoor vehicles", () => {
     const paid = { heatEligible: true, participationId: "same-auto-happy" };
