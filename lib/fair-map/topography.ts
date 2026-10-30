@@ -65,10 +65,13 @@ export const AMF_HALL_ANCHORS: readonly Anchor[] = [
   { key: "honda-car", name: "Honda", locationId: "hala-6-7", x: 790, y: 1230, rx: 75, ry: 70 },
   // The four motorcycle marks share the lower wing of stand 6-7 on the
   // organizer's plan; they are not four full-size stands.
+  // 30 Oct 2026 (owner OK, organizer plan 21.10): top row Vespa + Jetour,
+  // bottom row Aprilia, Piaggio, Honda motorcycles.
   { key: "vespa", name: "Vespa", locationId: "hala-6-7", x: 465, y: 1175, rx: 70, ry: 44, moto: true },
-  { key: "aprilia", name: "Aprilia", locationId: "hala-6-7", x: 450, y: 1280, rx: 56, ry: 40, moto: true },
-  { key: "piaggio", name: "Piaggio", locationId: "hala-6-7", x: 595, y: 1280, rx: 56, ry: 44, moto: true },
-  { key: "honda-moto", name: "Honda", locationId: "hala-6-7", x: 660, y: 1175, rx: 58, ry: 44, moto: true },
+  { key: "jetour", name: "Jetour", locationId: "hala-6-7", x: 645, y: 1175, rx: 62, ry: 40, moto: true },
+  { key: "aprilia", name: "Aprilia", locationId: "hala-6-7", x: 440, y: 1280, rx: 48, ry: 40, moto: true },
+  { key: "piaggio", name: "Piaggio", locationId: "hala-6-7", x: 552, y: 1280, rx: 48, ry: 44, moto: true },
+  { key: "honda-moto", name: "Honda", locationId: "hala-6-7", x: 664, y: 1280, rx: 48, ry: 44, moto: true },
   { key: "raiffeisen", name: "Raiffeisen", locationId: null, x: 260, y: 1190, rx: 51, ry: 46, small: true },
 ];
 
@@ -82,6 +85,8 @@ export const AMF_ENTRANCE_ANCHORS: readonly Anchor[] = ([
   { key: "nm", name: "NM stomatologija", locationId: "ispred-13", x: 184, y: 322, rx: 40, ry: 34, area: "foyer" },
   { key: "detailing", name: "Detailing Store", locationId: "ispred-13", x: 164, y: 414, rx: 48, ry: 45, area: "foyer" },
   { key: "kostic", name: "Kostić Rent a Car", locationId: "ispred-16", x: 140, y: 510, rx: 55, ry: 30, area: "foyer" },
+  // 30 Oct 2026 (owner OK, organizer plan 16.10): second mark at stand 16.
+  { key: "asteriks", name: "Asteriks", aliases: ["TK Asteriks", "Taekwondo klub Asteriks"], locationId: "ispred-16", x: 211, y: 580, rx: 34, ry: 35, area: "foyer" },
   { key: "scanme", name: "ScanMe", aliases: ["Enigma IT"], locationId: "ispred-14", x: 333, y: 186, rx: 43, ry: 32, area: "foyer" },
   { key: "amerikanac", name: "Amerikanac", locationId: "ispred-15", x: 460, y: 190, rx: 45, ry: 35, area: "foyer" },
   { key: "direkcija", name: "Direkcija za javni prevoz Niš", aliases: ["JKP Direkcija za javni prevoz", "JGP Niš"], locationId: "ispred-15", x: 498, y: 340, rx: 60, ry: 35, area: "foyer" },
@@ -91,6 +96,8 @@ export const AMF_ENTRANCE_ANCHORS: readonly Anchor[] = ([
   { key: "benni", name: "Benni", aliases: ["Benni Plus"], locationId: "ispred-20", x: 376, y: 691, rx: 37, ry: 28, area: "foyer" },
   { key: "servoremont", name: "Servoremont", locationId: "ispred-21", x: 490, y: 679, rx: 75, ry: 32, area: "foyer" },
   { key: "parking", name: "Parking servis Niš", aliases: ["JKP Parking servis Niš"], locationId: "ispred-22", x: 592, y: 652, rx: 40, ry: 28, area: "foyer" },
+  // 30 Oct 2026 (owner OK, organizer plan 16.10): at the main entrance, no stand.
+  { key: "moto-revolution", name: "Moto Revolution", aliases: ["Motorevolution"], locationId: null, x: 423, y: 930, rx: 50, ry: 22, area: "outdoor" },
   { key: "aodes", name: "AODES", aliases: ["Odes"], locationId: "ispred-s1-s2", x: 630, y: 890, rx: 145, ry: 100, area: "outdoor" },
   { key: "xtreme", name: "Xtreme Motors", locationId: "ispred-s3", x: 856, y: 880, rx: 128, ry: 81, area: "outdoor" },
   { key: "auto-happy-outdoor", name: "Auto Happy", locationId: "ispred-s4", x: 650, y: 1024, rx: 86, ry: 52, area: "outdoor" },

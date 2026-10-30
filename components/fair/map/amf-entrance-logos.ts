@@ -5,6 +5,8 @@
 import aodes from "./brand-assets/map/aodes.png";
 import amerikanac from "./brand-assets/map/amerikanac.png";
 import aster from "./brand-assets/map/aster.png";
+import asteriks from "./brand-assets/map/asteriks.png";
+import motoRevolution from "./brand-assets/map/moto-revolution.png";
 import autoHappy from "./brand-assets/map/auto-happy.png";
 import benni from "./brand-assets/map/benni.png";
 import detailing from "./brand-assets/map/detailing.png";
@@ -22,7 +24,8 @@ import zepter from "./brand-assets/map/zepter.png";
 
 export const amfEntranceLogos = {
   aster, zepter, detailing, kostic, direkcija, ton, parking, xtreme,
-  aodes, amerikanac, benni, goes, kia, nm, servoremont, swm,
+  aodes, amerikanac, benni, goes, kia, nm, servoremont, swm, asteriks,
+  "moto-revolution": motoRevolution,
   "auto-happy-foyer": autoHappy,
   "auto-happy-outdoor": autoHappy,
 };
@@ -30,5 +33,5 @@ export const amfEntranceLogos = {
 // Formerly cropped in an <svg viewBox> (the crop is now baked in): they keep the
 // crop's sizing — full width, natural height — instead of the 60 % height box.
 export const amfEntranceCroppedLogos: ReadonlySet<string> = new Set([
-  "servoremont", "swm", "kia", "aodes", "auto-happy-foyer", "auto-happy-outdoor", "benni", "nm", "goes", "xtreme",
+  "servoremont", "swm", "kia", "aodes", "auto-happy-foyer", "auto-happy-outdoor", "benni", "nm", "goes", "xtreme", "asteriks", "moto-revolution",
 ]);

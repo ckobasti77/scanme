@@ -16,6 +16,7 @@ import motogriniLogo from "./brand-assets/map/motogrini.png";
 import piaggioLogo from "./brand-assets/map/piaggio.png";
 import tvsLogo from "./brand-assets/tvs.svg";
 import apriliaLogo from "./brand-assets/map/aprilia.png";
+import jetourLogo from "./brand-assets/map/jetour.png";
 import { amfEntranceCroppedLogos, amfEntranceLogos } from "./amf-entrance-logos";
 import { amfEntrancePoint, AMF_ENTRANCE_PLAN, AMF_ENTRANCE_SIZE, AMF_FORECOURT_SCALE } from "@/lib/fair-map/amf-entrance-plan";
 import { BrandLogo } from "@/components/brand-logo";
@@ -43,6 +44,8 @@ const motorcycleLogos = {
   piaggio: piaggioLogo,
   tvs: tvsLogo,
   aprilia: apriliaLogo,
+  // 30 Oct 2026: Jetour shares the motorcycle wing of stand 6-7 (organizer plan).
+  jetour: jetourLogo,
 };
 
 // Wide emblems need tight presentation bounds, not a padded square icon box.
@@ -56,8 +59,8 @@ const wideHallLogos = {
 function brandFrame(item: AmfTopographicExhibit, stretchY: number) {
   if (item.area === "foyer") return { x: item.x - item.rx + 9, y: item.y - item.ry + 9, width: item.rx * 2 - 18, height: item.ry * 2 - 18 };
   if (item.area === "outdoor") {
-    const width = (item.key === "auto-happy-outdoor" ? 164 : item.key === "swm" ? 100 : item.key === "aodes" ? 150 : 140) * AMF_FORECOURT_SCALE;
-    const height = (item.key === "auto-happy-outdoor" ? 84 : item.key === "swm" || item.key === "kia" ? 48 : 110) * AMF_FORECOURT_SCALE;
+    const width = (item.key === "auto-happy-outdoor" ? 164 : item.key === "swm" ? 100 : item.key === "moto-revolution" ? 90 : item.key === "aodes" ? 150 : 140) * AMF_FORECOURT_SCALE;
+    const height = (item.key === "auto-happy-outdoor" ? 84 : item.key === "swm" || item.key === "kia" ? 48 : item.key === "moto-revolution" ? 40 : 110) * AMF_FORECOURT_SCALE;
     return { x: item.x - width / 2, y: item.y - height / 2, width, height };
   }
   const scale = Math.min(stretchY, 1);
