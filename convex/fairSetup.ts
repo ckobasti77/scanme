@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { isAdminEmail } from "./lib/access";
 import { writeAdminAudit } from "./lib/adminAudit";
 import { normalizeAdminSearchText } from "./lib/adminV1Validators";
@@ -532,5 +533,62 @@ export const setupLeads = internalMutation({
     }
     await writeAdminAudit(ctx, { actorUserId, action: "fair_setup_leads", detail: { eventCode: event.code, legalApprovedBy: args.legalApprovedBy, ...counts }, now });
     return counts;
+  },
+});
+
+const sponsorPick = v.object({ modelSlug: v.string(), question: v.number() });
+
+/**
+ * AMF 30 Oct 2026 (owner): the sponsored-rotation result follows the fair
+ * day. Points each listed model's flag at its question `n` of `dateKey`
+ * (externalKey `q-<slug>-<dateKey>-<n>` from setupAudienceQuestions), clears
+ * the model's other flags and refreshes the snapshot. A model without that
+ * day's question keeps its flag as it is. Idempotent.
+ */
+export const pointSponsoredToDay = internalMutation({
+  args: { eventCode: v.string(), dateKey: v.string(), picks: v.array(sponsorPick) },
+  returns: v.object({ pointed: v.number(), missing: v.array(v.string()) }),
+  handler: async (ctx, args) => {
+    const event = await fairEventByCode(ctx, args.eventCode);
+    if (!event) throw new Error("fair_setup_event_missing");
+    const now = Date.now();
+    let pointed = 0;
+    const missing: string[] = [];
+    for (const pick of args.picks) {
+      const externalKey = `q-${pick.modelSlug}-${args.dateKey}-${pick.question}`;
+      const chosen = await ctx.db.query("fairAudienceQuestions").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id).eq("externalKey", externalKey)).first();
+      if (!chosen || chosen.status !== "published") {
+        missing.push(externalKey);
+        continue;
+      }
+      const all = await ctx.db.query("fairAudienceQuestions").withIndex("by_eventModelId_and_eventDayId", (q) => q.eq("eventModelId", chosen.eventModelId)).take(50);
+      for (const row of all) {
+        const want = row._id === chosen._id;
+        if (row.showOnSponsoredRotation !== want) await ctx.db.patch(row._id, { showOnSponsoredRotation: want, updatedAt: now });
+      }
+      pointed += 1;
+    }
+    await syncFairSponsoredSnapshot(ctx, event._id, now);
+    return { pointed, missing };
+  },
+});
+
+/** Schedules pointSponsoredToDay at the start (Europe/Belgrade) of each listed fair day. */
+export const scheduleSponsoredDays = internalMutation({
+  args: { actorEmail: v.string(), eventCode: v.string(), dateKeys: v.array(v.string()), picks: v.array(sponsorPick) },
+  returns: v.array(v.object({ dateKey: v.string(), runAt: v.number() })),
+  handler: async (ctx, args) => {
+    const actorUserId = await setupActor(ctx, args.actorEmail);
+    const event = await fairEventByCode(ctx, args.eventCode);
+    if (!event) throw new Error("fair_setup_event_missing");
+    const out: Array<{ dateKey: string; runAt: number }> = [];
+    for (const dateKey of args.dateKeys) {
+      const day = await ctx.db.query("fairEventDays").withIndex("by_eventId_and_dateKey", (q) => q.eq("eventId", event._id).eq("dateKey", dateKey)).unique();
+      if (!day) throw new Error(`fair_setup_day_missing:${dateKey}`);
+      await ctx.scheduler.runAt(day.startsAt, internal.fairSetup.pointSponsoredToDay, { eventCode: args.eventCode, dateKey, picks: args.picks });
+      out.push({ dateKey, runAt: day.startsAt });
+    }
+    await writeAdminAudit(ctx, { actorUserId, action: "fair_setup_sponsored_days_scheduled", detail: { eventCode: event.code, days: out }, now: Date.now() });
+    return out;
   },
 });
