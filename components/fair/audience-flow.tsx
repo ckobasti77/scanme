@@ -18,6 +18,7 @@ import type {
 import { fmt, type FairModelDict } from "@/lib/i18n";
 import { fairEventThemeClass } from "@/lib/fair-theme";
 import { FairEventShell } from "./event-shell";
+import { FairScrollHint } from "./scroll-hint";
 
 // Glas publike (MASTER §9.1): votes go through POST /api/fair/audience-vote;
 // the server returns the visitor's own choice and, from five votes, whole
@@ -414,6 +415,8 @@ export function AudienceFlow({
             ) : null}
           </>
         )}
+        {/* 30 Oct 2026: long option lists (more than 5 answers) scroll the page. */}
+        <FairScrollHint scope="window" downLabel={dict.scrollHintDown} upLabel={dict.scrollHintUp} />
       </main>
 
       <footer className="fair-footer">

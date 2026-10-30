@@ -4,6 +4,10 @@ import { motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 import { FAIR_DURATION, FAIR_EASE } from "./fair-motion";
 import { useEffect, useRef, type ReactNode } from "react";
+import { getDict } from "@/lib/i18n";
+import { FairScrollHint } from "./scroll-hint";
+
+const scrollDict = getDict("fair-model");
 
 // Shared frame of the model page sheets. `bottom`: short action (rating).
 // `full`: phone-height flow with a fixed footer (leads, survey) as in the
@@ -128,7 +132,17 @@ export function FairSheet({
           ) : null}
         </header>
         {toolbar}
-        {variant === "full" ? <div className="fair-sheet__body">{children}</div> : children}
+        {variant === "full" ? (
+          <div className="fair-sheet__body">
+            {children}
+            <FairScrollHint downLabel={scrollDict.scrollHintDown} upLabel={scrollDict.scrollHintUp} />
+          </div>
+        ) : (
+          <>
+            {children}
+            <FairScrollHint downLabel={scrollDict.scrollHintDown} upLabel={scrollDict.scrollHintUp} />
+          </>
+        )}
         {footer ? <div className="fair-sheet__footer">{footer}</div> : null}
       </motion.div>
     </motion.div>

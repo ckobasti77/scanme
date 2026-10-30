@@ -197,6 +197,8 @@ export const fairModelSr = {
   priceLabel: "Cena",
   priceOnRequest: "na upit",
   externalModelLink: "Više o modelu na sajtu izlagača",
+  scrollHintDown: "Pomeri na dno",
+  scrollHintUp: "Nazad na vrh",
   leadModelLabel: "Model",
   leadChoose: "Izaberite model",
   leadOptionalChoose: "Izaberite (opciono)",

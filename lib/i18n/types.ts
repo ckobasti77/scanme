@@ -433,6 +433,9 @@ export interface FairModelDict {
   priceOnRequest: string;
   /** AMF 30 Oct 2026: link to the exhibitor's own page for the model. */
   externalModelLink: string;
+  /** AMF 30 Oct 2026: scroll indicator (components/fair/scroll-hint.tsx). */
+  scrollHintDown: string;
+  scrollHintUp: string;
   /** AMF 30 Oct 2026: lead form model selector and Nikom's optional questions. */
   leadModelLabel: string;
   leadChoose: string;
