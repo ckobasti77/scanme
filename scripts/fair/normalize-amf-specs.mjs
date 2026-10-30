@@ -1,3 +1,5 @@
+import { applyAmfCuration } from "./amf-curated-specs.mjs";
+
 // Display-only normalization of AMF intake. Never select an engine/variant or
 // infer a measurement standard that the exhibitor did not supply.
 const fold = (s) => s.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
@@ -71,7 +73,9 @@ export function normalizeAmfSpecs(specifications) {
 }
 
 export function normalizeAmfModel(model) {
-  const next = { ...model, specifications: normalizeAmfSpecs(model.specifications) };
+  // Hotfix 30 Oct 2026: the curated sets and key tiles (amf-curated-specs.mjs) on top of the normalized intake.
+  const curated = applyAmfCuration({ ...model, specifications: normalizeAmfSpecs(model.specifications) });
+  const next = { ...curated, specifications: normalizeAmfSpecs(curated.specifications) };
   if (model.slug === "skoda-karoq") delete next.priceSecondaryText;
   return next;
 }

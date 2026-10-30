@@ -205,6 +205,10 @@
 .searchResults button[data-active="true"] { background: rgb(226 96 42 / 0.1); }
 .searchResults small, .directory small { margin-left: auto; color: var(--fair-ink-muted, #675f54); font-size: 11px; }
 .searchResults svg, .directory svg { flex: 0 0 16px; width: 16px; height: 16px; margin-left: auto; }
+/* One column for the location label: it sits right before the icon in every row, whatever the name length. */
+.searchResults button small, .directory li button small { flex: 0 0 auto; min-width: 2.75rem; line-height: 16px; text-align: right; }
+.searchResults button small + svg, .directory li button small + svg { margin-left: 0; }
+.searchResults button > span:first-child, .directory li button > span:first-child { min-width: 0; line-height: 18px; }
 .directory > p small { display: block; color: var(--fair-ink-muted, #675f54); font-size: 12px; }
 .directory > p, .searchResults > p { margin: 0; padding: 16px; font-size: 14px; }
 

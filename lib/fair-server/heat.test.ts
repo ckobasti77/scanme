@@ -6,8 +6,8 @@ const { handleFairHeat, resetFairHeatMemo } = await import("./heat");
 const SECRET = "test-fair-gateway-secret-0123456789abcdef";
 const VALUE = {
   at: 1,
-  today: { enough: true, levels: [{ locationId: "hala-9", level: 1 }] },
-  hour: { enough: false, levels: [] },
+  today: { enough: true, levels: [{ locationId: "hala-9", level: 1 }], brandLevels: [] },
+  hour: { enough: false, levels: [], brandLevels: [] },
 };
 
 beforeEach(() => resetFairHeatMemo());
