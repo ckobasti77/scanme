@@ -112,7 +112,7 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
           if (event.key === "ArrowUp") { event.preventDefault(); setActiveResult((value) => Math.max(value - 1, 0)); }
           if (event.key === "Enter" && results[activeResult]) { event.preventDefault(); select(results[activeResult]); }
         }} />
-      </div> : <div className={styles.tabs} role="group" aria-label={dict.zoneSwitchLabel}>
+      </div> : <div className={styles.tabs} data-zone={zoneId} role="group" aria-label={dict.zoneSwitchLabel}>
         <button type="button" aria-pressed={zoneId === "hala"} onClick={() => chooseZone("hala")}>{dict.zones.hala}</button>
         <button type="button" aria-pressed={zoneId === "ispred"} onClick={() => chooseZone("ispred")}>{dict.entranceShort}</button>
       </div>}

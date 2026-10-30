@@ -7,6 +7,7 @@
 //   --qr adds the PROD sticker resolver codes (SA26-016…033, read on PROD 30 Oct).
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { normalizeAmfModel } from "./normalize-amf-specs.mjs";
 
 const [input, output, flag] = process.argv.slice(2);
 if (!input || !output) throw new Error("usage: amf-payload.mjs <intake.json> <out.json> [--qr]");
@@ -145,7 +146,7 @@ const participations = intake.exhibitors.map((ex) => {
       models: ex.models.filter((m) => m.brand === brand).map((m) => {
         const slug = SLUGS[m.sticker];
         const pairs = m.specs ?? PDF_SPECS[m.sticker] ?? [];
-        return {
+        return normalizeAmfModel({
           externalKey: `auto-moto-fest-2026-${slug}`,
           displayName: `${brand} ${m.name}`,
           ...(m.variant ? { variant: m.variant } : {}),
@@ -159,7 +160,7 @@ const participations = intake.exhibitors.map((ex) => {
           passportEligible: PASSPORT_BRANDS.has(brand),
           sortOrder: ++sortOrder,
           ...(flag === "--qr" ? { assignedResolverCode: PROD_QR[m.sticker] } : {}),
-        };
+        });
       }),
     })),
   };

@@ -36,6 +36,7 @@ import * as fairRetention from "./fairRetention";
 import * as fairScans from "./fairScans";
 import * as fairSharing from "./fairSharing";
 import * as fairSetup from "./fairSetup";
+import * as fairAmfReview from "./fairAmfReview";
 import * as fairPreEvent from "./fairPreEvent";
 import * as fairAdminDev from "./fairAdminDev";
 import * as fairHeat from "./fairHeat";
@@ -175,7 +176,8 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
     functions: { seedTestCatalog: I, seedTestQr: I, seedTestPassport: I, seedTestSponsoredSnapshot: I, seedIntegrationTest: I, seedShowcaseCatalog: I, seedElectromobilityReviewCatalog: I },
   },
   // Aleksa (8. 10., ebb3102): the real elektromobilnost-2026 setup, internal only (RUNBOOK-EVENT-SETUP.md).
-  fairSetup: { module: fairSetup, functions: { bootstrapEvent: I, importDryRun: I, importCommit: I, publishEventModels: I } },
+  fairSetup: { module: fairSetup, functions: { bootstrapEvent: I, importDryRun: I, importCommit: I, publishEventModels: I, setupAudienceQuestions: I, setupSurveys: I, setupLeads: I, amfQrHousekeeping: I, pointSponsoredToDay: I, scheduleSponsoredDays: I } },
+  fairAmfReview: { module: fairAmfReview, functions: { applySpecs: I, removeAccidentalVote: I, removeReviewLead: I } },
   // JOVAN-DELTA 2026-10-08b — "Resetuj pre-event podatke" (admin) and the one-off package alignment (CLI).
   fairPreEvent: { module: fairPreEvent, functions: { previewPreEventReset: A, resetPreEventData: A, resetPreEventContinue: I, alignFuturePackageActivations: I } },
   // JOVAN-DELTA 2026-10-09 — admin DEV tools on the public fair pages: admin session AND gateway secret.

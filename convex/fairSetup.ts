@@ -294,7 +294,7 @@ export const setupAudienceQuestions = internalMutation({
       for (const slug of group.modelSlugs) {
         const model = await ctx.db.query("fairEventModels").withIndex("by_eventId_and_slug", (q) => q.eq("eventId", event._id).eq("slug", slug)).unique();
         if (!model) throw new Error(`fair_setup_model_missing:${slug}`);
-        const perDay = getFairEntitlements(await fairModelTierAt(ctx, model, now)).audienceQuestionsPerDay;
+        const perDay = getFairEntitlements(await fairModelTierAt(ctx, model, now), event.code).audienceQuestionsPerDay;
         let sponsoredId = null;
         for (const [dayIndex, day] of days.entries()) {
           const numbers = group.mode === "all" ? group.questions.map((_, i) => i + 1) : group.questions[dayIndex] ? [dayIndex + 1] : [];
@@ -476,7 +476,7 @@ export const amfQrHousekeeping = internalMutation({
  * AMF 30 Oct 2026: lead forms. Activates the consent text per lead kind with
  * the legal approval record given by the owner, and writes the exhibitor
  * default + per-model fairLeadConfigs (only where the package has the right:
- * interest Starter+, test drive Napredni). Leads stay ScanMe-only (no
+ * interest Starter+, test drive according to the event-scoped catalog). Leads stay ScanMe-only (no
  * exhibitor recipient is configured anywhere). Idempotent.
  */
 export const setupLeads = internalMutation({
@@ -520,7 +520,7 @@ export const setupLeads = internalMutation({
       counts.defaults += 1;
       const models = await ctx.db.query("fairEventModels").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id)).take(FAIR_ADMIN_LIST_LIMIT);
       for (const model of models.filter((row) => row.participationId === participation._id && row.status !== "withdrawn")) {
-        const rights = getFairEntitlements(await fairModelTierAt(ctx, model, now));
+        const rights = getFairEntitlements(await fairModelTierAt(ctx, model, now), event.code);
         if (config.leadKind === "interest" ? !rights.interest : !rights.testDrive) {
           counts.skippedNotEntitled += 1;
           continue;

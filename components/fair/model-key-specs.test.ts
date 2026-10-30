@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { fairModelKeySpecs, fairModelSpecGroups, splitSpecValue } from "./model-key-specs";
+import { fairModelHasTractionBattery, fairModelKeySpecs, fairModelSpecGroups, splitSpecValue } from "./model-key-specs";
+import amf from "../../docs/events/auto-moto-fest-2026/intake/prod-2026-10-30/b1-payload.json";
 
 const spec = (id: string, label: string, value: string, isHighlight = false) => ({ id, label, value, isHighlight });
 
@@ -62,11 +63,34 @@ describe("splitSpecValue", () => {
     ["Do 170 km", "170", "km"],
     ["< 7,9 s", "<7,9", "s"],
     ["6-6.5 h", "6-6.5", "h"],
+    ["6,3 l/100 km", "6,3", "l/100 km"],
+    ["400 Nm (1.750–3.250 o/min)", "400", "Nm"],
+    ["142 kW / 193 KS", "142", "kW"],
     ["Prednji", "Prednji", ""],
     ["3720 x 1640 x 1535 mm", "3720 x 1640 x 1535 mm", ""],
   ])("%s", (raw, value, unit) => {
     expect(splitSpecValue(raw)).toEqual({ value, unit });
   });
+});
+
+test("legacy kW (KS) never presents kW as horsepower; a fuel tank is never a battery", () => {
+  expect(fairModelKeySpecs([spec("mg", "Snaga kW (KS)", "145 (197)")])[0]).toMatchObject({ value: "145", unit: "kW", qualifier: "" });
+  expect(fairModelKeySpecs([spec("panda", "Kapacitet rezervoara", "44 l")])[0]).toMatchObject({ kind: "tank", value: "44", unit: "l" });
+});
+
+test("all 18 normalized AMF models have compact, parsed tiles and the correct powertrain title", () => {
+  const models = amf.participations.flatMap(p => p.brands.flatMap(b => b.models));
+  expect(models).toHaveLength(18);
+  for (const model of models) {
+    const items = model.specifications.map((s, index) => spec(String(index), s.label, s.value));
+    const keys = fairModelKeySpecs(items, true);
+    expect(keys.length, model.slug).toBeGreaterThan(0);
+    expect(keys.length).toBeLessThanOrEqual(4);
+    expect(keys.every(s => s.value.length <= 10 && (s.unit !== "" || s.value.length <= 8)), model.slug).toBe(true);
+    expect(fairModelHasTractionBattery(items), model.slug).toBe(/^(dongfeng-|mg-)/.test(model.slug));
+    if (model.slug === "fiat-grande-panda") expect(keys).toContainEqual(expect.objectContaining({ kind: "tank", value: "44", unit: "l" }));
+    if (model.slug.startsWith("mg-")) expect(keys).toContainEqual(expect.objectContaining({ kind: "power", unit: "kW" }));
+  }
 });
 
 describe("fairModelSpecGroups", () => {

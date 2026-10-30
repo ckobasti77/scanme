@@ -21,7 +21,7 @@ import {
 // -----------------------------------------------------------------------------
 
 export const FAIR_ENTITLEMENT_CATALOG: Readonly<
-  Record<FairPackageTier, Readonly<FairEntitlements>>
+  Record<FairPackageTier, Readonly<FairEntitlements & { testDriveEvents?: readonly string[] }>>
 > = {
   included: {
     publicModelPage: true,
@@ -49,6 +49,9 @@ export const FAIR_ENTITLEMENT_CATALOG: Readonly<
     audienceQuestionsPerDay: 1,
     dailyReport: true,
     testDrive: false,
+    // Owner decision, 30 Oct: AMF Starter includes test drive. Keep the
+    // earlier event's forms and report projections unchanged.
+    testDriveEvents: ["auto-moto-fest-2026"],
     survey: false,
     postEventFollowUp: false,
     sponsoredMapRotation: false,
@@ -76,8 +79,9 @@ export const FAIR_ENTITLEMENT_CATALOG: Readonly<
   },
 };
 
-export function getFairEntitlements(tier: FairPackageTier): Readonly<FairEntitlements> {
-  return FAIR_ENTITLEMENT_CATALOG[tier];
+export function getFairEntitlements(tier: FairPackageTier, eventCode?: string): Readonly<FairEntitlements> {
+  const { testDriveEvents, ...rights } = FAIR_ENTITLEMENT_CATALOG[tier];
+  return eventCode && testDriveEvents?.includes(eventCode) ? { ...rights, testDrive: true } : rights;
 }
 
 export function fairTierRank(tier: FairPackageTier): number {
@@ -142,8 +146,8 @@ export type FairPaidFeature =
   | "sponsoredMapRotation"
   | "sponsoredGarageRotation";
 
-export function fairTierHasFeature(tier: FairPackageTier, feature: FairPaidFeature): boolean {
-  const rights = FAIR_ENTITLEMENT_CATALOG[tier];
+export function fairTierHasFeature(tier: FairPackageTier, feature: FairPaidFeature, eventCode?: string): boolean {
+  const rights = getFairEntitlements(tier, eventCode);
   switch (feature) {
     case "rating":
       return rights.ratingMode !== "none";
@@ -162,8 +166,9 @@ export function fairFeatureActiveAt(
   history: FairPackageHistory,
   feature: FairPaidFeature,
   at: number,
+  eventCode?: string,
 ): boolean {
-  return fairTierHasFeature(fairTierAt(history, at), feature);
+  return fairTierHasFeature(fairTierAt(history, at), feature, eventCode);
 }
 
 /**
@@ -174,10 +179,11 @@ export function fairFeatureActiveAt(
 export function fairFeatureSince(
   history: FairPackageHistory,
   feature: FairPaidFeature,
+  eventCode?: string,
 ): number | null {
-  if (fairTierHasFeature(history.initialTier, feature)) return history.startedAt;
+  if (fairTierHasFeature(history.initialTier, feature, eventCode)) return history.startedAt;
   for (const activation of sortedActivations(history)) {
-    if (fairTierHasFeature(activation.toTier, feature)) return activation.activatedAt;
+    if (fairTierHasFeature(activation.toTier, feature, eventCode)) return activation.activatedAt;
   }
   return null;
 }
@@ -268,8 +274,8 @@ export function fairAnalyticsScope(tier: FairPackageTier): FairAnalyticsScope {
  * conversions, with the three rating dimensions INSTEAD of overall. A group
  * not listed is omitted from the dataset (never a fake zero).
  */
-export function fairReportMetrics(tier: FairPackageTier): FairReportMetric[] {
-  const rights = FAIR_ENTITLEMENT_CATALOG[tier];
+export function fairReportMetrics(tier: FairPackageTier, eventCode?: string): FairReportMetric[] {
+  const rights = getFairEntitlements(tier, eventCode);
   const metrics: FairReportMetric[] = [];
   if (rights.standScanTotals) metrics.push("stand_scans");
   if (rights.modelAnalytics) metrics.push("model_scans");
@@ -370,6 +376,8 @@ export function fairBrandPassportProblems(
 
 /** Live facts the server combines with the tier into public capabilities. */
 export type FairCapabilityContext = {
+  /** Event context for the catalog's scoped package rights. */
+  eventCode?: string;
   /** A published audience question is open for this model today. */
   hasOpenAudienceQuestions: boolean;
   /** A published survey version exists for this model. */
@@ -388,7 +396,7 @@ export function deriveFairCapabilities(
   tier: FairPackageTier,
   context: FairCapabilityContext,
 ): FairModelCapabilities {
-  const rights = FAIR_ENTITLEMENT_CATALOG[tier];
+  const rights = getFairEntitlements(tier, context.eventCode);
   return {
     ratingMode: rights.ratingMode,
     canSubmitInterest: rights.interest && context.interestLeadEnabled,

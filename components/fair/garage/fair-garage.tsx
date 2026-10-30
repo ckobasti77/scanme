@@ -642,7 +642,6 @@ export function LegacyGaragePassportSection({
 /** Conveyor slide (model page v2 prototype): the next photo enters from the left while the current one leaves right. */
 const SPONSORED_SLIDE_MS = 650;
 /** The model name fades out, swaps, and fades back in during the slide. */
-const SPONSORED_NAME_SWAP_MS = 300;
 
 function SponsoredSlideVisual({ item, dict }: { item: FairSponsoredModelCard; dict: FairGarageDict }) {
   const photoUrl = reviewPhoto(item.brandName, item.displayName, item.photoUrl);
@@ -684,8 +683,11 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
   const slotStartedAt = slot?.slot.slotStartedAt;
   const [shownIndex, setShownIndex] = useState(targetIndex);
   const [incomingIndex, setIncomingIndex] = useState<number | null>(null);
-  const [nameIndex, setNameIndex] = useState(targetIndex);
-  const [nameOut, setNameOut] = useState(false);
+  const [slideDirection, setSlideDirection] = useState(1);
+  const [swipeRelease, setSwipeRelease] = useState(0);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const manualSlotRef = useRef<number | null>(null);
+  const swipeRef = useRef<{ start: number; offset: number; direction: number; active: boolean; commit: boolean } | null>(null);
   const [paused, setPaused] = useState(false);
   const [storageError, setStorageError] = useState(false);
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -707,42 +709,63 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
 
   // A new slot: start the conveyor (or swap at once under reduced motion).
   useEffect(() => {
-    if (!rotation || paused || incomingIndex !== null || targetIndex === shownIndex) return;
+    if (!rotation || paused || incomingIndex !== null || targetIndex === shownIndex || manualSlotRef.current === slot?.slot.slotNumber) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       const frame = window.requestAnimationFrame(() => {
         setShownIndex(targetIndex);
-        setNameIndex(targetIndex);
       });
       return () => window.cancelAnimationFrame(frame);
     }
-    const frame = window.requestAnimationFrame(() => setIncomingIndex(targetIndex));
+    const frame = window.requestAnimationFrame(() => { setSlideDirection(1); setIncomingIndex(targetIndex); });
     return () => window.cancelAnimationFrame(frame);
-  }, [incomingIndex, paused, rotation, shownIndex, targetIndex]);
+  }, [incomingIndex, paused, rotation, shownIndex, targetIndex, slot?.slot.slotNumber]);
 
   useLayoutEffect(() => {
+    const track = trackRef.current;
     const viewport = viewportRef.current;
-    if (incomingIndex === null || !viewport) return;
-    const outgoing = viewport.querySelector<HTMLElement>("[data-slide='current']");
-    const incoming = viewport.querySelector<HTMLElement>("[data-slide='incoming']");
-    setNameOut(true);
-    const nameTimer = window.setTimeout(() => {
-      setNameIndex(incomingIndex);
-      setNameOut(false);
-    }, SPONSORED_NAME_SWAP_MS);
-    const timeline = gsap.timeline({
-      defaults: { duration: SPONSORED_SLIDE_MS / 1000, ease: "power2.inOut" },
+    if (!track || !viewport) return;
+    if (incomingIndex === null) { gsap.set(track, { x: 0 }); return; }
+    const width = viewport.clientWidth;
+    const swipe = swipeRef.current;
+    const start = swipe ? (slideDirection > 0 ? 0 : -width) + swipe.offset : slideDirection > 0 ? 0 : -width;
+    if (swipe?.active) { gsap.set(track, { x: start }); return; }
+    const commit = swipe?.commit ?? true;
+    const end = commit ? (slideDirection > 0 ? -width : 0) : (slideDirection > 0 ? 0 : -width);
+    const animation = gsap.fromTo(track, { x: start }, {
+      x: end,
+      duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : SPONSORED_SLIDE_MS / 1000,
+      ease: "power2.inOut",
       onComplete: () => {
-        setShownIndex(incomingIndex);
+        if (commit) setShownIndex(incomingIndex);
+        swipeRef.current = null;
         setIncomingIndex(null);
       },
     });
-    if (outgoing) timeline.fromTo(outgoing, { xPercent: 0, opacity: 1 }, { xPercent: 105, opacity: 0.6 }, 0);
-    if (incoming) timeline.fromTo(incoming, { xPercent: -105, opacity: 0.6 }, { xPercent: 0, opacity: 1 }, 0);
-    return () => {
-      timeline.kill();
-      window.clearTimeout(nameTimer);
-    };
-  }, [incomingIndex]);
+    return () => { animation.kill(); };
+  }, [incomingIndex, slideDirection, swipeRelease]);
+
+  function swipeMove(clientX: number) {
+    const swipe = swipeRef.current;
+    const viewport = viewportRef.current;
+    if (!swipe || !viewport) return;
+    swipe.offset = Math.max(-viewport.clientWidth, Math.min(viewport.clientWidth, clientX - swipe.start));
+    if (Math.abs(swipe.offset) < 4) return;
+    swipe.direction = swipe.offset < 0 ? 1 : -1;
+    setSlideDirection(swipe.direction);
+    setIncomingIndex((shownIndex + swipe.direction + items.length) % items.length);
+    gsap.set(trackRef.current, { x: (swipe.direction > 0 ? 0 : -viewport.clientWidth) + swipe.offset });
+  }
+
+  function swipeEnd(cancel = false) {
+    const swipe = swipeRef.current;
+    if (!swipe) return;
+    swipe.active = false;
+    swipe.commit = !cancel && Math.abs(swipe.offset) > (viewportRef.current?.clientWidth ?? 0) * 0.18;
+    manualSlotRef.current = slot?.slot.slotNumber ?? null;
+    if (incomingIndex === null) swipeRef.current = null;
+    setSwipeRelease(value => value + 1);
+    setPaused(false);
+  }
 
   // Progress segments: earlier ones full, the current one fills linearly to the slot end.
   const activeIndex = incomingIndex ?? shownIndex;
@@ -779,7 +802,6 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
   }, []);
 
   const item = items[activeIndex] ?? items[0];
-  const nameItem = items[nameIndex] ?? item;
   if (!rotation || items.length === 0 || !item) return null;
 
   function record(kind: FairSponsoredActionKind, model: FairSponsoredModelCard) {
@@ -834,7 +856,7 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
     setAddingId(model.eventModelId);
     setStorageError(false);
     addAttemptRef.current = { id: model.eventModelId, committed: false, fallback: null };
-    const source = viewportRef.current?.querySelector<HTMLElement>("[data-slide='current']");
+    const source = viewportRef.current?.querySelector<HTMLElement>("[data-slide='current'] [data-sponsored-visual]");
     // Fly into the list where the car will park (first bay), else into the garage icon.
     const target =
       window.document.querySelector<HTMLElement>("[data-garage-model-id] [data-garage-photo]") ??
@@ -872,10 +894,29 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
     timeline.to(clone, { opacity: 0, duration: 0.18, ease: "power1.in" }, "-=0.08");
   }
 
-  const saved = eventContainsModel(garageDocument, item.eventModelId);
-  const adding = addingId === item.eventModelId;
   const shown = items[shownIndex] ?? item;
   const incoming = incomingIndex === null ? null : items[incomingIndex];
+  function slide(model: FairSponsoredModelCard, status: "current" | "incoming") {
+    const saved = eventContainsModel(garageDocument, model.eventModelId);
+    const adding = addingId === model.eventModelId;
+    return <div className={styles.spSlide} data-slide={status} key={`slide-${model.eventModelId}`} inert={status === "incoming"}>
+      <div className={styles.spVisual} data-sponsored-visual=""><SponsoredSlideVisual item={model} dict={dict} /></div>
+      <div className={styles.spLeft}>
+        <span className={styles.spTag}>{dict.sponsoredTag}</span>
+        <div className={styles.spName}>
+          <span>{cleanTestLabel(model.brandName)}</span>
+          <strong>{displayModelName(model.brandName, model.displayName)}</strong>
+        </div>
+        {!display ? <div className={styles.spActions}>
+          <button type="button" className={styles.spAdd} data-done={saved || undefined} disabled={saved || adding} onClick={() => add(model)}>
+            {saved ? <Check aria-hidden="true" /> : <CarFront aria-hidden="true" />}
+            {saved ? dict.sponsoredAdded : adding ? dict.sponsoredAdding : dict.sponsoredAdd}
+          </button>
+          <Link prefetch={false} className={styles.spView} href={`/sajam/${event.publicSlug}/model/${model.slug}`} onClick={() => record("open_model", model)}>{dict.sponsoredView}</Link>
+        </div> : null}
+      </div>
+    </div>;
+  }
   return (
     <aside
       className={inline ? styles.spInline : styles.spDock}
@@ -889,34 +930,33 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
       onBlurCapture={(focusEvent) => { if (!focusEvent.currentTarget.contains(focusEvent.relatedTarget)) resume(); }}
     >
       <div className={styles.spCard}>
-        <div className={styles.spViewport} ref={viewportRef}>
-          <div className={styles.spSlide} data-slide="current" key={`slide-${shown.eventModelId}`}>
-            <SponsoredSlideVisual item={shown} dict={dict} />
+        <div className={styles.spViewport} ref={viewportRef} tabIndex={items.length > 1 ? 0 : undefined}
+          onKeyDown={event => {
+            if (event.target !== event.currentTarget || incomingIndex !== null || !["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+            event.preventDefault();
+            const direction = event.key === "ArrowLeft" ? 1 : -1;
+            manualSlotRef.current = slot?.slot.slotNumber ?? null;
+            setSlideDirection(direction);
+            setIncomingIndex((shownIndex + direction + items.length) % items.length);
+          }}
+          onPointerDown={event => {
+            if (items.length < 2 || incomingIndex !== null || (event.target as HTMLElement).closest("button, a")) return;
+            event.currentTarget.setPointerCapture(event.pointerId);
+            swipeRef.current = { start: event.clientX, offset: 0, direction: 1, active: true, commit: false };
+            setPaused(true);
+          }}
+          onPointerMove={event => swipeMove(event.clientX)}
+          onPointerUp={() => swipeEnd()}
+          onPointerCancel={() => swipeEnd(true)}
+        >
+          <div className={styles.spTrack} ref={trackRef}>
+            {incoming && slideDirection < 0 ? slide(incoming, "incoming") : null}
+            {slide(shown, "current")}
+            {incoming && slideDirection > 0 ? slide(incoming, "incoming") : null}
           </div>
-          {incoming ? (
-            <div className={styles.spSlide} data-slide="incoming" key={`slide-${incoming.eventModelId}`}>
-              <SponsoredSlideVisual item={incoming} dict={dict} />
-            </div>
-          ) : null}
         </div>
         <div className={styles.spBars} ref={barsRef} data-sponsored-progress="" data-slot={slot?.slot.slotNumber} aria-hidden="true">
           {items.map((entry, index) => <i key={entry.eventModelId} data-active={index === activeIndex}><b /></i>)}
-        </div>
-        <div className={styles.spLeft}>
-          <span className={styles.spTag}>{dict.sponsoredTag}</span>
-          <div className={styles.spName} data-out={nameOut || undefined}>
-            <span>{cleanTestLabel(nameItem.brandName)}</span>
-            <strong>{displayModelName(nameItem.brandName, nameItem.displayName)}</strong>
-          </div>
-          {!display ? <div className={styles.spActions}>
-            <button type="button" className={styles.spAdd} data-done={saved || undefined} disabled={saved || adding} onClick={() => add(item)}>
-              {saved ? <Check aria-hidden="true" /> : <CarFront aria-hidden="true" />}
-              {saved ? dict.sponsoredAdded : adding ? dict.sponsoredAdding : dict.sponsoredAdd}
-            </button>
-            <Link prefetch={false} className={styles.spView} href={`/sajam/${event.publicSlug}/model/${item.slug}`} onClick={() => record("open_model", item)}>
-              {dict.sponsoredView}
-            </Link>
-          </div> : null}
         </div>
       </div>
       {storageError ? <p className={styles.spError} role="alert">{dict.sponsoredAddError}</p> : null}

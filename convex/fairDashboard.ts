@@ -166,6 +166,7 @@ async function loadFacts(ctx: QueryCtx, event: Doc<"fairEvents">, at: number): P
     at,
     belgradeHour: Number(hourKey.slice(11, 13)),
     event: {
+      code: event.code,
       startsAt: event.startsAt,
       endsAt: event.endsAt,
       piiPurgeAt: event.piiPurgeAt,

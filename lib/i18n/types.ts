@@ -289,6 +289,7 @@ export interface FairModelDict {
   testDriveSheetTitle: string;
   fullNameLabel: string;
   emailLabel: string;
+  emailOptionalLabel: string;
   phoneLabel: string;
   sendInterest: string;
   sendTestDrive: string;
@@ -430,6 +431,7 @@ export interface FairModelDict {
   surveyAlreadySent: string;
   // Model page v2 (prototype stranica-modela-v2).
   priceLabel: string;
+  exhibitedPriceLabel: string;
   priceOnRequest: string;
   /** AMF 30 Oct 2026: link to the exhibitor's own page for the model. */
   externalModelLink: string;
@@ -453,9 +455,19 @@ export interface FairModelDict {
   keySpecSpeed: string;
   keySpecAcceleration: string;
   keySpecTorque: string;
+  keySpecTank: string;
+  keySpecConsumption: string;
+  keySpecEmissions: string;
+  keySpecDisplacement: string;
+  keySpecEngines: string;
+  keySpecWheels: string;
+  keySpecScreen: string;
+  keySpecSuspension: string;
+  keySpecTransmission: string;
   specsToggle: string;
   specsToggleWithDescription: string;
   specsGroupDrivetrain: string;
+  specsGroupEngine: string;
   specsGroupPerformance: string;
   specsDescription: string;
   audienceCardEyebrow: string;

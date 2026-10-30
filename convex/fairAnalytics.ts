@@ -99,7 +99,7 @@ export const reportContext = internalQuery({
   returns: v.union(
     v.null(),
     v.object({
-      event: v.object({ _id: v.id("fairEvents"), title: v.string(), slug: v.string() }),
+      event: v.object({ _id: v.id("fairEvents"), title: v.string(), slug: v.string(), code: v.string() }),
       day: dayView,
       previousDay: v.union(v.null(), dayView),
       participationId: v.id("fairParticipations"),
@@ -137,7 +137,7 @@ export const reportContext = internalQuery({
       });
     }
     return {
-      event: { _id: event._id, title: event.title, slug: event.slug },
+      event: { _id: event._id, title: event.title, slug: event.slug, code: event.code },
       day: dayOut(day),
       previousDay: previous ? dayOut(previous) : null,
       participationId: participation._id,
@@ -252,8 +252,8 @@ export const modelDayRaw = internalQuery({
     const day = await ctx.db.get(args.eventDayId);
     if (!day || day.eventId !== model.eventId) return null;
     const tier = await fairModelTierAt(ctx, model, day.endsAt - 1);
-    const metrics = fairReportMetrics(tier);
     const event = await ctx.db.get(model.eventId);
+    const metrics = fairReportMetrics(tier, event?.code);
     const cutoff = event ? fairAnalyticsCutoff(event) : day.startsAt;
     // Windows of row-based numbers start at the cutoff on the day it falls in.
     const from = (row: CountedDay) => Math.max(row.startsAt, cutoff);
@@ -310,7 +310,7 @@ export const modelDayRaw = internalQuery({
       const previousDay = await ctx.db.get(args.previousEventDayId);
       if (previousDay && previousDay.eventId === model.eventId && previousDay._id !== day._id) {
         const previousTier = await fairModelTierAt(ctx, model, previousDay.endsAt - 1);
-        const before = fairReportMetrics(previousTier);
+        const before = fairReportMetrics(previousTier, event?.code);
         const previous: NonNullable<FairReportModelRaw["previous"]> = { tier: previousTier };
         if (wants("model_scans", before)) previous.scans = await dayScans(ctx, model._id, previousDay, cutoff);
         if (wants("interest", before) || wants("test_drive", before)) {

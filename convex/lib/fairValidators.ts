@@ -502,6 +502,7 @@ export const fairLeadFormView = v.union(
     kind: fairLeadKind,
     state: v.literal("open"),
     contactRequirement: fairContactRequirement,
+    collectOptionalEmail: v.optional(v.boolean()),
     preferredContact: v.optional(fairPreferredContact),
     consent: v.object({ version: v.number(), text: v.string() }),
     // 30 Oct 2026: the exhibitor's published models to choose from (test

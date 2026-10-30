@@ -1930,7 +1930,7 @@ Uvoz je urađen iz `amf-2026-unos-podaci.json`; gde podatak nije bio jednoznača
 3. **Ford Ranger Raptor**: cenovnik nije stigao; jedina specifikacija je „Dostupni motori” sa zvaničnog ford.rs/novi-raptor (3,0 EcoBoost V6 benzin / 2,0 Bi-turbo EcoBlue dizel).
 4. **Ineos Grenadier**: „Cena na upit”, bez linka; varijanta nije navedena, pa su specifikacije samo zajedničke za sve (BMW 3.0L benzin/dizel, automatski 8).
 5. **MG cene**: cene iz mejla se razlikuju od akcijskih cena u cenovnicima (ZS Luxury 25.190 vs 23.990 €, HS Luxury 32.990 vs 32.490 €, S5 Luxury LR 35.490 vs 34.990 €). Prikazane su cene iz mejla (JSON). Specifikacije su za Luxury.
-6. **Škoda Karoq**: cena vozila i „Osnovni model od” su iste (30.500 €), kao u PDF-u; prikazano tako.
+6. **Škoda Karoq — rešeno odlukom Aleksе, 30. 10.**: obe cene ostaju 30.500 €; duplirana sekundarna linija se uklanja. Ostale otvorene stavke nisu rešavane.
 7. **Škoda Superb**: fotografija je Superb Combi (karavan); karoserija izloženog L&K Plus nije navedena.
 8. **Nikom anketa P2** („Koji model DONGFENG-a…”): opcije su M-HERO / NAMMI BOX / T5 FORTHING / Drugo, bez Fiat Grande Pande, iako anketa važi i na Grande Pandi. Ostavljeno kako je izlagač napisao.
 9. **Nikom Starter Glas publike**: raspored ima samo P1–P3 (po danu); P4 i P5 se na Starter modelima nikad ne prikazuju.

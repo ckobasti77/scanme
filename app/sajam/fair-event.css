@@ -637,6 +637,11 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   white-space: nowrap;
 }
 
+/* AMF ranges keep their complete value at the shared type size. */
+.fair-specs[data-uniform-values] .fair-specs__key { padding-inline: 3px; }
+.fair-specs[data-uniform-values] .fair-specs__key strong { overflow: visible; text-overflow: clip; }
+.fair-specs[data-uniform-values] strong[data-wrap-unit] i { display: block; margin: 3px 0 0; }
+
 .fair-specs__toggle {
   display: flex;
   width: 100%;

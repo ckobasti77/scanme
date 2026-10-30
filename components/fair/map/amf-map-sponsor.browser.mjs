@@ -59,17 +59,31 @@ try {
     const fill = () => page.locator('[data-sponsored-progress] [data-active="true"] b').evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).a);
     const initial = await fill();
     if (reduced) assert.equal(initial, 1);
-    else assert.ok(initial > 0.24 && initial < 0.3, `join mid-slot: ${initial}`);
+    else {
+      const expected = await page.evaluate((epoch) => ((Date.now() - epoch) % 12000) / 12000, epochMs);
+      assert.ok(Math.abs(initial - expected) < 0.08, `join mid-slot: ${initial} vs ${expected}`);
+    }
     await page.waitForTimeout(1000);
     const middle = await fill();
     if (!reduced) assert.ok(middle > initial + 0.04 && middle < 0.56, `fills before model changes: ${initial} -> ${middle}`);
     assert.equal(await page.locator("[data-sponsored-progress]").getAttribute("data-slot"), "0");
-    await page.clock.runFor(10000);
+    const untilNext = await page.evaluate((epoch) => 12000 - (Date.now() - epoch) % 12000, epochMs);
+    await page.clock.runFor(untilNext + 200);
+    if (!reduced) {
+      const geometry = await page.locator('[data-slide="current"]').evaluate(current => {
+        const incoming = current.parentElement.querySelector('[data-slide="incoming"]');
+        const viewport = current.parentElement.parentElement.getBoundingClientRect();
+        return { current: current.getBoundingClientRect().left - viewport.left, incoming: incoming?.getBoundingClientRect().left, gap: incoming ? incoming.getBoundingClientRect().left - current.getBoundingClientRect().left : null, width: viewport.width };
+      });
+      assert.ok(geometry.current < 0 && geometry.current > -geometry.width, `push is in flight: ${JSON.stringify(geometry)}`);
+      assert.ok(Math.abs(geometry.gap - geometry.width) < 1, "both cards share one strip without overlap");
+    }
+    await page.clock.runFor(800);
     assert.equal(await page.locator("[data-sponsored-progress]").getAttribute("data-slot"), "1");
     const next = await fill();
     if (!reduced) assert.ok(next >= 0 && next < 0.35, `new model starts at its own progress: ${next}`);
     assert.equal(await page.locator("[data-sponsored-progress] i").first().locator("b").evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).a), 1);
-    await page.clock.runFor(11000);
+    await page.clock.runFor(12000);
     assert.equal(await page.locator("[data-sponsored-progress]").getAttribute("data-slot"), "2");
     assert.equal(await page.locator("[data-sponsored-progress] i").last().locator("b").evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).a), 0, "future bars reset on wrap");
     await page.reload();
@@ -79,6 +93,20 @@ try {
     assert.ok(Math.abs(await fill() - expected) < 0.03, "reload joins the shared clock rather than restarting a full interval");
     assert.deepEqual(errors, []);
     assert.deepEqual(posts, []);
+    const viewport = page.locator('[data-slide="current"]').locator('..').locator('..');
+    await viewport.focus();
+    await page.keyboard.press("ArrowLeft");
+    await page.clock.runFor(800);
+    assert.equal(await page.locator('[data-slide="current"]').count(), 1, "keyboard settles into one current card");
+    const box = await viewport.boundingBox();
+    await page.mouse.move(box.x + box.width * 0.85, box.y + 25);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.4, box.y + 25, { steps: 6 });
+    const drag = await page.locator('[data-slide="current"]').evaluate(element => element.getBoundingClientRect().left - element.parentElement.parentElement.getBoundingClientRect().left);
+    assert.ok(drag < -box.width * 0.3, "left swipe follows the pointer left");
+    await page.mouse.up();
+    await page.clock.runFor(800);
+    assert.equal(await page.locator('[data-slide="incoming"]').count(), 0, "swipe settles without snapping");
     results.push({ width, reduced, initial, middle, next, errors, posts });
     await context.close();
   }

@@ -1,7 +1,7 @@
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import {
   FAIR_ADMIN_LIST_LIMIT,
   FAIR_CONSENT_EXHIBITOR_PLACEHOLDER,
@@ -60,8 +60,9 @@ const TEMPLATE_TEXT_MAX = 5000;
 const EXPORT_PAGE_MAX = 100;
 const upsertResult = v.union(v.literal("created"), v.literal("updated"), v.literal("unchanged"));
 
-function leadRight(tier: Doc<"fairEventModels">["packageTier"], kind: FairLeadKind) {
-  const rights = getFairEntitlements(tier);
+async function leadRight(ctx: QueryCtx | MutationCtx, model: Doc<"fairEventModels">, kind: FairLeadKind) {
+  const event = await ctx.db.get(model.eventId);
+  const rights = getFairEntitlements(model.packageTier, event?.code);
   return kind === "interest" ? rights.interest : rights.testDrive;
 }
 
@@ -307,7 +308,7 @@ async function writeLeadConfig(
 
 /**
  * One config per model and kind (HANDOFF §5.4). Enabling needs the right in
- * the model's package (interest Starter+, test drive Advanced); a disabled
+ * the model's package (interest Starter+, test drive from the event-scoped catalog); a disabled
  * config may be prepared earlier. `preferredContact` never makes a field
  * required — only `contactRequirement` does. A7: this is the model's own
  * exception (`source: "override"`); the exhibitor default never overwrites it.
@@ -326,7 +327,7 @@ export const upsertLeadConfig = mutation({
     const now = Date.now();
     const model = await ctx.db.get(args.eventModelId);
     if (!model) fairAdminError("FAIR_MODEL_NOT_FOUND");
-    if (args.enabled && !leadRight(model.packageTier, args.leadKind)) fairAdminError("FAIR_FEATURE_NOT_ENTITLED", { leadKind: args.leadKind });
+    if (args.enabled && !await leadRight(ctx, model, args.leadKind)) fairAdminError("FAIR_FEATURE_NOT_ENTITLED", { leadKind: args.leadKind });
     return writeLeadConfig(ctx, {
       model,
       kind: args.leadKind,
@@ -344,7 +345,7 @@ export const upsertLeadConfig = mutation({
 // the exhibitor's default for each form, written to all of its models in one
 // move; a model's own exception wins. The public flow is unchanged: getLeadForm
 // and submitLead still read only fairLeadConfigs (B4/K3 contract), the package
-// still decides (interest Starter+, test drive Advanced) and the K3 switches
+// still decides (interest Starter+, test drive from the event-scoped catalog) and the K3 switches
 // and the consent gate stay where they are.
 // -----------------------------------------------------------------------------
 
@@ -353,8 +354,8 @@ const LEAD_APPLY_MODELS_MAX = 100;
 const LEAD_KINDS = ["interest", "test_drive"] as const;
 
 /** The model's config that follows the exhibitor default: off where the package lacks the form. */
-function configFromDefault(row: Doc<"fairParticipationLeadDefaults">, tier: Doc<"fairEventModels">["packageTier"]) {
-  const entitled = leadRight(tier, row.leadKind);
+async function configFromDefault(ctx: MutationCtx, row: Doc<"fairParticipationLeadDefaults">, model: Doc<"fairEventModels">) {
+  const entitled = await leadRight(ctx, model, row.leadKind);
   const next: LeadConfigValues = {
     enabled: row.enabled && entitled,
     contactRequirement: row.contactRequirement,
@@ -373,7 +374,7 @@ const leadDefaultView = v.object({
 });
 
 const modelFormView = v.object({
-  /** The model's package has this form (interest Starter+, test drive Advanced). */
+  /** The model's package has this form (interest Starter+, test drive from the event-scoped catalog). */
   entitled: v.boolean(),
   config: v.union(
     v.null(),
@@ -387,9 +388,9 @@ const modelFormView = v.object({
   ),
 });
 
-function formView(model: Doc<"fairEventModels">, kind: FairLeadKind, row: Doc<"fairLeadConfigs"> | null) {
+async function formView(ctx: QueryCtx, model: Doc<"fairEventModels">, kind: FairLeadKind, row: Doc<"fairLeadConfigs"> | null) {
   return {
-    entitled: leadRight(model.packageTier, kind),
+    entitled: await leadRight(ctx, model, kind),
     config: row
       ? {
           enabled: row.enabled,
@@ -437,8 +438,8 @@ export const getEventLeadForms = query({
         eventModelId: model._id,
         participationId: model.participationId,
         packageTier: model.packageTier,
-        interest: formView(model, "interest", await fairLeadConfig(ctx, model._id, "interest")),
-        testDrive: formView(model, "test_drive", await fairLeadConfig(ctx, model._id, "test_drive")),
+        interest: await formView(ctx, model, "interest", await fairLeadConfig(ctx, model._id, "interest")),
+        testDrive: await formView(ctx, model, "test_drive", await fairLeadConfig(ctx, model._id, "test_drive")),
       });
     }
     return {
@@ -553,7 +554,7 @@ export const applyLeadDefaultsToModels = mutation({
           out.skippedOverride += 1;
           continue;
         }
-        const { entitled, next } = configFromDefault(row, model.packageTier);
+        const { entitled, next } = await configFromDefault(ctx, row, model);
         if (row.enabled && !entitled) out.notEntitled.push({ eventModelId: model._id, leadKind: kind });
         const { result } = await writeLeadConfig(ctx, { model, kind, next, source: "default", existing, adminId: admin._id, now });
         out[result] += 1;
@@ -592,7 +593,7 @@ export const clearLeadOverride = mutation({
     if (!model) fairAdminError("FAIR_MODEL_NOT_FOUND");
     const row = await fairParticipationLeadDefault(ctx, model.participationId, args.leadKind);
     if (!row) fairAdminError("FAIR_LEAD_DEFAULT_MISSING", { leadKind: args.leadKind });
-    const { entitled, next } = configFromDefault(row, model.packageTier);
+    const { entitled, next } = await configFromDefault(ctx, row, model);
     const existing = await fairLeadConfig(ctx, model._id, args.leadKind);
     const { result } = await writeLeadConfig(ctx, { model, kind: args.leadKind, next, source: "default", existing, adminId: admin._id, now });
     return { result, enabled: next.enabled, entitled };

@@ -30,6 +30,8 @@ const eslintConfig = defineConfig([
     // tsconfig roots, which is a hard parse error.
     ".claude/worktrees/**",
     "out/**",
+    "output/**",
+    ".nocni-run/**",
     "build/**",
     "tmp/**",
     "next-env.d.ts",

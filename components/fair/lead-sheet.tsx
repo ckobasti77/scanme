@@ -22,7 +22,7 @@ import { FairSelect } from "./fair-select";
 import { FairSheet } from "./fair-sheet";
 import { useFairModelInteractions } from "./model-interactions";
 
-// `Zainteresovan sam` (Starter+) and `Probna vožnja` (Advanced), MASTER §8:
+// Lead rights come from the event-scoped catalog (AMF Starter+, MASTER §8).
 // name + contact by the exhibitor's server rule, one Prihvatam/Odbijam
 // consent naming ScanMe and the exhibitor, no date or slot choice. Success
 // is shown only after the gateway answered OK.
@@ -48,7 +48,7 @@ export function LeadSheet({
   const [selectedModelId, setSelectedModelId] = useState(model.id);
   const [purchaseTiming, setPurchaseTiming] = useState<FairLeadPurchaseTiming | null>(null);
   const [financing, setFinancing] = useState<FairLeadFinancing | null>(null);
-  const contact = open ? contactFormState(draft, open.contactRequirement) : null;
+  const contact = open ? contactFormState(draft, open.contactRequirement, open.collectOptionalEmail) : null;
   const titleId = `fair-lead-${kind}-title`;
   const requirementText = open
     ? {
@@ -179,6 +179,7 @@ export function LeadSheet({
             <ContactBlock
               idPrefix={`fair-lead-${kind}`}
               requirement={open.contactRequirement}
+              collectOptionalEmail={open.collectOptionalEmail}
               consentText={open.consent.text}
               draft={draft}
               onChange={setDraft}

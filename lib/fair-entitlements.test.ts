@@ -66,7 +66,7 @@ describe("catalog (HANDOFF §4.1)", () => {
   test("the catalog has exactly the handoff rights, nothing extra", () => {
     const expectedKeys = HANDOFF_TABLE.map(([right]) => right).sort();
     for (const tier of FAIR_PACKAGE_TIERS) {
-      expect(Object.keys(FAIR_ENTITLEMENT_CATALOG[tier]).sort()).toEqual(expectedKeys);
+      expect(Object.keys(FAIR_ENTITLEMENT_CATALOG[tier]).filter((key) => key !== "testDriveEvents").sort()).toEqual(expectedKeys);
     }
   });
 
@@ -85,6 +85,21 @@ describe("catalog (HANDOFF §4.1)", () => {
     }
     expect(advanced.audienceQuestionsPerDay).toBeGreaterThan(starter.audienceQuestionsPerDay);
   });
+});
+
+test("AMF Starter test drive flows through capabilities and reports without changing Elektromobilnost", () => {
+  const amf = getFairEntitlements("starter", "auto-moto-fest-2026");
+  expect(amf.testDrive).toBe(true);
+  expect(amf.postEventFollowUp).toBe(false);
+  expect(amf.survey).toBe(false);
+  expect(amf.sponsoredMapRotation).toBe(false);
+  expect(amf.sponsoredGarageRotation).toBe(false);
+  expect(getFairEntitlements("starter", "elektromobilnost-2026").testDrive).toBe(false);
+  expect(fairReportMetrics("starter", "auto-moto-fest-2026")).toContain("test_drive");
+  expect(fairReportMetrics("starter", "elektromobilnost-2026")).not.toContain("test_drive");
+  const context = { hasOpenAudienceQuestions: false, hasPublishedSurvey: false, inPublishedSponsoredSnapshot: false, interestLeadEnabled: true, testDriveLeadEnabled: true };
+  expect(deriveFairCapabilities("starter", { ...context, eventCode: "auto-moto-fest-2026" }).canRequestTestDrive).toBe(true);
+  expect(deriveFairCapabilities("starter", { ...context, eventCode: "elektromobilnost-2026" }).canRequestTestDrive).toBe(false);
 });
 
 describe("package changes: upgrade only (MASTER §4.4)", () => {

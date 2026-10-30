@@ -777,7 +777,7 @@ Admin UI je tab `Događaji → Interakcije` (`components/admin/admin-events-inte
    1. hash i `submissionId` (`FAIR_SUBMISSION_ID_PATTERN`);
    2. **idempotentnost:** postojeći `submissionId` istog posetioca, modela i vrste vraća sačuvan ishod sa `duplicate: true` i ne piše i ne šalje ništa; tuđi → `SUBMISSION_DUPLICATE`;
    3. objavljen model, event `published`/`live`, pre purge-a;
-   4. paket **na snazi u trenutku slanja**: `interest` Starter+, `test_drive` samo Advanced → inače `FEATURE_NOT_ENTITLED`;
+   4. paket **na snazi u trenutku slanja**: `interest` Starter+, `test_drive` Starter+ za AMF, samo Advanced za Elektromobilnost (30. 10. 2026, MASTER §20) → inače `FEATURE_NOT_ENTITLED`;
    5. `fairLeadConfigs` za model i vrstu mora postojati i biti `enabled` → inače `FEATURE_NOT_ENTITLED`;
    6. **produkcijski gate:** aktivna `fairConsentConfigs` verzija za event i vrstu → inače `CONSENT_NOT_CONFIGURED`;
    7. `consentAccepted: true` i `consentVersion` = aktivna verzija → inače `CONSENT_REQUIRED`;
@@ -928,7 +928,7 @@ Admin UI je tab `Događaji → Sponzorisano` (`components/admin/admin-events-spo
 
 Izvori: HANDOFF §5.6, §7 `fairAnalytics`/`fairReports`, §10, §11 B6, §12 „Izveštaji i izolacija“; MASTER §12, §13; V2 §9. Šema: `fairReportRuns` dobija opciona polja `dataset` i `sendCount`, a `fairEmailDeliveries` opciono `reportRunId`. Nijedan indeks nije dodat.
 
-### 21.1 Projekcija po paketu (`lib/fair-entitlements.ts` → `fairReportMetrics(tier)`)
+### 21.1 Projekcija po paketu (`lib/fair-entitlements.ts` → `fairReportMetrics(tier, eventCode?)`)
 
 | Grupa | included | starter | advanced |
 |---|:-:|:-:|:-:|
@@ -936,7 +936,7 @@ Izvori: HANDOFF §5.6, §7 `fairAnalytics`/`fairReports`, §10, §11 B6, §12 �
 | `model_scans` (dnevno po modelu) | — | da | da |
 | `hourly_scans`, `day_comparison` | — | da | da |
 | `interest` | — | da | da |
-| `test_drive` | — | — | da |
+| `test_drive` | — | AMF: da; Elektromobilnost: — | da |
 | `rating_overall` | — | da | — |
 | `rating_dimensions` (izgled, specifikacije, cena) | — | — | da |
 | `audience` (Glas publike tog dana) | — | da | da |
@@ -1462,7 +1462,7 @@ Javno je samo `status === "published" && hiddenAt === undefined` (`fairIsPublicP
 Pravila:
 
 - „Primeni na sve modele izlagača“ je jedna transakcija, najviše 100 izloženih modela (`FAIR_BULK_TOO_LARGE`), idempotentna (drugi put sve `unchanged`). Piše `fairLeadConfigs` sa `source: "default"`; izuzetak (`override`) preskače i broji;
-- paket odlučuje kao i ranije (`getFairEntitlements`): „Zainteresovan sam“ od Starter-a, „Probna vožnja“ samo Napredni. Model bez prava dobija formu **isključenu** i nalazi se u `notEntitled` (jasan razlog, ne tiho preskakanje);
+- paket odlučuje kao i ranije (`getFairEntitlements(tier, eventCode?)`): „Zainteresovan sam“ od Starter-a, „Probna vožnja“ Starter+ na AMF-u, samo Napredni na Elektromobilnosti (MASTER §20, 30. 10. 2026). Model bez prava dobija formu **isključenu** i nalazi se u `notEntitled` (jasan razlog, ne tiho preskakanje);
 - `upsertLeadConfig` je izuzetak modela (`source: "override"`), sa istom zabranom uključivanja bez prava (`FAIR_FEATURE_NOT_ENTITLED`); `clearLeadOverride` vraća model na podrazumevano izlagača;
 - `contactRequirement` ostaje `one_of | email | phone | both`; „any“ iz uputstva A7 je `one_of` („bar jedan“);
 - javni tok se ne menja: `getLeadForm` i `submitLead` čitaju samo `fairLeadConfigs`, uz K3 prekidač i aktivnu saglasnost (§17, §28). Audit `fair_lead_defaults_applied`.

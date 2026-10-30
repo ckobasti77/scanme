@@ -56,6 +56,14 @@ const context = (overrides: Partial<FairDailyDatasetContext> = {}): FairDailyDat
 });
 
 describe("projection: a group the package lacks is OMITTED, never a zero", () => {
+  test("AMF Starter includes test drives, while Elektromobilnost stays byte-for-byte equivalent", () => {
+    const raw = fullRaw("starter");
+    expect(projectFairReportModel(raw, "elektromobilnost-2026")).toEqual(projectFairReportModel(raw));
+    expect(projectFairReportModel(raw, "auto-moto-fest-2026")).toHaveProperty("testDrive", raw.testDrive);
+    const amf = context();
+    amf.event.code = "auto-moto-fest-2026";
+    expect(assembleFairDailyDataset(amf, [raw]).models[0].metrics).toContain("test_drive");
+  });
   test("included keeps only its identity and the stand group", () => {
     const projected = projectFairReportModel(fullRaw("included"));
     expect(projected.metrics).toEqual(["stand_scans"]);

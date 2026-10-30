@@ -106,7 +106,7 @@ export function parseLead(body: Record<string, unknown>) {
 
 export type FairLeadDeps = { now?: number; env?: FairVisitorEnv; backend?: FairLeadsBackend | null };
 
-/** POST /api/fair/lead — `Zainteresovan sam` (Starter+) or `Probna vožnja` (Advanced). */
+/** POST /api/fair/lead — `Zainteresovan sam` (Starter+) or `Probna vožnja` (event-scoped catalog). */
 export async function handleFairLead(request: Request, deps: FairLeadDeps = {}): Promise<Response> {
   const body = await fairGatewayRequest(request);
   if (!body.ok) return body.response;

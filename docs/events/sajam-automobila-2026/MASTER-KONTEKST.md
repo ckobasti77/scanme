@@ -138,6 +138,7 @@ Starter sadrži sve što dobijaju svi izlagači, plus:
 
 - ocenu modela od 1 do 5;
 - `Zainteresovan sam` — ostavljanje kontakta i slanje jedne email potvrde posetiocu;
+- na Auto Moto Fest 2026 i `Probna vožnja` (odluka 30. 10, §20); na Elektromobilnosti ostaje Napredni;
 - Glas publike: **jedno pitanje po sajamskom danu**;
 - dnevni presek rezultata nakon svakog sajamskog dana;
 - analitiku modela;
@@ -151,7 +152,7 @@ Poslovna namera: Starter je glavni paket koji najviše guramo i očekujemo da ć
 
 Napredni sadrži **sve iz Starter paketa**, plus:
 
-- prijavu za probnu vožnju i jednu email potvrdu posetiocu;
+- prijavu za probnu vožnju i jednu email potvrdu posetiocu (na AMF-u ovo već uključuje Starter, §20);
 - Glas publike: do **pet pitanja po sajamskom danu**;
 - dodatnu anketu;
 - odvojene ocene izgleda, specifikacija i cene modela;
@@ -327,7 +328,7 @@ Postojeći `/r/[cardCode]` tok mora jednim server request ID-em da zabeleži gen
 
 `Zainteresovan sam` pripada Starter paketu. To je niži nivo namere.
 
-Prijava za probnu vožnju pripada Naprednom paketu. To je jači, „hot lead” signal.
+Prijava za probnu vožnju pripada Starter i Naprednom paketu na Auto Moto Fest 2026 (odluka 30. 10, §20). Na Elektromobilnosti ostaje Napredni. To je jači, „hot lead” signal.
 
 Za oba toka:
 
@@ -738,6 +739,14 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 ---
 
 ## 20. Dnevnik izmena
+
+### 30. oktobar 2026. (ispravke posle live pregleda)
+
+- Aleksina odluka iz zadatka: **AMF Starter uključuje i „Zainteresovan sam” i „Probna vožnja”.** Jedini autoritet je `FAIR_ENTITLEMENT_CATALOG`; event kontekst prolazi kroz javni prikaz, submitLead, admin forme, dashboard i izveštaje.
+- Izabrano **AMF-only**: globalna promena bi promenila ponovo generisane Starter izveštaje Elektromobilnosti. Raniji događaj zadržava stara prava i izveštajne projekcije. Starter ne dobija follow-up, anketu (osim postojećeg Nikom izuzetka) ni sponzorisanu rotaciju.
+- Specifikacije AMF-a se formatiraju bez izbora nepotvrđene varijante motora ili promene cena: srpski brojevi, jedinice u vrednosti, dimenzije dužina × širina × visina. Uvozni izvor primenjuje isti normalizator.
+- Škoda: „Cena izloženog vozila” i postojeća osnovna cena; Karoq bez duplirane sekundarne cene. Time je rešen samo BLOCKED AMF item 6; ostali podaci ostaju otvoreni.
+- Modeli bez potvrđene trakcione baterije nose naslov „Pogon i motor”; EV/HEV/PHEV „Pogon i baterija”. Izbor se izvodi iz podataka pogona, ne iz liste slugova.
 
 ### 30. oktobar 2026. (AMF go-live)
 
