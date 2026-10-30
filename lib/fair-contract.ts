@@ -1234,7 +1234,9 @@ export const FAIR_PUBLIC_MAP_ENABLED = true;
 /**
  * 30 Oct 2026 (owner): the moment the public AMF pre-event screen ("Vidimo se
  * uskoro") and the AMF garage lock end. Separate from the event's `startsAt`
- * (10:00, the passport freeze), so the gate can open as soon as the go-live is
- * verified. Model pages behind the stickers are never gated.
+ * (10:00, the passport freeze, unchanged). Owner decision 30 Oct 2026 08:22
+ * (Aleksa): the public app is open for everyone right now, no time
+ * restriction (PROD testing as normal visitors before the opening), so the
+ * moment is in the past. Model pages behind the stickers are never gated.
  */
-export const AMF_PUBLIC_GATE_OPENS_AT = Date.parse("2026-10-30T10:00:00+01:00");
+export const AMF_PUBLIC_GATE_OPENS_AT = Date.parse("2026-10-30T00:00:00+01:00");
