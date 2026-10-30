@@ -137,12 +137,17 @@ function scan(f: Fixture, code: string, visitorHash: string) {
 describe("A7 condition (MASTER §11; lib/fair-entitlements fairBrandPassportProblems)", () => {
   const m = (status: Doc<"fairEventModels">["status"], packageTier: Tier, passportEligible = true, participationId = "p1") => ({ status, packageTier, passportEligible, participationId });
 
-  test("two published Starter+ candidates of one exhibitor meet it; every broken rule is reported with its count", () => {
+  test("published Starter+ candidates of one exhibitor meet it, a single one too; every broken rule is reported with its count", () => {
     expect(fairBrandPassportProblems([m("published", "starter"), m("published", "advanced")])).toEqual({ eligible: true, exhibited: 2, problems: [] });
     // Withdrawn models do not count.
     expect(fairBrandPassportProblems([m("published", "starter"), m("withdrawn", "included"), m("published", "starter")]).eligible).toBe(true);
-    expect(fairBrandPassportProblems([m("published", "starter"), m("withdrawn", "starter")])).toEqual({
-      eligible: false, exhibited: 1, problems: [{ code: "fewer_than_two_models", count: 1 }],
+    // One model is enough (owner decision 30 Oct 2026).
+    expect(fairBrandPassportProblems([m("published", "starter"), m("withdrawn", "starter")])).toEqual({ eligible: true, exhibited: 1, problems: [] });
+    expect(fairBrandPassportProblems([m("withdrawn", "starter")])).toEqual({
+      eligible: false, exhibited: 0, problems: [{ code: "no_exhibited_models", count: 0 }],
+    });
+    expect(fairBrandPassportProblems([m("published", "advanced", false)])).toEqual({
+      eligible: false, exhibited: 1, problems: [{ code: "model_not_candidate", count: 1 }],
     });
     expect(fairBrandPassportProblems([m("published", "starter"), m("published", "starter"), m("published", "included")])).toEqual({
       eligible: false, exhibited: 3, problems: [{ code: "model_below_starter", count: 1 }],
@@ -157,10 +162,11 @@ describe("A7 condition (MASTER §11; lib/fair-entitlements fairBrandPassportProb
 });
 
 describe("A7 automatic brand passport (ADMIN-UX §6, §12.2)", () => {
-  test("a brand with two published Starter models gets a published passport by itself; one without Starter or a single model gets the reason, an upgrade completes it", async () => {
+  test("a brand with published Starter models gets a published passport by itself, a single model too; one without Starter or a non-candidate gets the reason, an upgrade completes it", async () => {
     const f = await setup();
-    const x1 = await f.model("test-volta-x1", f.brands.volta, "starter");
-    expect(await jobs(f)).toEqual([]); // one model: nothing would change, nothing is scheduled
+    const x1 = await f.model("test-volta-x1", f.brands.volta, "starter", { candidate: false });
+    expect(await jobs(f)).toEqual([]); // not a candidate: nothing would change, nothing is scheduled
+    await f.t.run(async (ctx) => ctx.db.patch(x1.id, { passportEligible: true }));
     const x2 = await f.model("test-volta-x2", f.brands.volta, "starter");
     expect(await jobs(f)).toEqual(["fairPassports:syncBrandPassport"]);
     await runJobs(f);
@@ -175,11 +181,11 @@ describe("A7 automatic brand passport (ADMIN-UX §6, §12.2)", () => {
     // Om: one Starter and one model without a package → no passport, the reason says which rule.
     await f.model("test-om-z1", f.brands.om, "starter");
     const z2 = await f.model("test-om-z2", f.brands.om, "included");
-    // Solo: a single Starter model.
-    await f.model("test-solo-s1", f.brands.solo, "starter");
+    // Solo: a single Starter model that is not a passport candidate (as SWM on AMF).
+    await f.model("test-solo-s1", f.brands.solo, "starter", { candidate: false });
     await runJobs(f);
     expect(await brandRow(f, f.brands.om)).toMatchObject({ eligible: false, exhibited: 2, problems: [{ code: "model_below_starter", count: 1 }], passport: null });
-    expect(await brandRow(f, f.brands.solo)).toMatchObject({ eligible: false, exhibited: 1, problems: [{ code: "fewer_than_two_models", count: 1 }], passport: null });
+    expect(await brandRow(f, f.brands.solo)).toMatchObject({ eligible: false, exhibited: 1, problems: [{ code: "model_not_candidate", count: 1 }], passport: null });
     expect(await catalogBrands(f)).toEqual([f.brands.volta]);
 
     // The package upgrade completes the condition: the passport appears without a click.
@@ -275,8 +281,8 @@ describe("A7 automatic brand passport (ADMIN-UX §6, §12.2)", () => {
     expect(await f.admin.mutation(api.fairPassports.refreshPassports, { eventId: f.eventId })).toEqual({ created: 0, updated: 0, withdrawn: 0, unchanged: 1, frozen: 0, too_many_models: 0 });
     expect(await f.t.mutation(internal.fairPassports.syncEventPassports, { eventId: f.eventId })).toMatchObject({ created: 0, updated: 0, unchanged: 1 });
     expect(await f.t.mutation(internal.fairPassports.syncBrandPassport, { eventId: f.eventId, brandId: f.brands.volta })).toBe("unchanged");
-    // A single Solo model and a re-publish change no passport: no job.
-    await f.model("test-solo-s1", f.brands.solo, "starter");
+    // A single Solo model that is not a candidate changes no passport: no job.
+    await f.model("test-solo-s1", f.brands.solo, "starter", { candidate: false });
     expect((await jobs(f)).length).toBe(scheduled);
     expect(JSON.stringify([await rows(f, "fairPassportConfigs"), await rows(f, "fairPassportEligibleModels")])).toBe(before);
     expect(await rows(f, "fairPassportConfigs")).toHaveLength(1);

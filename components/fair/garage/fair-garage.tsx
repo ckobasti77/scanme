@@ -687,7 +687,9 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
   const [swipeRelease, setSwipeRelease] = useState(0);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const manualSlotRef = useRef<number | null>(null);
-  const swipeRef = useRef<{ start: number; offset: number; direction: number; active: boolean; commit: boolean } | null>(null);
+  const swipeRef = useRef<{ start: number; offset: number; direction: number; active: boolean; commit: boolean; pointerId?: number } | null>(null);
+  // The gesture moved past the swipe threshold: the photo link must not open.
+  const swipedRef = useRef(false);
   const [paused, setPaused] = useState(false);
   const [storageError, setStorageError] = useState(false);
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -750,6 +752,9 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
     if (!swipe || !viewport) return;
     swipe.offset = Math.max(-viewport.clientWidth, Math.min(viewport.clientWidth, clientX - swipe.start));
     if (Math.abs(swipe.offset) < 4) return;
+    swipedRef.current = true;
+    // Captured only once it is a swipe, so a tap still reaches the photo link.
+    if (swipe.active && swipe.pointerId !== undefined && !viewport.hasPointerCapture(swipe.pointerId)) viewport.setPointerCapture(swipe.pointerId);
     swipe.direction = swipe.offset < 0 ? 1 : -1;
     setSlideDirection(swipe.direction);
     setIncomingIndex((shownIndex + swipe.direction + items.length) % items.length);
@@ -899,8 +904,17 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
   function slide(model: FairSponsoredModelCard, status: "current" | "incoming") {
     const saved = eventContainsModel(garageDocument, model.eventModelId);
     const adding = addingId === model.eventModelId;
+    const href = `/sajam/${event.publicSlug}/model/${model.slug}`;
     return <div className={styles.spSlide} data-slide={status} key={`slide-${model.eventModelId}`} inert={status === "incoming"}>
-      <div className={styles.spVisual} data-sponsored-visual=""><SponsoredSlideVisual item={model} dict={dict} /></div>
+      <div className={styles.spVisual} data-sponsored-visual="">
+        {display ? <SponsoredSlideVisual item={model} dict={dict} /> : (
+          // Same target and count as "Pogledaj", which stays the one accessible control.
+          <Link prefetch={false} className={styles.spVisualLink} href={href} tabIndex={-1} aria-hidden="true" draggable={false} data-sponsored-open="" onClick={clickEvent => {
+            if (swipedRef.current) { clickEvent.preventDefault(); return; }
+            record("open_model", model);
+          }}><SponsoredSlideVisual item={model} dict={dict} /></Link>
+        )}
+      </div>
       <div className={styles.spLeft}>
         <span className={styles.spTag}>{dict.sponsoredTag}</span>
         <div className={styles.spName}>
@@ -912,7 +926,7 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
             {saved ? <Check aria-hidden="true" /> : <CarFront aria-hidden="true" />}
             {saved ? dict.sponsoredAdded : adding ? dict.sponsoredAdding : dict.sponsoredAdd}
           </button>
-          <Link prefetch={false} className={styles.spView} href={`/sajam/${event.publicSlug}/model/${model.slug}`} onClick={() => record("open_model", model)}>{dict.sponsoredView}</Link>
+          <Link prefetch={false} className={styles.spView} href={href} onClick={() => record("open_model", model)}>{dict.sponsoredView}</Link>
         </div> : null}
       </div>
     </div>;
@@ -940,9 +954,9 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
             setIncomingIndex((shownIndex + direction + items.length) % items.length);
           }}
           onPointerDown={event => {
-            if (items.length < 2 || incomingIndex !== null || (event.target as HTMLElement).closest("button, a")) return;
-            event.currentTarget.setPointerCapture(event.pointerId);
-            swipeRef.current = { start: event.clientX, offset: 0, direction: 1, active: true, commit: false };
+            swipedRef.current = false;
+            if (items.length < 2 || incomingIndex !== null || (event.target as HTMLElement).closest("button, a:not([data-sponsored-open])")) return;
+            swipeRef.current = { start: event.clientX, offset: 0, direction: 1, active: true, commit: false, pointerId: event.pointerId };
             setPaused(true);
           }}
           onPointerMove={event => swipeMove(event.clientX)}

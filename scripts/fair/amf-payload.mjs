@@ -120,8 +120,11 @@ const SLUGS = {
   "SA26-031": "ford-ranger-raptor", "SA26-032": "ineos-grenadier", "SA26-033": "swm-g01-pro",
 };
 
-// Passport: brands with ≥2 models, all ≥ Starter (owner list, 30 Oct 2026).
-const PASSPORT_BRANDS = new Set(["Škoda", "Dongfeng", "MG", "Ford"]);
+// Passport: every exhibited model of the brand is in our service, all ≥ Starter
+// (owner list, 30 Oct 2026; one model is enough since the owner decision of the
+// same day). SWM is deliberately out: it exhibits several cars but bought the
+// service for the G01 Pro only, so we do not know its whole line-up.
+const PASSPORT_BRANDS = new Set(["Škoda", "Dongfeng", "MG", "Ford", "Fiat", "Ineos"]);
 const CODES = {
   "auto-moto-fest-2026-autocacak-promet": "AUTOCACAK-PROMET",
   "auto-moto-fest-2026-nikom": "NIKOM",

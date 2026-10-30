@@ -26,7 +26,7 @@ const source: PassportOverviewSource = {
     ] },
     { brandId: "b2", participationId: "p1", eligible: true, exhibited: 2, problems: [], tooManyModels: false, freezesAt: OPENING, passport: published("pass-2", { hiddenAt: NOW }), members: [] },
     { brandId: "b3", participationId: "p2", eligible: false, exhibited: 3, problems: [{ code: "model_below_starter", count: 1 }, { code: "model_not_published", count: 1 }], tooManyModels: false, freezesAt: OPENING, passport: null, members: [] },
-    { brandId: "b4", participationId: "p2", eligible: false, exhibited: 1, problems: [{ code: "fewer_than_two_models", count: 1 }], tooManyModels: false, freezesAt: OPENING, passport: null, members: [] },
+    { brandId: "b4", participationId: "p2", eligible: false, exhibited: 1, problems: [{ code: "no_exhibited_models", count: 1 }], tooManyModels: false, freezesAt: OPENING, passport: null, members: [] },
     { brandId: "b5", participationId: "p2", eligible: true, exhibited: 2, problems: [], tooManyModels: false, freezesAt: OPENING, passport: null, members: [] },
     { brandId: "b6", participationId: "p2", eligible: true, exhibited: 2, problems: [], tooManyModels: false, freezesAt: NOW - 1, passport: published("pass-6", { frozenAt: NOW - 1 }), members: [
       { eventModelId: "m6", status: "required", removedByAdmin: false },
@@ -61,11 +61,11 @@ describe("A7 Pasoš brenda view", () => {
       adminEventsSr.interactionSections.pasos, adminEventsSr.passportsTitle, p.help, p.explainTitle, p.explainFreeze, p.explainHide, p.refresh,
       p.states.active, p.states.hidden, p.states.not_eligible, p.states.missing, p.states.frozen, p.conditionMet, p.conditionNotMet,
       fmt(p.problems.model_below_starter, { count: 1, total: 3 }), fmt(p.problems.model_not_published, { count: 1, total: 3 }),
-      fmt(p.problems.fewer_than_two_models, { count: 1, total: 1 }), p.hintMissingBefore, p.hintHidden,
+      fmt(p.problems.no_exhibited_models, { count: 1, total: 1 }), p.hintMissingBefore, p.hintHidden,
       "TEST Volta X1", "TEST Izlagač A", adminEventsSr.passportMemberStatus.removed, p.memberRemovedByAdmin,
     ]) expect(html).toContain(text);
     expect(html).toContain(fmt(p.explainAuto, { date: "" }).split("()")[0]);
-    expect(text(html)).not.toMatch(/FAIR_[A-Z_]+|fewer_than_two_models|model_below_starter|not_eligible/);
+    expect(text(html)).not.toMatch(/FAIR_[A-Z_]+|no_exhibited_models|model_below_starter|not_eligible/);
     expect(html).not.toMatch(/Pripremi pasoš|Zamrzni i objavi|Povuci pasoš/);
   });
 

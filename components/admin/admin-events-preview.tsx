@@ -248,7 +248,7 @@ const passportOverview: PassportOverviewSource = {
       members: [...required("faradej-m1", "faradej-m2", "faradej-m4"), { eventModelId: "faradej-m5", status: "removed", removedAt: opening - DAY_MS, removedByAdmin: true }],
     },
     { brandId: "b-dzul", participationId: "p-c", eligible: true, exhibited: 2, problems: [], tooManyModels: false, freezesAt: opening, passport: null, members: [] },
-    { brandId: "b-vat", participationId: "p-d", eligible: false, exhibited: 1, problems: [{ code: "fewer_than_two_models", count: 1 }], tooManyModels: false, freezesAt: opening, passport: null, members: [] },
+    { brandId: "b-vat", participationId: "p-d", eligible: false, exhibited: 1, problems: [{ code: "no_exhibited_models", count: 1 }], tooManyModels: false, freezesAt: opening, passport: null, members: [] },
     { brandId: "b-njutn", participationId: "p-d", eligible: false, exhibited: 5, problems: [{ code: "model_not_candidate", count: 1 }], tooManyModels: false, freezesAt: opening, passport: null, members: [] },
   ],
 };

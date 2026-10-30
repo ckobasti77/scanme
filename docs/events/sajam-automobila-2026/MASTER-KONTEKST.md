@@ -450,7 +450,7 @@ Za Napredni paket:
 - Posetilac zatim bira omiljeni model brenda i vidi koliko posetilaca deli njegov izbor.
 - Izlagač dobija dodatni uvid u interesovanje za sve modele i u izbor favorita.
 - Funkcionalnost ima smisla samo kada su svi relevantni modeli brenda uključeni/validni za pasoš.
-- Pasoš se aktivira samo kada brend ima najmanje dva izložena modela i svi imaju najmanje Starter paket.
+- Pasoš se aktivira kada su svi izloženi modeli brenda na sajmu u našoj usluzi: najmanje jedan izložen model, svaki objavljen, kandidat za pasoš (`passportEligible`) i sa najmanje Starter paketom, sve kod jednog izlagača (Jovanova odluka 30. 10. 2026; ranije: najmanje dva modela).
 - Eligible skup modela zamrzava se pre otvaranja događaja.
 - Ako se model hitno povuče, admin može da ga ukloni iz potrebnog skupa bez poništavanja već stečenog napretka.
 - Rezultat izbora omiljenog modela prikazuje se od najmanje pet glasova.
@@ -739,6 +739,13 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 ---
 
 ## 20. Dnevnik izmena
+
+### 30. oktobar 2026. (pasoši sa jednim modelom: Ineos i Fiat)
+
+- Jovanova odluka iz zadatka: **brend dobija pasoš kada su svi njegovi izloženi modeli na sajmu u našoj usluzi, i sa samo jednim modelom.** Uslov `najmanje dva modela` je ukinut; pravilo živi samo u `fairBrandPassportProblems` / `fairBrandPassportEligible` (`lib/fair-entitlements.ts`), razlog `fewer_than_two_models` je preimenovan u `no_exhibited_models` (brend bez izloženih modela).
+- AMF: Ineos Grenadier (Grand Motors) i Fiat Grande Panda (Nikom), oba Starter, postaju kandidati za pasoš i dobijaju objavljen pasoš kroz automatsku sinhronizaciju (`fairAmfReview.setupSingleModelPassports`); pečati iz već napravljenih skenova su dopunjeni idempotentno. Postojeći (zamrznuti) pasoši i pečati se ne menjaju.
+- **SWM ne dobija pasoš:** na sajmu izlaže više vozila, a uslugu je kupio samo za G01 Pro, pa sistem ne zna sve njegove izložene modele. Model ostaje `passportEligible: false`.
+- Elektromobilnost 2026 se ne menja: njeni jednomodelni brendovi (Bentu, Yudo) nisu kandidati za pasoš, a JMEV pasoš je zamrznut.
 
 ### 30. oktobar 2026. (live hotfix: skenovi, pečati, mapa)
 

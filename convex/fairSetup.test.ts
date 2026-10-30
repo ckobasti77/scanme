@@ -106,7 +106,7 @@ test("the intake payload dry-runs clean, commits idempotently and publishes all 
   expect(state.passports.map((row) => [state.brands.find((brand) => brand._id === row.brandId)?.name, row.status])).toEqual([["JMEV", "published"]]);
 });
 
-test("Auto Moto Fest: the real 18-model intake imports and brings its four brand passports", async () => {
+test("Auto Moto Fest: the real 18-model intake imports and brings its six brand passports (no SWM)", async () => {
   vi.setSystemTime(Date.parse("2026-10-30T08:00:00+01:00"));
   const t = await setup();
   const amfPayload = amfPayloadJson as FairImportPayload;
@@ -124,5 +124,8 @@ test("Auto Moto Fest: the real 18-model intake imports and brings its four brand
 
   await t.finishAllScheduledFunctions(vi.runAllTimers);
   const passports = await t.run((ctx) => ctx.db.query("fairPassportConfigs").collect());
-  expect(passports.map((row) => row.status)).toEqual(["published", "published", "published", "published"]);
+  expect(passports.map((row) => row.status)).toEqual(Array(6).fill("published"));
+  // SWM exhibits more cars than it bought the service for: it gets no passport.
+  const brandNames = await t.run(async (ctx) => Promise.all(passports.map(async (row) => (await ctx.db.get(row.brandId))!.name)));
+  expect(brandNames.sort()).toEqual(["Dongfeng", "Fiat", "Ford", "Ineos", "MG", "Škoda"].sort());
 });

@@ -875,7 +875,7 @@
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/fiat-grande-panda.webp",
-              "passportEligible": false,
+              "passportEligible": true,
               "sortOrder": 10,
               "assignedResolverCode": "AK9YY1QW"
             }
@@ -1339,7 +1339,7 @@
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/ineos-grenadier.webp",
-              "passportEligible": false,
+              "passportEligible": true,
               "sortOrder": 17,
               "assignedResolverCode": "8FYGG1JQ"
             }

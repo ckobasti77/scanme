@@ -407,7 +407,7 @@ async function brandModels(ctx: MutationCtx, eventId: Id<"fairEvents">, brandId:
 }
 
 /**
- * Publish rule: ≥2 exhibited models, every one published, marked as a
+ * Publish rule: ≥1 exhibited model, every one published, marked as a
  * passport candidate (`passportEligible`, DATA-INTAKE §6.3) and Starter or
  * Advanced. Returns the first reason or null. A7: the rules live in
  * fairBrandPassportProblems, shared with the automatic passport; one
@@ -429,7 +429,7 @@ export const upsertPassport = mutation({
     if (!(await ctx.db.get(args.brandId))) fairAdminError("FAIR_LINK_NOT_FOUND", { link: "brand" });
     const models = await brandModels(ctx, args.eventId, args.brandId);
     const participations = new Set(models.map((model) => model.participationId));
-    if (!models.length) fairAdminError("FAIR_PASSPORT_NOT_ELIGIBLE", { reason: "fewer_than_two_models" });
+    if (!models.length) fairAdminError("FAIR_PASSPORT_NOT_ELIGIBLE", { reason: "no_exhibited_models" });
     if (participations.size > 1) fairAdminError("FAIR_LINK_CONFLICT", { field: "participationId" });
     const existing = await ctx.db
       .query("fairPassportConfigs")

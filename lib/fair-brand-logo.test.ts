@@ -39,6 +39,8 @@ describe("fairBrandVector", () => {
     expect(fairBrandVector("Mercedes")).toMatchObject({ kind: "file", src: "/fair/brands/mercedes-benz.svg" });
     expect(fairBrandVector("TEST Geely")).toMatchObject({ kind: "file", src: "/fair/brands/geely.svg" });
     expect(fairBrandVector("Dongfeng")).toMatchObject({ kind: "file" });
+    expect(fairBrandVector("Ineos")).toMatchObject({ kind: "file", src: "/fair/brands/ineos.svg" });
+    expect(fairBrandVector("Fiat")?.kind).toBe("path");
   });
 
   it("returns null for an unknown brand", () => {

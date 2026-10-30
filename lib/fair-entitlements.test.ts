@@ -227,9 +227,10 @@ describe("analytics scope and brand passport", () => {
     expect(fairAnalyticsScope("advanced")).toBe("model");
   });
 
-  test("passport needs ≥2 exhibited models, all Starter or Advanced", () => {
+  test("passport needs ≥1 exhibited model, all Starter or Advanced", () => {
     expect(fairBrandPassportEligible([])).toBe(false);
-    expect(fairBrandPassportEligible([{ packageTier: "advanced" }])).toBe(false);
+    expect(fairBrandPassportEligible([{ packageTier: "advanced" }])).toBe(true);
+    expect(fairBrandPassportEligible([{ packageTier: "included" }])).toBe(false);
     expect(fairBrandPassportEligible([{ packageTier: "starter" }, { packageTier: "included" }])).toBe(false);
     expect(fairBrandPassportEligible([{ packageTier: "starter" }, { packageTier: "advanced" }])).toBe(true);
     expect(

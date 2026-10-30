@@ -135,7 +135,7 @@ export const fairPassportEligibleStatus = v.union(v.literal("required"), v.liter
 
 // Admin UX A7 — lib/fair-contract FairBrandPassportProblem (fairBrandPassportProblems).
 export const fairBrandPassportProblem = v.union(
-  v.literal("fewer_than_two_models"),
+  v.literal("no_exhibited_models"),
   v.literal("model_not_published"),
   v.literal("model_not_candidate"),
   v.literal("model_below_starter"),

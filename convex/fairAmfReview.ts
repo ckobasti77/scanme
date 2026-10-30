@@ -2,7 +2,8 @@ import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { fairSpecification } from "./lib/fairValidators";
 import { removePreEventRow } from "./fairPreEvent";
-import { countFairScan } from "./lib/fairScans";
+import { countFairScan, stampFairPassportOnScan } from "./lib/fairScans";
+import { syncFairBrandPassport } from "./lib/fairPassportSync";
 
 // Narrow, compare-before-write operations for the owner's 30 Oct live review.
 // CLI/internal only; backups and DEV rehearsal precede the production calls.
@@ -124,5 +125,45 @@ export const backfillAmfScans = internalMutation({
       genericWithoutFairRow += scans.filter(scan => scan.targetKind === "fair_model" && !fairRequestIds.has(scan.requestId)).length;
     }
     return { adminExcludedFound: excluded.length, restored: args.dryRun ? 0 : excluded.length, stampsAdded, genericWithoutFairRow };
+  },
+});
+
+/**
+ * Owner decision of 30 Oct 2026 (MASTER §11, §20): one exhibited model is
+ * enough for a brand passport. Makes the listed single-model brands' models
+ * passport candidates, lets the automatic sync create their published passport
+ * (the existing frozen passports are never touched) and stamps the visitors
+ * who already scanned the model, at their first scan. Only Ineos and Fiat:
+ * SWM stays out (it exhibits more cars than the one it bought the service
+ * for). Idempotent: a re-run finds the passport frozen and every stamp there.
+ */
+const SINGLE_MODEL_PASSPORT_SLUGS = new Set(["ineos-grenadier", "fiat-grande-panda"]);
+
+export const setupSingleModelPassports = internalMutation({
+  args: { slugs: v.array(v.string()), dryRun: v.boolean() },
+  returns: v.array(v.object({ slug: v.string(), madeCandidate: v.boolean(), sync: v.string(), scanners: v.number(), stampsAdded: v.number() })),
+  handler: async (ctx, args) => {
+    const event = await ctx.db.query("fairEvents").withIndex("by_code", q => q.eq("code", "auto-moto-fest-2026")).unique();
+    if (!event || !args.slugs.length || args.slugs.some(slug => !SINGLE_MODEL_PASSPORT_SLUGS.has(slug))) throw new Error("AMF_REVIEW_SCOPE");
+    const now = Date.now();
+    const report = [];
+    for (const slug of args.slugs) {
+      const model = await ctx.db.query("fairEventModels").withIndex("by_eventId_and_slug", q => q.eq("eventId", event._id).eq("slug", slug)).unique();
+      if (!model || model.status !== "published") throw new Error("AMF_REVIEW_MODEL_MISSING");
+      const madeCandidate = !model.passportEligible;
+      if (madeCandidate && !args.dryRun) await ctx.db.patch(model._id, { passportEligible: true, updatedAt: now });
+      const sync = await syncFairBrandPassport(ctx, { event, brandId: model.brandId, now, dryRun: args.dryRun });
+      const scans = await ctx.db.query("fairUniqueScans").withIndex("by_eventModelId_and_firstScannedAt", q => q.eq("eventModelId", model._id)).take(4001);
+      if (scans.length > 4000) throw new Error("AMF_BACKFILL_TOO_MANY");
+      let stampsAdded = 0;
+      if (!args.dryRun) {
+        const current = (await ctx.db.get(model._id))!;
+        for (const scan of scans) {
+          if (await stampFairPassportOnScan(ctx, { visitorId: scan.visitorId, model: current, now: scan.firstScannedAt }) === "stamped") stampsAdded++;
+        }
+      }
+      report.push({ slug, madeCandidate, sync, scanners: scans.length, stampsAdded });
+    }
+    return report;
   },
 });

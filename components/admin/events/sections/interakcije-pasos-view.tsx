@@ -83,7 +83,7 @@ function usePassportRunner() {
 type Runner = ReturnType<typeof usePassportRunner>;
 
 function problemText(problem: PassportRow["problems"][number], exhibited: number) {
-  if (problem.code === "fewer_than_two_models" && problem.count === 0) return p.noExhibited;
+  if (problem.code === "no_exhibited_models") return p.noExhibited;
   return fmt(p.problems[problem.code], { count: problem.count, total: exhibited });
 }
 

@@ -72,7 +72,7 @@ export type FairPassportEligibleStatus = "required" | "removed";
  * `fairBrandPassportProblems` in lib/fair-entitlements.ts).
  */
 export type FairBrandPassportProblem =
-  | "fewer_than_two_models"
+  | "no_exhibited_models"
   | "model_not_published"
   | "model_not_candidate"
   | "model_below_starter"

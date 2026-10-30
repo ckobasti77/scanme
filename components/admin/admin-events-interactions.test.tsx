@@ -71,7 +71,7 @@ describe("B3 admin Interakcije", () => {
   });
 
   test("every passport problem returned by upsertPassport has text", () => {
-    for (const code of ["fewer_than_two_models", "model_not_published", "model_not_candidate", "model_below_starter"] as const) {
+    for (const code of ["no_exhibited_models", "model_not_published", "model_not_candidate", "model_below_starter"] as const) {
       expect(adminEventsSr.passportProblems[code].length).toBeGreaterThan(0);
     }
   });

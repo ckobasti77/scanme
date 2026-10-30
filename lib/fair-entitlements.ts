@@ -328,14 +328,15 @@ export function fairLeadActivityShared(tier: FairPackageTier, group: FairLeadAct
 
 /**
  * A brand passport can be published only when the brand exhibits at least
- * two models on the event and every one of them is Starter or Advanced
- * (MASTER §11). Pass the brand's exhibited (non-withdrawn) models.
+ * one model on the event and every one of them is Starter or Advanced
+ * (MASTER §11; was: at least two, owner decision 30 Oct 2026). Pass the
+ * brand's exhibited (non-withdrawn) models.
  */
 export function fairBrandPassportEligible(
   models: ReadonlyArray<{ packageTier: FairPackageTier }>,
 ): boolean {
   return (
-    models.length >= 2 &&
+    models.length >= 1 &&
     models.every((model) => FAIR_ENTITLEMENT_CATALOG[model.packageTier].passportEligibleTier)
   );
 }
@@ -352,7 +353,7 @@ export type FairBrandPassportCheck = {
  * Admin UX A7 — the brand passport condition with every reason it fails, for
  * the automatic passport and the admin overview (MASTER §11; the same rules
  * fairInteractionsAdmin.publishPassport has used since B3, contract §9.31):
- * at least two exhibited (non-withdrawn) models, every one of them
+ * at least one exhibited (non-withdrawn) model, every one of them
  * published, a passport candidate (`passportEligible`) and Starter or
  * Advanced, and all of one exhibitor. Pass every model of the brand on the
  * event; withdrawn ones are ignored.
@@ -365,7 +366,7 @@ export function fairBrandPassportProblems(
   const add = (code: FairBrandPassportProblem, count: number) => {
     if (count > 0) problems.push({ code, count });
   };
-  if (exhibited.length < 2) problems.push({ code: "fewer_than_two_models", count: exhibited.length });
+  if (exhibited.length === 0) problems.push({ code: "no_exhibited_models", count: 0 });
   add("model_not_published", exhibited.filter((model) => model.status !== "published").length);
   add("model_not_candidate", exhibited.filter((model) => !model.passportEligible).length);
   add("model_below_starter", exhibited.filter((model) => !FAIR_ENTITLEMENT_CATALOG[model.packageTier].passportEligibleTier).length);
