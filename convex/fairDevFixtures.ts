@@ -908,7 +908,7 @@ async function ensureTestQr(ctx: MutationCtx, eventCode: string, modelKey: strin
 
 // M1 — ONE TEST brand passport for the DEV map proof (`npx convex run
 // fairDevFixtures:seedTestPassport`, DEV only, never --prod). Same rules and
-// rows as fairInteractionsAdmin.publishPassport: ≥2 exhibited models, all
+// rows as fairInteractionsAdmin.publishPassport: ≥1 exhibited model, all
 // published, passport candidates and Starter+ (fairBrandPassportEligible),
 // frozen before the event opens. Only `test-` events and a `TEST` brand.
 // Idempotent: an existing passport of the brand is returned unchanged.

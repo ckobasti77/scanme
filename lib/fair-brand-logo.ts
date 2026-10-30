@@ -43,6 +43,7 @@ const VECTORS: Readonly<Record<string, FairBrandVector>> = {
   ford: icon(siFord),
   geely: file("/fair/brands/geely.svg", 76, 42, "#1f4e9c"),
   honda: icon(siHonda),
+  ineos: file("/fair/brands/ineos.svg", 95, 42, "#00083b"),
   kia: icon(siKia),
   mercedes: MERCEDES,
   "mercedes-benz": MERCEDES,

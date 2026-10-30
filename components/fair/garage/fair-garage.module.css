@@ -2958,6 +2958,15 @@
   height: 40%;
   background: linear-gradient(180deg, transparent, rgb(0 0 0 / 0.45));
   content: "";
+  pointer-events: none;
+}
+
+/* The photo opens the model like "Pogledaj" (mouse/touch only). */
+.spVisualLink {
+  position: absolute;
+  inset: 0;
+  display: block;
+  -webkit-user-drag: none;
 }
 
 .spSlide {

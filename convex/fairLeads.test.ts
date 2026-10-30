@@ -195,7 +195,8 @@ function submit(f: Fixture, visitorHash: string, eventModelId: Id<"fairEventMode
 async function rows<T extends TableNames>(f: Fixture, table: T): Promise<Doc<T>[]> {
   return f.t.run(async (ctx) => ctx.db.query(table).collect());
 }
-const scheduled = (f: Fixture) => f.t.run(async (ctx) => ctx.db.system.query("_scheduled_functions").collect());
+// The automatic brand passport sync (one model is enough since 30 Oct 2026) is not a lead side effect.
+const scheduled = async (f: Fixture) => (await f.t.run(async (ctx) => ctx.db.system.query("_scheduled_functions").collect())).filter((job) => job.name !== "fairPassports:syncBrandPassport");
 /** Runs only what is due now (the immediate confirmation), not the follow-up days later. */
 async function runDueNow(f: Fixture) {
   vi.advanceTimersByTime(1);

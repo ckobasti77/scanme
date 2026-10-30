@@ -735,7 +735,7 @@ export const adminEventsSr = {
     FAIR_SURVEY_INVALID: "Anketa nije ispravna (1–5 pitanja, izbor ima 2–5 opcija, jedinstveni ID-evi).",
     FAIR_SURVEY_LOCKED: "Objavljena verzija se ne menja; napravi novu verziju.",
     FAIR_PASSPORT_NOT_FOUND: "Pasoš ne postoji.",
-    FAIR_PASSPORT_NOT_ELIGIBLE: "Pasoš nije moguć: brend mora imati bar dva objavljena modela, svi kandidati sa paketom Starter ili Napredni.",
+    FAIR_PASSPORT_NOT_ELIGIBLE: "Pasoš nije moguć: brend mora imati bar jedan objavljen model, svi njegovi modeli kandidati sa paketom Starter ili Napredni.",
     FAIR_PASSPORT_FROZEN: "Skup modela pasoša je zamrznut; dozvoljeno je samo hitno uklanjanje modela.",
     FAIR_PRE_EVENT_RESET_CONFIRM: "Za brisanje upiši RESETUJ.",
     FAIR_PRE_EVENT_RESET_STALE: "Podaci su se promenili posle provere. Pokreni proveru ponovo.",
@@ -1018,13 +1018,13 @@ export const adminEventsSr = {
     removed: "Uklonjen",
   },
   passportProblems: {
-    fewer_than_two_models: "Brend ima manje od dva izložena modela.",
+    no_exhibited_models: "Brend nema izloženih modela.",
     model_not_published: "Neki model brenda još nije objavljen.",
     model_not_candidate: "Neki model brenda nije označen kao kandidat za pasoš.",
     model_below_starter: "Neki model brenda nema paket Starter ili Napredni.",
   },
   passportAuto: {
-    help: "Pasoš nastaje sam za svaki brend koji ispunjava uslov: najmanje dva objavljena modela, svi kandidati za pasoš sa paketom Starter ili Napredni. Ne pravi se i ne objavljuje ručno.",
+    help: "Pasoš nastaje sam za svaki brend koji ispunjava uslov: najmanje jedan izložen model i svi izloženi modeli brenda objavljeni, kandidati za pasoš sa paketom Starter ili Napredni. Ne pravi se i ne objavljuje ručno.",
     explainTitle: "Kako pasoš radi",
     explainAuto: "Do otvaranja događaja ({date}) pasoš sam prati katalog: objava, povlačenje i nadogradnja modela odmah menjaju njegov skup modela, a brend koji izgubi uslov gubi i pasoš.",
     explainFreeze: "Od otvaranja je skup modela zamrznut: novi i nadograđeni modeli se ne dodaju. Hitno povučen model uklanjaš ručno, a posetioci pritom ne gube stečene pečate.",
@@ -1045,7 +1045,7 @@ export const adminEventsSr = {
     conditionMet: "Ispunjen",
     conditionNotMet: "Nije ispunjen",
     problems: {
-      fewer_than_two_models: "Samo {count} izložen model; potrebna su bar dva.",
+      no_exhibited_models: "Brend nema izloženih modela.",
       model_not_published: "{count} od {total} modela nije objavljeno.",
       model_not_candidate: "{count} od {total} modela nije kandidat za pasoš.",
       model_below_starter: "{count} od {total} modela nema Starter.",

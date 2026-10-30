@@ -5943,7 +5943,7 @@ export interface AdminEventsFollowUpsDict {
   loading: string;
 }
 
-export type AdminEventsPassportProblem = "fewer_than_two_models" | "model_not_published" | "model_not_candidate" | "model_below_starter";
+export type AdminEventsPassportProblem = "no_exhibited_models" | "model_not_published" | "model_not_candidate" | "model_below_starter";
 
 // event-lead-email — visitor emails after a fair lead (Sajam 2026 B4,
 // convex/lib/fairEmails.ts). Placeholder copy until P1 is locked.
