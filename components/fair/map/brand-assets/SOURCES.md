@@ -27,6 +27,14 @@ Existing transparent assets under `/sajam/izlagaci/2026/providni/` are reused fo
 
 Entrance and forecourt images use `object-fit: contain` and grayscale, preserving photographic detail instead of flattening every opaque pixel to black. The latest owner instruction keeps all exhibitor marks monochrome. ScanMe now reuses the site's canonical `BrandLogo` and `/brand/scanme-wordmark-*-mask.svg`, with both ink layers monochrome, rather than the old participant asset. Lukač uses a legible italic name as on the supplied plan; the archived black crest above is not rendered. The original source files remain preserved.
 
+### AMF go-live, 30 Oct 2026 (owner OK on the difference table)
+
+From the organizer's participant page https://sajamautomobila.com/ucesnici-2026/ (retrieved 2026-10-30):
+
+- `jetour.jpg`: https://sajamautomobila.com/wp-content/uploads/2026/10/jetour-300px.jpg
+- `moto-revolution.jpg`: https://sajamautomobila.com/wp-content/uploads/2026/09/MRSH-300px.jpg
+- `asteriks.jpg`: https://sajamautomobila.com/wp-content/uploads/2019/07/Asteriks.jpg
+
 ### Subsequent owner corrections, 19 Oct
 
 The newer instruction supersedes the ScanMe treatment above: the canonical ScanMe wordmark retains its green accent. Other exhibitor marks remain monochrome. Makete is a single text label, without the miniature car image. Typographic artwork has no repeated external caption. Padded JPGs use an SVG presentation viewport around the original logo, removing surrounding white margins without editing the source files. Xtreme uses the existing original `/fair/izlagaci/2026/xtreme-motors.jpg` for clearer detail. Outdoor logo sizes are set individually, with explicit separation checks rather than a shared maximum that caused Kia/SWM overlap.

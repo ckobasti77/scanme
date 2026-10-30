@@ -9,7 +9,8 @@ describe("AMF entrance follows the actual plan, not a responsive stand grid", ()
   const doorwayRight = amfEntrancePoint([AMF_ENTRANCE_PLAN.doorway.right, 0])[0];
 
   test("outdoor contour centers stay to the right of the entrance without stand rectangles", () => {
-    expect(outdoor).toHaveLength(5);
+    // 30 Oct 2026: + Moto Revolution at the main entrance (organizer plan 16.10).
+    expect(outdoor).toHaveLength(6);
     for (const item of outdoor) {
       expect(item.footprint).toBeUndefined();
       expect(item.x).toBeGreaterThan(doorwayRight);

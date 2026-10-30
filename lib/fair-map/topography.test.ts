@@ -46,7 +46,7 @@ describe("AMF topographic geometry and catalog", () => {
 
   test("all entrance exhibitors remain visible, with the forecourt separate from the foyer", () => {
     for (const anchor of AMF_ENTRANCE_ANCHORS) expect(items.find((item) => item.key === anchor.key)).toMatchObject({ zoneId: "ispred", area: anchor.area, models: [], paid: false });
-    expect(AMF_ENTRANCE_ANCHORS.filter((item) => item.area === "outdoor").map((item) => item.key)).toEqual(["aodes", "xtreme", "auto-happy-outdoor", "swm", "kia"]);
+    expect(AMF_ENTRANCE_ANCHORS.filter((item) => item.area === "outdoor").map((item) => item.key)).toEqual(["moto-revolution", "aodes", "xtreme", "auto-happy-outdoor", "swm", "kia"]);
     const [x, y] = amfEntrancePoint([380, 205]);
     expect(items.find((item) => item.key === "scanme")).toMatchObject({ locationId: "ispred-14", x, y, paid: false });
     // 30 Oct 2026 (owner): SWM's S6 got its shared location id.

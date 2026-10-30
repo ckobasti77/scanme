@@ -31,7 +31,9 @@ export const AMF_ENTRANCE_STANDS: Readonly<Record<string, readonly FairMapPoint[
   lukac: booth(70, 255, 170, 85),
   nm: booth(65, 350, 175, 85),
   detailing: booth(60, 445, 180, 85),
-  kostic: booth(55, 545, 190, 70),
+  // 30 Oct 2026: stand 16 shared by Kostić and Asteriks (organizer plan 16.10).
+  kostic: booth(55, 545, 118, 70),
+  asteriks: booth(178, 545, 67, 70),
   scanme: booth(260, 165, 240, 80),
   amerikanac: booth(515, 165, 175, 85),
   direkcija: booth(500, 275, 180, 115),

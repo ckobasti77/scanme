@@ -43,6 +43,10 @@ export const AMF_EXHIBITOR_WEBSITES: Readonly<Record<string, string>> = {
   nm: "https://nmstomatologija.rs/",
   detailing: "https://detailingstore.rs/",
   kostic: "https://www.instagram.com/rentacar_kostic/",
+  // 30 Oct 2026: organizer participant page links.
+  asteriks: "https://tkasteriks.com/",
+  "moto-revolution": "https://motorevolutionshop.com/",
+  jetour: "https://jetour.rs/",
   scanme: "https://www.scanme.rs/",
   amerikanac: "https://www.facebook.com/Amerikanac.restoran/",
   direkcija: "https://jgpnis.rs/",

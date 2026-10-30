@@ -46,6 +46,11 @@ const LOGOS = [
   { key: "benni", src: join(assets, "benni.jpg"), crop: [6, 15, 286, 273], ...ENTRANCE },
   { key: "nm", src: join(assets, "nm-stomatologija.jpg"), crop: [6, 16, 290, 250], ...ENTRANCE },
   { key: "goes", src: join(assets, "goes.jpg"), crop: [19, 55, 264, 197], ...ENTRANCE },
+  // 30 Oct 2026 (owner OK, organizer maps 21.10 / 16.10): Jetour in stand 6-7,
+  // Moto Revolution at the main entrance, Asteriks next to Kostić at stand 16.
+  { key: "jetour", src: join(assets, "jetour.jpg"), crop: [0, 110, 300, 75], ...MOTO },
+  { key: "moto-revolution", src: join(assets, "moto-revolution.jpg"), crop: [12, 72, 282, 156], ...ENTRANCE },
+  { key: "asteriks", src: join(assets, "asteriks.jpg"), crop: [5, 45, 290, 205], ...ENTRANCE },
 ];
 
 await mkdir(out, { recursive: true });
