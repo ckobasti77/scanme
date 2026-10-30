@@ -11,6 +11,7 @@ import {
 } from "@/lib/fair-server/garage-page";
 import { fairGarageSr as dict } from "@/lib/i18n/sr/fair-garage";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
+import { AMF_PUBLIC_GATE_OPENS_AT } from "@/lib/fair-contract";
 
 type RouteParams = { eventSlug: string };
 
@@ -33,7 +34,7 @@ export default async function FairGaragePage({
   const definition = fairGarageDefinition(eventSlug);
   if (!definition) notFound();
   // eslint-disable-next-line react-hooks/purity -- async server component: the lock is decided once per request
-  if (eventSlug === "auto-moto-fest-2026" && Date.now() < definition.fallbackStartsAt) {
+  if (eventSlug === "auto-moto-fest-2026" && Date.now() < AMF_PUBLIC_GATE_OPENS_AT) {
     redirect(`/sajam/${eventSlug}`);
   }
 
