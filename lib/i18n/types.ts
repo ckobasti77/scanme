@@ -427,6 +427,8 @@ export interface FairModelDict {
   // Model page v2 (prototype stranica-modela-v2).
   priceLabel: string;
   priceOnRequest: string;
+  /** AMF 30 Oct 2026: link to the exhibitor's own page for the model. */
+  externalModelLink: string;
   standChipAria: string;
   keySpecsAria: string;
   keySpecRange: string;

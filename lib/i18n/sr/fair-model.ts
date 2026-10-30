@@ -193,6 +193,7 @@ export const fairModelSr = {
   // Model page v2 (prototype stranica-modela-v2).
   priceLabel: "Cena",
   priceOnRequest: "na upit",
+  externalModelLink: "Više o modelu na sajtu izlagača",
   standChipAria: "{stand}, prikaži na mapi",
   keySpecsAria: "Ključni podaci",
   keySpecRange: "Domet",

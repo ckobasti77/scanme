@@ -3416,6 +3416,10 @@ export default defineSchema({
     variant: v.optional(v.string()),
     // Approved display text; the stored fallback is "Cena na upit".
     priceText: v.string(),
+    // AMF 30 Oct 2026: optional second price line shown verbatim under the
+    // price (e.g. "Osnovni model od 19.400 €") and the exhibitor's model page.
+    priceSecondaryText: v.optional(v.string()),
+    externalUrl: v.optional(v.string()),
     // Bounded (FAIR_MAX_SPECIFICATIONS_PER_MODEL), ≤4 isHighlight.
     specifications: v.array(fairSpecification),
     photoStorageId: v.optional(v.id("_storage")),
@@ -3555,7 +3559,7 @@ export default defineSchema({
     // per event + externalKey (HANDOFF §7, §8; DATA-INTAKE question_external_key).
     externalKey: v.optional(v.string()),
     prompt: v.string(),
-    // 2–5 options; prompt/options are immutable after the first vote.
+    // 2–12 options (more than 5 since 30 Oct 2026); prompt/options are immutable after the first vote.
     options: v.array(fairChoiceOption),
     status: fairAudienceQuestionStatus,
     sortOrder: v.number(),

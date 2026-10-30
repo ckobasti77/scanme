@@ -40,6 +40,9 @@ export type FairPublicModelFixture = {
   /** Trim line under the model name (model page v2), when the exhibitor gives one. */
   variant?: string;
   priceText: string;
+  /** AMF 30 Oct 2026: second price line and the exhibitor's model page. */
+  priceSecondaryText?: string;
+  externalUrl?: string;
   description: string;
   photoUrl?: string;
   photoPresentation: FairPhotoPresentation;
@@ -160,6 +163,8 @@ export function fairPublicModelToFixture(input: {
       displayName,
       ...(variant ? { variant } : {}),
       priceText: input.model.priceText,
+      ...(input.model.priceSecondaryText ? { priceSecondaryText: input.model.priceSecondaryText } : {}),
+      ...(input.model.externalUrl ? { externalUrl: input.model.externalUrl } : {}),
       description: "",
       ...(input.withPhoto && photoUrl ? { photoUrl } : {}),
       photoPresentation: input.photoPresentation,

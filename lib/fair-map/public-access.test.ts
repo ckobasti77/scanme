@@ -7,9 +7,10 @@ afterEach(() => {
 
 describe("lokalni pristup sajamskoj mapi", () => {
   test.each([
+    // 30 Oct 2026 (owner, AMF go-live): the map is public everywhere.
     ["development", true],
-    ["production", false],
-    ["test", false],
+    ["production", true],
+    ["test", true],
   ] as const)("NODE_ENV=%s: mapa enabled=%s", async (mode, enabled) => {
     vi.stubEnv("NODE_ENV", mode);
     vi.resetModules();

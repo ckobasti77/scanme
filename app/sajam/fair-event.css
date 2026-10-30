@@ -492,6 +492,39 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   line-height: 1.2;
 }
 
+.fair-model-price .fair-model-price__secondary {
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.fair-model-external {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 4px;
+  color: var(--fair-ink);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.fair-model-external svg {
+  width: 15px;
+  height: 15px;
+}
+
+.fair-model-external:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+  border-radius: var(--fair-radius-sm, 6px);
+}
+
 /* New-stamp strip: opens its height with the card's entrance, closes on dismiss. */
 .fair-new-stamp-slot {
   display: grid;

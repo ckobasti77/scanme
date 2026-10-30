@@ -337,6 +337,8 @@ export const fairPublicModelView = v.object({
   displayName: v.string(),
   variant: v.optional(v.string()),
   priceText: v.string(),
+  priceSecondaryText: v.optional(v.string()),
+  externalUrl: v.optional(v.string()),
   specificationGroups: v.array(
     v.object({
       id: v.string(),
