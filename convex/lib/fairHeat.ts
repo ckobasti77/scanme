@@ -53,7 +53,11 @@ export async function fairStandWindowCounts(
   standId: Id<"fairStands">,
   window: FairHeatWindow,
 ): Promise<{ today: number; hour: number }> {
-  const base = fairScanCountKey(metric, "stand", standId);
+  return fairWindowCounts(ctx, fairScanCountKey(metric, "stand", standId), window);
+}
+
+/** One counter base (a stand or a model) today (from the cutoff) and in the last hour. */
+export async function fairWindowCounts(ctx: QueryCtx, base: string, window: FairHeatWindow): Promise<{ today: number; hour: number }> {
   const today = await fairDayCountFrom(ctx, base, window.today, window.cutoff);
   let hour = 0;
   for (const bucket of window.hours) hour += (await readFairCount(ctx, `${base}:${bucket.hourKey}`)) * bucket.weight;
@@ -64,7 +68,7 @@ export async function fairStandWindowCounts(
  * The active stands of the event that hold a model: only they can have scans,
  * so a stand without a car is never read (most of the organizer's list).
  */
-export async function fairStandsWithModels(ctx: QueryCtx, eventId: Id<"fairEvents">): Promise<{ stands: Doc<"fairStands">[]; capped: boolean }> {
+export async function fairStandsWithModels(ctx: QueryCtx, eventId: Id<"fairEvents">): Promise<{ stands: Doc<"fairStands">[]; models: Doc<"fairEventModels">[]; capped: boolean }> {
   const models = await ctx.db
     .query("fairEventModels")
     .withIndex("by_eventId_and_standId", (q) => q.eq("eventId", eventId))
@@ -75,5 +79,5 @@ export async function fairStandsWithModels(ctx: QueryCtx, eventId: Id<"fairEvent
     const stand = await ctx.db.get(standId);
     if (stand && stand.eventId === eventId && stand.status === "active") stands.push(stand);
   }
-  return { stands, capped: models.length > FAIR_HEAT_MODELS_CAP };
+  return { stands, models: models.slice(0, FAIR_HEAT_MODELS_CAP), capped: models.length > FAIR_HEAT_MODELS_CAP };
 }

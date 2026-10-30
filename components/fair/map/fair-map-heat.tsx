@@ -18,6 +18,8 @@ type HeatPeriodValue = {
   levels: Array<{ locationId: string; level: number }>;
   /** Optional shared-loader projection for exhibitors sharing a physical location. */
   participationLevels?: Array<{ participationId: string; level: number }>;
+  /** AMF map: the same scale per brand (brands sharing a hall location). */
+  brandLevels?: Array<{ brandId: string; level: number }>;
 };
 
 type HeatValue = {
@@ -26,7 +28,7 @@ type HeatValue = {
   hour: HeatPeriodValue;
 };
 
-export type FairMapHeatView = { enough: boolean; levels: ReadonlyMap<string, number>; at: number; participationLevels?: ReadonlyMap<string, number> };
+export type FairMapHeatView = { enough: boolean; levels: ReadonlyMap<string, number>; at: number; participationLevels?: ReadonlyMap<string, number>; brandLevels?: ReadonlyMap<string, number> };
 
 const PREFERENCE_KEY = "scanme:fair-map-heat";
 const listeners = new Set<() => void>();
@@ -121,6 +123,7 @@ export function fairMapHeatView(value: HeatValue | null, period: FairHeatPeriod)
     levels: new Map(result.levels.map((row) => [row.locationId, row.level])),
     at: value.at,
     ...(result.participationLevels ? { participationLevels: new Map(result.participationLevels.map((row) => [row.participationId, row.level])) } : {}),
+    ...(result.brandLevels ? { brandLevels: new Map(result.brandLevels.map((row) => [row.brandId, row.level])) } : {}),
   };
 }
 

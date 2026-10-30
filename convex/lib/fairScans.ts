@@ -202,6 +202,7 @@ export async function recordFairScan(
   if (!allowed.ok) return "rate_limited";
 
   const adminUserId = await fairSessionAdminUserId(ctx);
+  const adminExcluded = adminUserId !== null && !(await fairEventCountsAdminScans(ctx, model.eventId));
   const time = fairTimeKeys(now);
   await ctx.db.insert("fairScanEvents", {
     requestId: input.requestId,
@@ -213,12 +214,34 @@ export async function recordFairScan(
     occurredAt: now,
     dateKey: time.dateKey,
     hourKey: time.hourKey,
-    isAdminExcluded: adminUserId !== null,
+    isAdminExcluded: adminExcluded,
     ...(adminUserId ? { adminUserId } : {}),
   });
   // Admin scans: audit row only — no unique row, no counter, no stamp.
-  if (adminUserId) return "admin_excluded";
+  if (adminExcluded) return "admin_excluded";
+  await countFairScan(ctx, { visitorId, model, now });
+  return "recorded";
+}
 
+/**
+ * Owner decision of 30 Oct 2026 (MASTER §20): on these events an admin scan
+ * counts like a visitor scan (total, unique, heat, reports, passport stamp).
+ * Every other event keeps the B2 rule (admin scans are audit rows only).
+ */
+export const FAIR_ADMIN_SCANS_COUNTED_EVENT_CODES: ReadonlySet<string> = new Set(["auto-moto-fest-2026"]);
+
+async function fairEventCountsAdminScans(ctx: MutationCtx, eventId: Id<"fairEvents">): Promise<boolean> {
+  const event = await ctx.db.get(eventId);
+  return event !== null && FAIR_ADMIN_SCANS_COUNTED_EVENT_CODES.has(event.code);
+}
+
+/** The counted part of one fair scan row: unique row, scan counters and the passport stamp. */
+export async function countFairScan(
+  ctx: MutationCtx,
+  input: { visitorId: Id<"fairVisitors">; model: Doc<"fairEventModels">; now: number },
+): Promise<FairPassportStampResult> {
+  const { visitorId, model, now } = input;
+  const time = fairTimeKeys(now);
   const unique = await ctx.db
     .query("fairUniqueScans")
     .withIndex("by_visitorId_and_eventModelId", (q) =>
@@ -226,7 +249,7 @@ export async function recordFairScan(
     )
     .unique();
   if (unique) {
-    await ctx.db.patch(unique._id, { lastScannedAt: now, totalScanCount: unique.totalScanCount + 1 });
+    await ctx.db.patch(unique._id, { lastScannedAt: Math.max(unique.lastScannedAt, now), totalScanCount: unique.totalScanCount + 1 });
   } else {
     await ctx.db.insert("fairUniqueScans", {
       visitorId,
@@ -242,6 +265,5 @@ export async function recordFairScan(
   if (!unique) {
     for (const key of fairScanCountKeys("scan_unique", ids, time)) await bumpFairCount(ctx, key);
   }
-  await stampFairPassportOnScan(ctx, { visitorId, model, now });
-  return "recorded";
+  return await stampFairPassportOnScan(ctx, { visitorId, model, now });
 }

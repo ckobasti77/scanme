@@ -43,7 +43,7 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
   const results = useMemo(() => searchAmfTopographicExhibits(exhibits, query), [exhibits, query]);
   const heat = useFairMapHeatData(eventSlug, !demo);
   const heatView = useMemo(() => fairMapHeatView(heat.value, "today"), [heat.value]);
-  const levels = useMemo(() => demoLevels ?? new Map(exhibits.map(item => [item.key, heatView?.enough ? fairMapTopographicLevel(item, exhibits, heatView.levels, heatView.participationLevels) : 0])), [exhibits, heatView, demoLevels]);
+  const levels = useMemo(() => demoLevels ?? new Map(exhibits.map(item => [item.key, heatView?.enough ? fairMapTopographicLevel(item, exhibits, heatView.levels, heatView.participationLevels, heatView.brandLevels) : 0])), [exhibits, heatView, demoLevels]);
   const passport = usePassportProgress(eventSlug, !passportProgress && exhibits.some((item) => item.passportIds.length > 0));
   const progress = passportProgress ?? passport.progress;
   const completed = useMemo(() => new Set(exhibits.filter((item) => item.passportIds.length > 0 && item.passportIds.every((id) => progress?.some((row) => row.passportId === id && row.completed))).map((item) => item.key)), [exhibits, progress]);

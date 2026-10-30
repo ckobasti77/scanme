@@ -83,7 +83,7 @@ describe("AMF topographic geometry and catalog", () => {
   test("one paid package enables the exhibitor's other stand, but never another exhibitor sharing the place", () => {
     const paid = stand("Toyota", "hala-2", { participationId: "same-exhibitor", packageTier: "starter" });
     const included = stand("Audi", "hala-1", { participationId: "same-exhibitor", packageTier: "included" });
-    const free = stand("Volkswagen", "hala-1", { participationId: "other-exhibitor", packageTier: "included" });
+    const free = stand("Volkswagen", "hala-1", { participationId: "other-exhibitor", packageTier: "included", brands: [] });
     const all = buildAmfTopographicExhibits(buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [paid, included, free], []));
     expect(all.find((item) => item.key === "audi")?.paid).toBe(true);
     expect(all.find((item) => item.key === "vw")?.paid).toBe(false);
@@ -91,6 +91,16 @@ describe("AMF topographic geometry and catalog", () => {
     expect(fairMapTopographicLevel(audi, all, new Map([["hala-1", 1]]))).toBe(0);
     expect(fairMapTopographicLevel(audi, all, new Map([["hala-1", 1]]), new Map([["same-exhibitor", 0.35]]))).toBe(0.35);
     expect(fairMapTopographicLevel(all.find((item) => item.key === "vw")!, all, new Map([["hala-1", 1]]), new Map([["other-exhibitor", 1]]))).toBe(0);
+  });
+  test("any ScanMe package with a model tints the booth; a brand level wins on a shared location", () => {
+    const starter = stand("Audi", "hala-1", { participationId: "starter-exhibitor", packageTier: "starter" });
+    const free = stand("Volkswagen", "hala-1", { participationId: "catalog-only", brands: [] });
+    const all = buildAmfTopographicExhibits(buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [starter, free], []));
+    const audi = all.find((item) => item.key === "audi")!;
+    expect(audi.paid).toBe(true);
+    expect(all.find((item) => item.key === "vw")?.paid).toBe(false);
+    expect(fairMapTopographicLevel(audi, all, new Map([["hala-1", 1]]))).toBe(0);
+    expect(fairMapTopographicLevel(audi, all, new Map([["hala-1", 1]]), undefined, new Map([["fixture-brand-Audi", 0.4]]))).toBe(0.4);
   });
   test("an unknown brand never inherits another brand's payment from location alone", () => {
     const all = buildAmfTopographicExhibits(buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [stand("Audi", "hala-1", { heatEligible: true })], []));
