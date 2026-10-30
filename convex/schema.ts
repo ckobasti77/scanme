@@ -41,6 +41,8 @@ import {
   fairShareCollectionStatus,
   fairStandStatus,
   fairSurveyAnswer,
+  fairLeadFinancing,
+  fairLeadPurchaseTiming,
   fairSurveyQuestion,
   fairSurveyStatus,
   fairTrafficKind,
@@ -3379,6 +3381,9 @@ export default defineSchema({
     // 30 Oct 2026 (owner, AMF Nikom): the survey also on this exhibitor's
     // Starter models (lib fairSurveyAllowed). Unset = Napredni only.
     surveyAllTiers: v.optional(v.boolean()),
+    // 30 Oct 2026 (owner, AMF Nikom): model selector + purchase timing and
+    // financing in this exhibitor's "Zainteresovan sam" form.
+    leadInterestExtraFields: v.optional(v.boolean()),
     status: fairParticipationStatus,
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -3701,6 +3706,12 @@ export default defineSchema({
     contactName: v.string(),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
+    // 30 Oct 2026: the model the form was opened on, when the visitor chose
+    // another model of the same exhibitor (eventModelId is the chosen one).
+    scannedModelId: v.optional(v.id("fairEventModels")),
+    // 30 Oct 2026 (Nikom "Zainteresovan sam"): optional answers.
+    purchaseTiming: v.optional(fairLeadPurchaseTiming),
+    financing: v.optional(fairLeadFinancing),
     consentAccepted: v.literal(true),
     consentVersion: v.number(),
     consentTextSnapshot: v.string(),

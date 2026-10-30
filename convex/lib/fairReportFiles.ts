@@ -1,4 +1,4 @@
-import type { FairPackageTier, FairReportFormat } from "../../lib/fair-contract";
+import type { FairLeadFinancing, FairLeadPurchaseTiming, FairPackageTier, FairReportFormat } from "../../lib/fair-contract";
 import { belgradeParts } from "../../lib/belgrade-time";
 import { fmt } from "../../lib/i18n/format";
 import { eventReportSr as dict } from "../../lib/i18n/sr/event-report";
@@ -219,6 +219,11 @@ export type FairLeadExportRow = {
   phone?: string;
   consentVersion: number;
   consentedAt: number;
+  /** 30 Oct 2026: the model the form was opened on (another model was chosen). */
+  scannedModelName?: string;
+  /** 30 Oct 2026 (Nikom): optional answers of "Zainteresovan sam". */
+  purchaseTiming?: FairLeadPurchaseTiming;
+  financing?: FairLeadFinancing;
   /** A8 — package of the lead's model at the moment of the lead. */
   tier?: FairPackageTier;
   /** A8 — summary per activity group that this package sends to the exhibitor; a group the package lacks is absent. */
@@ -267,6 +272,12 @@ export function fairLeadActivityCells(activity: FairLeadActivity, modelName: (ev
  */
 export function fairLeadsDocument(input: { eventTitle: string; exhibitorName: string; builtAt: number; rows: FairLeadExportRow[] }): FairReportDocument {
   const withTier = input.rows.some((row) => row.tier !== undefined);
+  const details = (row: FairLeadExportRow) => [
+    row.scannedModelName ? fmt(dict.leadScannedOn, { model: row.scannedModelName }) : null,
+    row.purchaseTiming ? `${dict.leadPurchaseTiming}: ${dict.leadPurchaseTimings[row.purchaseTiming]}` : null,
+    row.financing ? `${dict.leadFinancing}: ${dict.leadFinancings[row.financing]}` : null,
+  ].filter(Boolean).join("; ");
+  const withDetails = input.rows.some((row) => details(row) !== "");
   const groups = FAIR_LEAD_EXPORT_ACTIVITY.filter((group) => input.rows.some((row) => row.activity?.[group] !== undefined));
   return {
     title: fmt(dict.leadsTitle, { exhibitor: input.exhibitorName }),
@@ -277,6 +288,7 @@ export function fairLeadsDocument(input: { eventTitle: string; exhibitorName: st
         heading: dict.leadsHeading,
         columns: [
           dict.colCreatedAt, dict.colKind, dict.colModel, dict.colName, dict.colEmail, dict.colPhone, dict.colConsentVersion, dict.colConsentedAt,
+          ...(withDetails ? [dict.colLeadDetails] : []),
           ...(withTier ? [dict.colPackage] : []),
           ...groups.map((group) => dict.leadActivityColumns[group]),
         ],
@@ -289,6 +301,7 @@ export function fairLeadsDocument(input: { eventTitle: string; exhibitorName: st
           row.phone ?? "",
           row.consentVersion,
           fairReportDateTimeText(row.consentedAt),
+          ...(withDetails ? [details(row)] : []),
           ...(withTier ? [row.tier ? dict.tiers[row.tier] : ""] : []),
           ...groups.map((group) => row.activity?.[group] ?? ""),
         ]),

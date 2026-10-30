@@ -484,6 +484,8 @@ export const setupLeads = internalMutation({
     eventCode: v.string(),
     consentText: v.string(),
     legalApprovedBy: v.string(),
+    /** 30 Oct 2026 (Nikom): model selector + purchase questions in "Zainteresovan sam". */
+    extraFieldsParticipations: v.optional(v.array(v.string())),
     configs: v.array(v.object({
       participationExternalKey: v.string(),
       leadKind: fairLeadKind,
@@ -508,6 +510,8 @@ export const setupLeads = internalMutation({
     for (const config of args.configs) {
       const participation = await ctx.db.query("fairParticipations").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id).eq("externalKey", config.participationExternalKey)).unique();
       if (!participation) throw new Error(`fair_setup_participation_missing:${config.participationExternalKey}`);
+      const extra = args.extraFieldsParticipations?.includes(config.participationExternalKey) === true;
+      if ((participation.leadInterestExtraFields === true) !== extra) await ctx.db.patch(participation._id, { leadInterestExtraFields: extra, updatedAt: now });
       const fields = { enabled: true, contactRequirement: config.contactRequirement, updatedByUserId: actorUserId, updatedAt: now };
       const existingDefault = await ctx.db.query("fairParticipationLeadDefaults").withIndex("by_participationId_and_leadKind", (q) => q.eq("participationId", participation._id).eq("leadKind", config.leadKind)).first();
       if (existingDefault) await ctx.db.patch(existingDefault._id, fields);

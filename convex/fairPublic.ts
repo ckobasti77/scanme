@@ -508,12 +508,31 @@ export const getLeadForm = query({
     const consent = await fairActiveConsent(ctx, model.eventId, args.kind);
     const exhibitorName = await fairExhibitorName(ctx, model.participationId);
     if (!consent || !exhibitorName) return { ...base, state: "consent_not_configured" };
+    // 30 Oct 2026: model selector (test drive everywhere, interest where the
+    // exhibitor has the extra fields), scanned model first, then sortOrder.
+    const participation = await ctx.db.get(model.participationId);
+    const extraFields = args.kind === "interest" && participation?.leadInterestExtraFields === true;
+    let modelChoices: Array<{ id: string; brandName: string; displayName: string }> | undefined;
+    if (args.kind === "test_drive" || extraFields) {
+      const siblings = (await ctx.db.query("fairEventModels").withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", model.eventId)).take(200))
+        .filter((row) => row.participationId === model.participationId && row.status === "published")
+        .sort((a, b) => Number(b._id === model._id) - Number(a._id === model._id) || a.sortOrder - b.sortOrder);
+      if (siblings.length > 1) {
+        modelChoices = [];
+        for (const row of siblings) {
+          const brand = await ctx.db.get(row.brandId);
+          modelChoices.push({ id: row._id, brandName: brand?.name ?? "", displayName: row.variant ? `${row.displayName} ${row.variant}` : row.displayName });
+        }
+      }
+    }
     return {
       ...base,
       state: "open",
       contactRequirement: config.contactRequirement,
       ...(config.preferredContact ? { preferredContact: config.preferredContact } : {}),
       consent: { version: consent.version, text: fairRenderConsentText(consent.text, exhibitorName) },
+      ...(modelChoices ? { modelChoices } : {}),
+      ...(extraFields ? { extraFields } : {}),
     };
   },
 });

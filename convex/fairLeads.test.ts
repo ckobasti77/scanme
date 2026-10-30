@@ -271,9 +271,11 @@ describe("B4 consent gate (MASTER §8, §13; HANDOFF §5.4)", () => {
     const f = await setup();
     const form = await f.t.query(api.fairPublic.getLeadForm, { eventModelId: f.models.advanced, kind: "test_drive" });
     const rendered = "TEST saglasnost: ScanMe prima podatke i prosleđuje ih izlagaču TEST izlagač TA.";
-    expect(form).toEqual({
+    expect(form).toMatchObject({
       eventModelId: f.models.advanced, kind: "test_drive", state: "open", contactRequirement: "both", consent: { version: 1, text: rendered },
     });
+    // 30 Oct 2026: the exhibitor's models to choose from, the opened one first.
+    if (form.state === "open" && form.modelChoices) expect(form.modelChoices[0].id).toBe(f.models.advanced);
     await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE });
     const [lead] = await rows(f, "fairLeads");
     expect(lead).toMatchObject({ consentAccepted: true, consentVersion: 1, consentTextSnapshot: rendered, consentedAt: DAY1, purgeAt: PURGE_AT, status: "received", followUpSuppressed: false });

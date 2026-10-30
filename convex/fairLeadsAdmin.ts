@@ -34,6 +34,8 @@ import {
   fairLeadStatus,
   fairPackageTier,
   fairPreferredContact,
+  fairLeadFinancing,
+  fairLeadPurchaseTiming,
 } from "./lib/fairValidators";
 import { fairAnalyticsCutoff } from "./lib/fairPreEvent";
 
@@ -677,6 +679,10 @@ const leadRow = v.object({
   contactName: v.string(),
   email: v.optional(v.string()),
   phone: v.optional(v.string()),
+  // 30 Oct 2026: form opened on another model of the exhibitor; Nikom answers.
+  scannedModelId: v.optional(v.id("fairEventModels")),
+  purchaseTiming: v.optional(fairLeadPurchaseTiming),
+  financing: v.optional(fairLeadFinancing),
   consentVersion: v.number(),
   consentedAt: v.number(),
   status: fairLeadStatus,
@@ -730,6 +736,9 @@ export const exportLeads = query({
         contactName: lead.contactName,
         ...(lead.email !== undefined ? { email: lead.email } : {}),
         ...(lead.phone !== undefined ? { phone: lead.phone } : {}),
+        ...(lead.scannedModelId !== undefined ? { scannedModelId: lead.scannedModelId } : {}),
+        ...(lead.purchaseTiming !== undefined ? { purchaseTiming: lead.purchaseTiming } : {}),
+        ...(lead.financing !== undefined ? { financing: lead.financing } : {}),
         consentVersion: lead.consentVersion,
         consentedAt: lead.consentedAt,
         status: lead.status,

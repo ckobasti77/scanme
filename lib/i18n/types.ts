@@ -433,6 +433,14 @@ export interface FairModelDict {
   priceOnRequest: string;
   /** AMF 30 Oct 2026: link to the exhibitor's own page for the model. */
   externalModelLink: string;
+  /** AMF 30 Oct 2026: lead form model selector and Nikom's optional questions. */
+  leadModelLabel: string;
+  leadChoose: string;
+  leadOptionalChoose: string;
+  leadPurchaseTimingLabel: string;
+  leadPurchaseTimings: Record<"now" | "within_3_months" | "in_3_6_months" | "just_researching", string>;
+  leadFinancingLabel: string;
+  leadFinancings: Record<"cash" | "loan" | "leasing" | "undecided", string>;
   standChipAria: string;
   keySpecsAria: string;
   keySpecRange: string;
@@ -6011,6 +6019,13 @@ export interface EventReportDict {
   comparisonMetrics: Record<"scans_total" | "scans_unique" | "interest" | "test_drive" | "sponsored_open_model" | "sponsored_garage_add", string>;
   questionStatus: Record<"draft" | "published" | "closed", string>;
   leadKinds: Record<"interest" | "test_drive", string>;
+  /** 30 Oct 2026: lead export details column (model chosen in the form, Nikom answers). */
+  colLeadDetails: string;
+  leadScannedOn: string;
+  leadPurchaseTiming: string;
+  leadPurchaseTimings: Record<"now" | "within_3_months" | "in_3_6_months" | "just_researching", string>;
+  leadFinancing: string;
+  leadFinancings: Record<"cash" | "loan" | "leasing" | "undecided", string>;
   yes: string;
   no: string;
   surveyVersion: string;

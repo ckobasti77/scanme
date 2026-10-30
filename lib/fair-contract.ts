@@ -46,6 +46,11 @@ export type FairSurveyStatus = "draft" | "published" | "retired";
 /** 30 Oct 2026: `free_text` = a short typed answer (owner decision, AMF). */
 export type FairSurveyQuestionKind = "yes_no" | "single_choice" | "free_text";
 export type FairLeadKind = "interest" | "test_drive";
+/** 30 Oct 2026 (Nikom "Zainteresovan sam"): optional answers, labels in lib/i18n. */
+export type FairLeadPurchaseTiming = "now" | "within_3_months" | "in_3_6_months" | "just_researching";
+export type FairLeadFinancing = "cash" | "loan" | "leasing" | "undecided";
+export const FAIR_LEAD_PURCHASE_TIMINGS: readonly FairLeadPurchaseTiming[] = ["now", "within_3_months", "in_3_6_months", "just_researching"];
+export const FAIR_LEAD_FINANCINGS: readonly FairLeadFinancing[] = ["cash", "loan", "leasing", "undecided"];
 export type FairContactRequirement = "one_of" | "email" | "phone" | "both";
 export type FairPreferredContact = "email" | "phone";
 export type FairConsentStatus = "draft" | "active" | "retired";
@@ -756,6 +761,10 @@ export type FairLeadFormView =
       preferredContact?: FairPreferredContact;
       /** The browser shows `text` and sends back `version` with `consentAccepted: true`. */
       consent: { version: number; text: string };
+      /** 30 Oct 2026: the exhibitor's published models (scanned first); absent with one model. */
+      modelChoices?: Array<{ id: string; brandName: string; displayName: string }>;
+      /** 30 Oct 2026 (Nikom): purchase timing + financing fields. */
+      extraFields?: boolean;
     };
 
 /** Body of `POST /api/fair/lead`. `submissionId` is the client idempotency key (FAIR_SUBMISSION_ID_PATTERN). */
@@ -768,6 +777,10 @@ export type FairLeadSubmitInput = {
   phone?: string;
   consentAccepted: boolean;
   consentVersion: number;
+  /** 30 Oct 2026: another model of the same exhibitor chosen in the form. */
+  selectedModelId?: string;
+  purchaseTiming?: FairLeadPurchaseTiming;
+  financing?: FairLeadFinancing;
 };
 
 /** `submitLead` result. Never carries a contact value. */

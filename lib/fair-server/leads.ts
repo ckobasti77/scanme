@@ -5,10 +5,14 @@ import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import {
   FAIR_LEAD_EMAIL_MAX,
+  FAIR_LEAD_FINANCINGS,
   FAIR_LEAD_NAME_MAX,
   FAIR_LEAD_PHONE_MAX,
+  FAIR_LEAD_PURCHASE_TIMINGS,
   type FairErrorCode,
+  type FairLeadFinancing,
   type FairLeadKind,
+  type FairLeadPurchaseTiming,
 } from "@/lib/fair-contract";
 import { fairMutationWithSession } from "./convex-session";
 import { fairGatewayError, fairGatewayJson, fairGatewayRequest } from "./gateway";
@@ -62,7 +66,7 @@ const STATUS: Partial<Record<FairErrorCode, number>> = {
   RATE_LIMITED: 429,
 };
 
-const KEYS = ["eventModelId", "kind", "submissionId", "contactName", "email", "phone", "consentAccepted", "consentVersion", "origin"];
+const KEYS = ["eventModelId", "kind", "submissionId", "contactName", "email", "phone", "consentAccepted", "consentVersion", "origin", "selectedModelId", "purchaseTiming", "financing"];
 
 function str(value: unknown, max: number): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= max;
@@ -80,6 +84,10 @@ export function parseLead(body: Record<string, unknown>) {
   if (!optStr(body.email, FAIR_LEAD_EMAIL_MAX) || !optStr(body.phone, FAIR_LEAD_PHONE_MAX)) return null;
   if (typeof body.consentAccepted !== "boolean" || typeof body.consentVersion !== "number" || !Number.isInteger(body.consentVersion)) return null;
   if (body.origin !== undefined && body.origin !== "survey") return null;
+  // 30 Oct 2026: model selector and Nikom's optional answers (Convex re-checks them).
+  if (body.selectedModelId !== undefined && !str(body.selectedModelId, 64)) return null;
+  if (body.purchaseTiming !== undefined && !FAIR_LEAD_PURCHASE_TIMINGS.includes(body.purchaseTiming as FairLeadPurchaseTiming)) return null;
+  if (body.financing !== undefined && !FAIR_LEAD_FINANCINGS.includes(body.financing as FairLeadFinancing)) return null;
   return {
     eventModelId: body.eventModelId,
     kind: kind as FairLeadKind,
@@ -90,6 +98,9 @@ export function parseLead(body: Record<string, unknown>) {
     consentAccepted: body.consentAccepted,
     consentVersion: body.consentVersion,
     ...(body.origin === "survey" ? { origin: "survey" as const } : {}),
+    ...(body.selectedModelId !== undefined ? { selectedModelId: body.selectedModelId as string } : {}),
+    ...(body.purchaseTiming !== undefined ? { purchaseTiming: body.purchaseTiming as FairLeadPurchaseTiming } : {}),
+    ...(body.financing !== undefined ? { financing: body.financing as FairLeadFinancing } : {}),
   };
 }
 

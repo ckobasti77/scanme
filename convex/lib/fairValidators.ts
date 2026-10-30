@@ -504,8 +504,16 @@ export const fairLeadFormView = v.union(
     contactRequirement: fairContactRequirement,
     preferredContact: v.optional(fairPreferredContact),
     consent: v.object({ version: v.number(), text: v.string() }),
+    // 30 Oct 2026: the exhibitor's published models to choose from (test
+    // drive everywhere, interest with extraFields), scanned model first.
+    modelChoices: v.optional(v.array(v.object({ id: v.string(), brandName: v.string(), displayName: v.string() }))),
+    // 30 Oct 2026 (Nikom): purchase timing + financing in "Zainteresovan sam".
+    extraFields: v.optional(v.boolean()),
   }),
 );
+
+export const fairLeadPurchaseTiming = v.union(v.literal("now"), v.literal("within_3_months"), v.literal("in_3_6_months"), v.literal("just_researching"));
+export const fairLeadFinancing = v.union(v.literal("cash"), v.literal("loan"), v.literal("leasing"), v.literal("undecided"));
 
 export const fairLeadSubmitResultView = v.object({
   eventModelId: v.string(),
