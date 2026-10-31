@@ -1329,22 +1329,106 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 .fair-save-open {
   display: flex;
+  width: 48px;
   height: 100%;
   flex: none;
-  padding: 0 14px 0 10px;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
   border-radius: var(--fair-radius-md);
   color: var(--fair-accent-strong);
-  font-size: 13.5px;
-  font-weight: 700;
   text-decoration: none;
 }
 
 .fair-save-open svg {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2.2;
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+}
+
+/* AMF 31 Oct 2026 (owner): "Uporedi" sits beside the garage dock, one row, two equal buttons. */
+.fair-save-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fair-save-row > .fair-save-dock {
+  min-width: 0;
+}
+
+.fair-save-row .fair-save-button {
+  padding-inline: 10px;
+  gap: 6px;
+  font-size: 14.5px;
+}
+
+.fair-save-row .fair-save-button > svg {
+  width: 19px;
+  height: 19px;
+}
+
+.fair-save-row .fair-save-button > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fair-save-row .fair-save-dock[data-saved="true"] .fair-save-button {
+  padding-inline: 10px;
+  font-size: 14.5px;
+}
+
+.fair-save-compare {
+  display: flex;
+  min-width: 0;
+  height: 56px;
+  padding: 0 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: var(--fair-border);
+  background: var(--fair-surface);
+  box-shadow: var(--fair-shadow-2);
+  color: var(--fair-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.fair-event button.fair-save-compare {
+  border-radius: var(--fair-radius-md);
+}
+
+@media (hover: hover) {
+  .fair-save-compare:hover {
+    border-color: var(--fair-accent);
+    background: var(--fair-accent-soft);
+  }
+}
+
+.fair-save-compare:active {
+  transform: translateY(1px);
+}
+
+.fair-save-compare svg {
+  width: 19px;
+  height: 19px;
+  flex: none;
+  color: var(--fair-accent);
+  stroke-width: 1.9;
+}
+
+@media (max-width: 380px) {
+  .fair-save-row .fair-save-button,
+  .fair-save-compare {
+    padding-inline: 8px;
+    font-size: 14px;
+  }
 }
 
 .fair-save-error {
@@ -1886,16 +1970,36 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   }
 }
 
-/* Keep all paid-model actions together on a phone without shrinking touch targets. */
+/* Keep all paid-model actions together on a phone without shrinking touch targets.
+   The hero takes what is left of the viewport (AMF 31 Oct 2026: budget remeasured
+   with the exhibitor link and "Uporedi" beside the garage dock). */
 @media (max-width: 767px) {
+  .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-model-main {
+    gap: 8px;
+  }
+
   .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-model-hero {
     aspect-ratio: auto;
-    height: clamp(124px, calc(100svh - 457px), 320px);
+    height: clamp(124px, calc(100svh - 449px), 320px);
     max-height: calc((100vw - 24px) * 0.625);
   }
 
+  .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-model-main:has(.fair-model-external) .fair-model-hero {
+    height: clamp(124px, calc(100svh - 485px), 320px);
+  }
+
   .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-model-main:has(.fair-new-stamp-slot) .fair-model-hero {
-    height: clamp(140px, calc(100svh - 525px), 260px);
+    height: clamp(140px, calc(100svh - 517px), 260px);
+  }
+
+  .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-model-main:has(.fair-new-stamp-slot):has(.fair-model-external) .fair-model-hero {
+    height: clamp(140px, calc(100svh - 553px), 260px);
+  }
+
+  /* 40 px touch target, 28 px in the layout. */
+  .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-model-external {
+    min-height: 40px;
+    margin-block: -6px;
   }
 
   .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-specs__key {
@@ -1907,7 +2011,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
     padding-block: 8px max(8px, env(safe-area-inset-bottom));
   }
 
-  .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-save-dock {
+  .fair-model-page:is([data-package="starter"], [data-package="advanced"]) :is(.fair-save-dock, .fair-save-compare) {
     height: 48px;
   }
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AnimatePresence } from "framer-motion";
-import { ChevronRight, GitCompareArrows, Mail, Star } from "lucide-react";
+import { ChevronRight, Mail, Star } from "lucide-react";
 import { TbSteeringWheel } from "react-icons/tb";
 import { useEffect, useId, useRef, useState } from "react";
 import {
@@ -16,16 +16,14 @@ import { postFair } from "@/lib/fair-client/fair-api";
 import { fairErrorText } from "@/lib/fair-client/fair-errors";
 import { fairHaptic } from "@/lib/fair-client/haptics";
 import { useFairHistoryLayer } from "@/lib/fair-client/history-layer";
-import type { FairCompareOption } from "@/lib/fair-server/brand-compare";
 import { fmt, type FairModelDict } from "@/lib/i18n";
 import { FairSheet } from "./fair-sheet";
-import { FairCompareSheet, fairBrandCompareHref } from "./model-compare-sheet";
 import { LeadSheet } from "./lead-sheet";
 import { useFairModelInteractions } from "./model-interactions";
 import { fairRatingFromPosition, fairRatingText } from "./rating-position";
 
 type LeadKind = "interest" | "testDrive";
-type SheetKind = "rating" | LeadKind | "compare";
+type SheetKind = "rating" | LeadKind;
 
 type Action = {
   kind: LeadKind;
@@ -366,17 +364,14 @@ export function ModelActionsCheckpoint({
   audience,
   actions,
   ratingMode,
-  compare,
   dict,
 }: {
   audience?: { eyebrow: string; question: string; href: string };
   actions: Action[];
   ratingMode: "none" | "overall" | "dimensions";
-  /** Other published models of the same brand; absent or empty hides "Uporedi". */
-  compare?: { eventSlug: string; modelSlug: string; options: FairCompareOption[] };
   dict: FairModelDict;
 }) {
-  const { leadForms, model } = useFairModelInteractions();
+  const { leadForms } = useFairModelInteractions();
   const [openSheet, setOpenSheet] = useState<SheetKind | null>(null);
   const requestClose = useFairHistoryLayer(
     openSheet !== null,
@@ -384,9 +379,7 @@ export function ModelActionsCheckpoint({
     "model-action",
   );
 
-  const canCompare = Boolean(compare && compare.options.length > 0);
-
-  if (!audience && ratingMode === "none" && actions.length === 0 && !canCompare) return null;
+  if (!audience && ratingMode === "none" && actions.length === 0) return null;
 
   return (
     <section className="fair-action-section">
@@ -423,28 +416,8 @@ export function ModelActionsCheckpoint({
         </div>
       ) : null}
 
-      {canCompare ? (
-        <div className="fair-action-grid" data-count={1}>
-          <button type="button" onClick={() => setOpenSheet("compare")} aria-haspopup="dialog">
-            <GitCompareArrows aria-hidden="true" />
-            <span>{dict.compareAction}</span>
-          </button>
-        </div>
-      ) : null}
-
       <AnimatePresence>
-        {openSheet === "compare" ? (
-          compare ? (
-            <FairCompareSheet
-              key="compare"
-              brandName={model.brandName}
-              options={compare.options}
-              hrefFor={(option) => fairBrandCompareHref(compare.eventSlug, compare.modelSlug, option.slug)}
-              onRequestClose={requestClose}
-              dict={dict}
-            />
-          ) : null
-        ) : openSheet === "rating" ? (
+        {openSheet === "rating" ? (
           <RatingSheet key="rating" dict={dict} onRequestClose={requestClose} />
         ) : openSheet ? (
           <LeadSheet
