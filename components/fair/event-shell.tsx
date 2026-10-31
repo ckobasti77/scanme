@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CarFront, MapPin, Stamp } from "lucide-react";
 import type { FairModelDict } from "@/lib/i18n";
 import { GarageBadge } from "./garage-controls";
+import { RememberFairShell } from "./event-shell-memory";
 import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 import { getDict } from "@/lib/i18n";
 import { fmt } from "@/lib/i18n/format";
@@ -47,12 +48,12 @@ export function FairEventShell({
           {!mapEnabled ? null : current === "map" ? (
             <span className="fair-shell__current" aria-current="page"><MapPin aria-hidden="true" /><span>{dict.mapNav}</span></span>
           ) : (
-            <Link prefetch={false} href={`/sajam/${eventSlug}${demo ? "/mapa" : ""}`}><MapPin aria-hidden="true" /><span>{dict.mapNav}</span></Link>
+            <Link href={`/sajam/${eventSlug}${demo ? "/mapa" : ""}`}><MapPin aria-hidden="true" /><span>{dict.mapNav}</span></Link>
           )}
           {current === "passports" ? (
             <span className="fair-shell__current" aria-current="page"><Stamp aria-hidden="true" /><span>{dict.passportsNav}</span></span>
           ) : (
-            <Link prefetch={false} href={`/sajam/${eventSlug}/pasosi`}><Stamp aria-hidden="true" /><span>{dict.passportsNav}</span></Link>
+            <Link href={`/sajam/${eventSlug}/pasosi`}><Stamp aria-hidden="true" /><span>{dict.passportsNav}</span></Link>
           )}
           {current === "garage" ? (
             <span className="fair-garage-link fair-shell__current" aria-current="page">
@@ -60,7 +61,7 @@ export function FairEventShell({
               <span>{dict.garageNav}</span>
             </span>
           ) : (
-            <Link prefetch={false} href={`/sajam/${eventSlug}/garaza`} className="fair-garage-link">
+            <Link href={`/sajam/${eventSlug}/garaza`} className="fair-garage-link">
               <span className="fair-garage-icon" data-garage-target><CarFront aria-hidden="true" /><GarageBadge eventId={eventId} eventSlug={eventSlug} ariaTemplate={dict.garageCountAria} /></span>
               <span>{dict.garageNav}</span>
             </Link>
@@ -68,6 +69,7 @@ export function FairEventShell({
         </nav>
       </div>
       {adminTools}
+      {eventId ? <RememberFairShell eventSlug={eventSlug} eventId={eventId} eventName={eventName} /> : null}
     </header>
   );
 }

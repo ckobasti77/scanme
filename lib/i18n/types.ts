@@ -489,6 +489,7 @@ export interface FairGarageDict {
   metaTitle: string;
   metaDescription: string;
   umbrellaTitle: string;
+  loading: string;
   mapNav: string;
   passportsNav: string;
   garageNav: string;
@@ -807,6 +808,8 @@ export interface FairPassportDict {
   stampFavoriteAsk: string;
   stampFavoriteChosen: string;
   stampFavoriteAria: string;
+  stampFavoriteLocked: string;
+  stampOpenModelAria: string;
   newStampEyebrowStamps: string;
   newStampActionStamps: string;
   newStampAriaStamps: string;

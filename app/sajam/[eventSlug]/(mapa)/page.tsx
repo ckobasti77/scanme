@@ -15,9 +15,9 @@ import { fairEventThemeClass } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
-import { MapSection } from "./_mapa/map-section";
-import { MapSkeleton } from "./_mapa/map-skeleton";
-import { MapUnavailable } from "./_mapa/map-unavailable";
+import { MapSection } from "../_mapa/map-section";
+import { MapSkeleton } from "../_mapa/map-skeleton";
+import { MapUnavailable } from "../_mapa/map-unavailable";
 import { AMF_PUBLIC_GATE_OPENS_AT, FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 
 // M1 — map / event home. Kodeks's shell and tokens are used as-is; the map

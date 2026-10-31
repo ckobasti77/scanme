@@ -2,11 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Heart } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { FairPassportCatalogEntry, FairPassportProgress } from "@/lib/fair-contract";
 import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 import { fairHaptic } from "@/lib/fair-client/haptics";
+import { createFavoriteSync, type FavoriteSync } from "@/lib/fair-client/favorite-sync";
 import { devFavoriteResult, favoriteLeaders } from "@/lib/fair-client/passport-unlock";
 import { fairPhotoUnoptimized } from "@/lib/fair-client/photo-url";
 import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
@@ -217,6 +218,9 @@ export function StampPassport({
   const [favoriteRun, setFavoriteRun] = useState(0);
   const [pillOverride, setPillOverride] = useState<string | null>(null);
   const [liveText, setLiveText] = useState("");
+  const [lockedHint, setLockedHint] = useState(false);
+  const syncRef = useRef<FavoriteSync | null>(null);
+  const latestRef = useRef({ progress, onProgress, devTools, devThreshold });
 
   const nameOf = (modelId: string) => {
     const model = models.find((entry) => entry.eventModelId === modelId);
@@ -226,7 +230,39 @@ export function StampPassport({
 
   useEffect(() => {
     completeRef.current = complete;
+    latestRef.current = { progress, onProgress, devTools, devThreshold };
   });
+
+  // Favorite saves: latest tap wins, requests in tap order (lib/fair-client/favorite-sync).
+  useEffect(() => {
+    const sync = createFavoriteSync<FairPassportProgress>({
+      confirmed: latestRef.current.progress.favoriteModelId,
+      delayMs: 300,
+      send: async (modelId) => {
+        const { progress: current, devTools: dev, devThreshold: threshold } = latestRef.current;
+        if (dev) {
+          return { ...current, favoriteModelId: modelId, favoriteResult: devFavoriteResult(passport.models.map((model) => model.eventModelId), modelId, threshold) };
+        }
+        const response = await fetch("/api/fair/passport/favorite", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ passportId: passport.passportId, eventModelId: modelId }),
+          keepalive: true,
+        });
+        const body = (await response.json()) as { ok: boolean; value?: FairPassportProgress };
+        if (!response.ok || !body.ok || !body.value) throw new Error("favorite_failed");
+        return body.value;
+      },
+      onSaved: (_modelId, value) => latestRef.current.onProgress(value),
+      onFailed: (confirmed) => {
+        setFavoriteId(confirmed);
+        setPill(dict.favoriteError);
+      },
+    });
+    syncRef.current = sync;
+    return () => sync.dispose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passport.passportId]);
 
   useEffect(() => {
     const timers = timersRef.current;
@@ -468,30 +504,20 @@ export function StampPassport({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [favoriteRun]);
 
-  async function choose(modelId: string) {
+  function choose(modelId: string) {
     if (modelId === favoriteId) return;
-    const previous = favoriteId;
     setFavoriteId(modelId);
     setFavoriteRun((run) => run + 1);
     fairHaptic(14, { iosTick: true });
     setPill(fmt(dict.stampFavoriteChosen, { model: nameOf(modelId) }));
-    if (devTools) {
-      onProgress({ ...progress, favoriteModelId: modelId, favoriteResult: devFavoriteResult(models.map((model) => model.eventModelId), modelId, devThreshold) });
-      return;
-    }
-    try {
-      const response = await fetch("/api/fair/passport/favorite", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ passportId: passport.passportId, eventModelId: modelId }),
-      });
-      const body = (await response.json()) as { ok: boolean; value?: FairPassportProgress };
-      if (!response.ok || !body.ok || !body.value) throw new Error("favorite_failed");
-      onProgress(body.value);
-    } catch {
-      setFavoriteId(previous);
-      setPill(dict.favoriteError);
-    }
+    syncRef.current?.choose(modelId);
+  }
+
+  // Before the set is complete the heart explains when the pick opens.
+  function showLockedHint() {
+    setLockedHint(true);
+    setLiveText(dict.stampFavoriteLocked);
+    later(() => setLockedHint(false), 4000);
   }
 
   const publicResult = progress.favoriteModelId && progress.favoriteResult?.state === "public" ? progress.favoriteResult : undefined;
@@ -547,6 +573,7 @@ export function StampPassport({
                 {countDone ? dict.stampComplete : <><strong>{gotCount}</strong> <em>{countLabel(dict, models.length)}</em></>}
               </div>
             </div>
+            {lockedHint && !pick ? <p className={styles.resultsSoon}>{dict.stampFavoriteLocked}</p> : null}
             <div className={`${styles.ask}${pick ? ` ${styles.askOpen}` : ""}`} aria-hidden={!pick}>
               <div>
                 <div className={styles.pill} role="status">
@@ -581,6 +608,8 @@ export function StampPassport({
             const photo = photos[id];
             const kind = carKindFor(index);
             const isFav = favoriteId === id;
+            // Same rule as before: the pick opens once the set is complete and sealed.
+            const canPick = pick && state === "got";
             const at = stuckAt[id];
             const postmarkStyle: CSSProperties = { transform: inkOffset(id, [-5, 5], [-4, 5], [-28, 22]) };
             const mount =
@@ -591,11 +620,6 @@ export function StampPassport({
                     <StampFace photo={photo} kind={kind} name={name} />
                   </div>
                   {pick ? <span className={styles.halo} style={{ "--d": `${index * 0.28}s` } as CSSProperties} aria-hidden="true" /> : null}
-                  {isFav ? (
-                    <span className={styles.favBadge} data-fav-badge aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.4-9.3C1.2 8.2 3.4 4.5 7 4.5c2 0 3.3 1 5 3 1.7-2 3-3 5-3 3.6 0 5.8 3.7 4.4 7.2C19.5 16.4 12 21 12 21z" /></svg>
-                    </span>
-                  ) : null}
                 </div>
               ) : state === "new" ? (
                 <button type="button" className={styles.mount} aria-label={fmt(dict.stampStickAria, { model: name })} onClick={() => stick(id, index)}>
@@ -637,7 +661,32 @@ export function StampPassport({
                 className={[styles.row, styles[`row_${state}`], isFav ? styles.rowFav : ""].filter(Boolean).join(" ")}
               >
                 <span className={styles.glow} data-glow aria-hidden="true" />
-                {mount}
+                {/* The whole row opens the model; the stamp button and the heart sit above it (siblings, not nested). */}
+                <Link
+                  prefetch={false}
+                  href={`/sajam/${event.publicSlug}/model/${model.slug}`}
+                  className={styles.rowLink}
+                  aria-label={fmt(dict.stampOpenModelAria, { model: name })}
+                />
+                <div className={styles.mountBox}>
+                  {mount}
+                  <button
+                    type="button"
+                    className={`${styles.heart}${isFav ? ` ${styles.heartOn}` : ""}`}
+                    aria-pressed={isFav}
+                    aria-disabled={canPick ? undefined : true}
+                    aria-label={fmt(dict.stampFavoriteAria, { model: name })}
+                    onClick={(clickEvent) => {
+                      clickEvent.stopPropagation();
+                      if (canPick) choose(id);
+                      else showLockedHint();
+                    }}
+                  >
+                    <span className={styles.heartDisc} data-fav-badge>
+                      <Heart aria-hidden="true" fill={isFav ? "currentColor" : "none"} />
+                    </span>
+                  </button>
+                </div>
                 <div className={styles.info} data-info>
                   <div className={styles.modelName} data-model-name>{name}</div>
                   <div className={styles.status} data-stamp-status>{info}</div>
@@ -650,15 +699,6 @@ export function StampPassport({
                     </div>
                   ) : null}
                 </div>
-                {pick && state === "got" ? (
-                  <button
-                    type="button"
-                    className={styles.rowHit}
-                    aria-pressed={isFav}
-                    aria-label={fmt(dict.stampFavoriteAria, { model: name })}
-                    onClick={() => void choose(id)}
-                  />
-                ) : null}
               </div>
             );
           })}

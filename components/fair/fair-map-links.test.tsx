@@ -28,7 +28,7 @@ vi.mock("convex/nextjs", () => ({ fetchQuery: vi.fn(async () => null), fetchMuta
 vi.mock("@/lib/fair-server/garage-page", () => ({ loadFairActiveEventSlug: vi.fn(async () => "elektromobilnost-2026") }));
 
 const { GET } = await import("@/app/sajam/route");
-const { default: FairEventMapPage } = await import("@/app/sajam/[eventSlug]/page");
+const { default: FairEventMapPage } = await import("@/app/sajam/[eventSlug]/(mapa)/page");
 const { FairEventShell } = await import("./event-shell");
 const { fairModelStand } = await import("@/lib/fair-server/model-page");
 
