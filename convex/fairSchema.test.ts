@@ -21,6 +21,7 @@ import {
   fairExhibitorCategory,
   fairLeadKind,
   fairMapZoneId,
+  fairModelHighlight,
   fairModelStatus,
   fairPackageTier,
   fairReportStatus,
@@ -37,6 +38,7 @@ import {
   type FairExhibitorCategory,
   type FairLeadKind,
   type FairMapZoneIdValue,
+  type FairModelHighlight,
   type FairModelStatus,
   type FairPackageTier,
   type FairReportStatus,
@@ -817,6 +819,7 @@ describe("contract types and Convex validators never drift", () => {
     expectTypeOf<Infer<typeof fairPackageTier>>().toEqualTypeOf<FairPackageTier>();
     expectTypeOf<Infer<typeof fairEventStatus>>().toEqualTypeOf<FairEventStatus>();
     expectTypeOf<Infer<typeof fairModelStatus>>().toEqualTypeOf<FairModelStatus>();
+    expectTypeOf<Infer<typeof fairModelHighlight>>().toEqualTypeOf<FairModelHighlight>();
     expectTypeOf<Infer<typeof fairLeadKind>>().toEqualTypeOf<FairLeadKind>();
     expectTypeOf<Infer<typeof fairContactRequirement>>().toEqualTypeOf<FairContactRequirement>();
     expectTypeOf<Infer<typeof fairReportStatus>>().toEqualTypeOf<FairReportStatus>();
@@ -840,6 +843,7 @@ describe("contract types and Convex validators never drift", () => {
       Id<"fairEventModels"> | undefined
     >();
     expectTypeOf<Doc<"fairEventModels">["packageTier"]>().toEqualTypeOf<FairPackageTier>();
+    expectTypeOf<Doc<"fairEventModels">["highlight"]>().toEqualTypeOf<FairModelHighlight | undefined>();
     expectTypeOf<Doc<"fairLeads">["consentAccepted"]>().toEqualTypeOf<true>();
     expectTypeOf<Doc<"fairSponsoredEvents">["surface"]>().toEqualTypeOf<"garage">();
     expectTypeOf<Doc<"fairParticipations">["category"]>().toEqualTypeOf<FairExhibitorCategory | undefined>();

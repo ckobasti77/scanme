@@ -54,6 +54,11 @@ export const fairModelStatus = v.union(
   v.literal("withdrawn"),
 );
 
+export const fairModelHighlight = v.union(
+  v.literal("most_popular"),
+  v.literal("most_popular_day1"),
+);
+
 export const fairQrAssignmentStatus = v.union(v.literal("assigned"), v.literal("released"));
 /** N1 — FAIR_QR_KINDS: a car sticker or a panel with its own URL. */
 export const fairQrKind = v.union(v.literal("sticker"), v.literal("panel"));
@@ -343,6 +348,7 @@ export const fairPublicModelView = v.object({
   priceText: v.string(),
   priceSecondaryText: v.optional(v.string()),
   externalUrl: v.optional(v.string()),
+  highlight: v.optional(fairModelHighlight),
   specificationGroups: v.array(
     v.object({
       id: v.string(),

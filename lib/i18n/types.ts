@@ -30,6 +30,7 @@ import type {
   FairExhibitorCategory,
   FairLeadActivityGroup,
   FairLeadKind,
+  FairModelHighlight,
   FairModelStatus,
   FairPackageTier,
   FairParticipationStatus,
@@ -487,6 +488,8 @@ export interface FairModelDict {
   surveyAnonBody: string;
   surveyAnonAddContact: string;
   surveyAnonSend: string;
+  /** AMF 31 Oct 2026: highlight badge copy on the model hero. */
+  modelHighlights: Record<FairModelHighlight, string>;
 }
 
 export interface FairGarageDict {

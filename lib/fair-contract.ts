@@ -39,6 +39,8 @@ export type FairParticipationStatus = "draft" | "active" | "withdrawn";
 /** B0 placeholder: HANDOFF §5.1 names `fairStands.status` without values. */
 export type FairStandStatus = "draft" | "active" | "withdrawn";
 export type FairModelStatus = "draft" | "published" | "withdrawn";
+export const FAIR_MODEL_HIGHLIGHTS = ["most_popular", "most_popular_day1"] as const;
+export type FairModelHighlight = (typeof FAIR_MODEL_HIGHLIGHTS)[number];
 export type FairQrAssignmentStatus = "assigned" | "released";
 export type FairAudienceQuestionStatus = "draft" | "published" | "closed";
 /** B0 placeholder: HANDOFF §5.3 names `fairSurveys.status` without values. */
@@ -367,6 +369,8 @@ export type FairPublicModel = {
   priceSecondaryText?: string;
   /** AMF 30 Oct 2026: the exhibitor's own page for this model (opens in a new tab). */
   externalUrl?: string;
+  /** AMF 31 Oct 2026: optional highlight badge ("most_popular" | "most_popular_day1"). */
+  highlight?: FairModelHighlight;
   /** Group and item order come from the server; never re-sort by label. */
   specificationGroups: FairSpecificationGroup[];
   photoUrl?: string;

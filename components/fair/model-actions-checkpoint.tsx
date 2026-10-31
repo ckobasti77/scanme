@@ -28,6 +28,7 @@ type SheetKind = "rating" | LeadKind;
 type Action = {
   kind: LeadKind;
   label: string;
+  highlighted?: boolean;
 };
 
 type Dimension = "appearance" | "specifications" | "price";
@@ -371,7 +372,7 @@ export function ModelActionsCheckpoint({
   ratingMode: "none" | "overall" | "dimensions";
   dict: FairModelDict;
 }) {
-  const { leadForms } = useFairModelInteractions();
+  const { live, leadForms } = useFairModelInteractions();
   const [openSheet, setOpenSheet] = useState<SheetKind | null>(null);
   const requestClose = useFairHistoryLayer(
     openSheet !== null,
@@ -406,8 +407,20 @@ export function ModelActionsCheckpoint({
         <div className="fair-action-grid" data-count={actions.length}>
           {actions.map((action) => {
             const Icon = icons[action.kind];
+            const highlighted =
+              action.kind === "testDrive" &&
+              Boolean(action.highlighted) &&
+              (!live || leadForms.testDrive?.state === "open");
             return (
-              <button key={action.kind} type="button" onClick={() => setOpenSheet(action.kind)}>
+              <button
+                key={action.kind}
+                type="button"
+                data-highlight={highlighted ? "true" : undefined}
+                onClick={() => setOpenSheet(action.kind)}
+              >
+                {highlighted ? (
+                  <span className="fair-action-highlight__shine" aria-hidden="true" />
+                ) : null}
                 <Icon aria-hidden="true" />
                 <span>{action.label}</span>
               </button>
