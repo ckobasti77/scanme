@@ -433,6 +433,10 @@ export interface FairModelDict {
   priceLabel: string;
   exhibitedPriceLabel: string;
   priceOnRequest: string;
+  /** AMF 31 Oct 2026: compare with another model of the same brand. */
+  compareAction: string;
+  compareSheetTitle: string;
+  compareSheetSubtitle: string;
   /** AMF 30 Oct 2026: link to the exhibitor's own page for the model. */
   externalModelLink: string;
   /** AMF 30 Oct 2026: scroll indicator (components/fair/scroll-hint.tsx). */
@@ -591,6 +595,15 @@ export interface FairGarageDict {
   comparisonUnavailable: string;
   noSpecification: string;
   modelPhotoAlt: string;
+  /** Same-brand comparison opened from a model page (AMF 31 Oct 2026). */
+  brandComparisonMetaTitle: string;
+  brandComparisonBack: string;
+  brandComparisonSwitch: string;
+  brandComparisonMissingValue: string;
+  brandComparisonRefusedTitle: string;
+  brandComparisonRefusedBody: string;
+  brandComparisonChooseTitle: string;
+  brandComparisonChooseBody: string;
   poweredBy: string;
   privacyLink: string;
 }
