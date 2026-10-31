@@ -9,7 +9,7 @@ Backend (`convex/`), validatori, šema, `mapLocationId` i API rute **nisu menjan
   Pravilo je isto kao ranije: srce radi tek kad je pasoš kompletan i zapečaćen;
   pre toga je `aria-disabled` i dodir prikaže objašnjenje.
 - Čuvanje: `lib/fair-client/favorite-sync.ts` — srce se menja odmah, zahtevi idu
-  sa debounce 300 ms, najviše jedan u letu, uvek redom dodira; pobeđuje poslednji
+  tek 3 s posle poslednjeg dodira (svaka promena ponovo čeka 3 s; skrivanje/zatvaranje stranice šalje odmah), najviše jedan u letu, uvek redom dodira; pobeđuje poslednji
   dodir; neuspeh vraća poslednji potvrđeni izbor. `POST /api/fair/passport/favorite`
   je isti; brzo menjanje ne troši više od jednog zahteva po pauzi, pa ne udara u
   `fairBrandFavorite` limit (5 odjednom, 10/min).

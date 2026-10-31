@@ -1,6 +1,7 @@
 // Latest-wins save of the brand favorite (stamp passport heart, 31 Oct 2026).
 // The heart updates at once on every tap; the server only ever gets the last
-// choice: taps are debounced, at most one request is in flight, and when it
+// choice: taps are debounced (3 s after the last tap; each new tap restarts
+// the wait), at most one request is in flight, and when it
 // returns while a newer choice is waiting, the newer one is sent next. So the
 // requests reach the server in tap order and the last tap is what is saved.
 // A failed final request rolls back to the last choice the server confirmed.
@@ -8,6 +9,8 @@
 export type FavoriteSync = {
   /** A tap: the new desired favorite (already shown by the caller). */
   choose(modelId: string): void;
+  /** Page hidden or closing: send a waiting choice now instead of after the delay. */
+  flushNow(): void;
   /** Unmount: a pending (debounced) choice is still sent, never dropped. */
   dispose(): void;
 };
@@ -60,12 +63,15 @@ export function createFavoriteSync<R>(options: {
       if (timer) clearTimeout(timer);
       timer = setTimeout(flush, options.delayMs);
     },
-    dispose() {
-      disposed = true;
+    flushNow() {
       if (timer) {
         clearTimeout(timer);
         flush();
       }
+    },
+    dispose() {
+      disposed = true;
+      this.flushNow();
     },
   };
 }

@@ -1052,7 +1052,7 @@ export function FairPassportExperience({
       {loadState === "loading" ? <div className={styles.loadingLine} aria-label={dict.loading} /> : null}
       {selected && passportStyle === "stamps" ? (
         <StampPassport
-          key={`${selected.passportId}:${progressFor(state, selected).stampedModelIds.join("|")}:${devResetRun}`}
+          key={`${selected.passportId}:${[...progressFor(state, selected).stampedModelIds].sort().join("|")}:${devResetRun}`}
           event={{ id: event.id, publicSlug: event.publicSlug, title: event.title }}
           passport={selected}
           progress={progressFor(state, selected)}

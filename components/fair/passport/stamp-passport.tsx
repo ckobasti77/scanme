@@ -237,7 +237,7 @@ export function StampPassport({
   useEffect(() => {
     const sync = createFavoriteSync<FairPassportProgress>({
       confirmed: latestRef.current.progress.favoriteModelId,
-      delayMs: 300,
+      delayMs: 3000,
       send: async (modelId) => {
         const { progress: current, devTools: dev, devThreshold: threshold } = latestRef.current;
         if (dev) {
@@ -260,7 +260,17 @@ export function StampPassport({
       },
     });
     syncRef.current = sync;
-    return () => sync.dispose();
+    // Leaving or hiding the page inside the 3 s wait still saves the last pick.
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") sync.flushNow();
+    };
+    window.addEventListener("pagehide", sync.flushNow);
+    document.addEventListener("visibilitychange", onHidden);
+    return () => {
+      window.removeEventListener("pagehide", sync.flushNow);
+      document.removeEventListener("visibilitychange", onHidden);
+      sync.dispose();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passport.passportId]);
 
