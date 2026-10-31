@@ -35,7 +35,7 @@
 
 .back:focus-visible,
 .mount:focus-visible,
-.rowHit:focus-visible,
+.rowLink:focus-visible,
 .find:focus-visible {
   outline: 2px solid var(--stamp-acc);
   outline-offset: 2px;
@@ -557,35 +557,82 @@ button.mount {
   65% { opacity: 0; }
 }
 
-.rowHit {
+/* The whole row opens the model; stamp button, map link and heart sit above it. */
+.rowLink {
   position: absolute;
-  z-index: 5;
+  z-index: 1;
   inset: 0;
-  padding: 0;
-  border: 0;
   border-radius: 10px;
-  background: transparent;
-  cursor: pointer;
 }
 
-.favBadge {
+.mountBox {
+  position: relative;
+  flex: none;
+}
+
+button.mount,
+.find {
+  position: relative;
+  z-index: 2;
+}
+
+/* Favorite heart: top-right corner of the stamp, 44 px tap target. */
+.heart {
   position: absolute;
-  z-index: 4;
-  top: -9px;
-  right: -9px;
+  z-index: 3;
+  top: -16px;
+  right: -16px;
   display: grid;
-  width: 26px;
-  height: 26px;
+  width: 44px;
+  height: 44px;
   place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--stamp-acc);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.heartDisc {
+  display: grid;
+  width: 39px;
+  height: 39px;
+  place-items: center;
+  border: 1.5px solid var(--stamp-acc);
   border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgb(120 40 10 / 0.2);
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.heartDisc svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
+}
+
+.heartOn .heartDisc {
   background: var(--stamp-acc);
   box-shadow: 0 2px 6px rgb(120 40 10 / 0.35);
   color: #fff;
 }
 
-.favBadge svg {
-  width: 13px;
-  height: 13px;
+.heart[aria-disabled="true"] {
+  cursor: default;
+}
+
+.heart[aria-disabled="true"] .heartDisc {
+  opacity: 0.45;
+}
+
+.heart:focus-visible {
+  outline: none;
+}
+
+.heart:focus-visible .heartDisc {
+  outline: 2px solid var(--stamp-acc);
+  outline-offset: 2px;
 }
 
 /* Flight layer. */
@@ -663,5 +710,9 @@ button.mount {
   .sheetWaiting .halo {
     animation: none;
     opacity: 0.6;
+  }
+
+  .heartDisc {
+    transition: none;
   }
 }

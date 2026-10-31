@@ -4,6 +4,7 @@ export const fairGarageSr = {
   metaTitle: "Moja garaža | Sajam automobila",
   metaDescription: "Sačuvani sajamski modeli, poređenje i brend pasoši na jednom mestu.",
   umbrellaTitle: "Sajam automobila",
+  loading: "Učitavamo garažu",
   mapNav: "Mapa",
   passportsNav: "Pasoši",
   garageNav: "Garaža",
