@@ -200,19 +200,20 @@ function InboxFilters({ hierarchy, query, onQueryChange }: { hierarchy: Hierarch
     <AdminFilterBar
       label={t.filtersLabel}
       hierarchy={
-        <div className="grid min-w-0 gap-3">
-          <AdminHierarchyPicker
-            data={hierarchy}
-            value={{ exhibitorId: query.izlagac, brandId: query.brend, modelId: query.model }}
-            label={t.hierarchyLabel}
-            onChange={(next) => onQueryChange({ izlagac: next.exhibitorId ?? null, brend: next.brandId ?? null, model: next.modelId ?? null, lead: null })}
-          />
-          <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:max-w-xl">
-            <DateField label={t.fromLabel} value={query.od} onChange={(od) => onQueryChange({ od })} />
-            <DateField label={t.toLabel} value={query.do} onChange={(next) => onQueryChange({ do: next })} />
-          </div>
-        </div>
+        <AdminHierarchyPicker
+          data={hierarchy}
+          value={{ exhibitorId: query.izlagac, brandId: query.brend, modelId: query.model }}
+          label={t.hierarchyLabel}
+          onChange={(next) => onQueryChange({ izlagac: next.exhibitorId ?? null, brend: next.brandId ?? null, model: next.modelId ?? null, lead: null })}
+        />
       }
+      leadingFacets={
+        <>
+          <DateField label={t.fromLabel} value={query.od} onChange={(od) => onQueryChange({ od })} />
+          <DateField label={t.toLabel} value={query.do} onChange={(next) => onQueryChange({ do: next })} />
+        </>
+      }
+      facetColumns={4}
       facets={[
         { id: "tip", label: t.facetKind, options: (["zainteresovan", "probna-voznja"] as const).map((value) => ({ value, label: t.kindOptions[value] })) },
         { id: "isporuka", label: t.facetDelivery, options: (["ne", "da"] as const).map((value) => ({ value, label: t.deliveryOptions[value] })) },

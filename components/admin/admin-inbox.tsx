@@ -346,7 +346,7 @@ function ConversationDetail({
           </div>
           <div className="grid gap-1.5">
             <span className="text-sm font-medium">{dict.assigneeLabel}</span>
-            <div className="flex min-h-9 items-center gap-2 text-sm">
+            <div className="flex min-h-11 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] px-3 text-sm">
               <UserRound className="size-4 text-[var(--admin-text-muted)]" aria-hidden="true" />
               <span className="min-w-0 truncate">{row.assigneeName ?? dict.noAssignee}</span>
             </div>
@@ -556,7 +556,7 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
       </header>
 
       {!scope.embedded ? (
-        <AdminPanel className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-[minmax(16rem,1.4fr)_repeat(3,minmax(10rem,0.7fr))]">
+        <AdminPanel className="grid gap-3 p-3 sm:grid-cols-2 sm:items-end sm:p-4 xl:grid-cols-[minmax(16rem,1.4fr)_repeat(3,minmax(10rem,0.7fr))]">
           <form
             className="relative sm:col-span-2 xl:col-span-1"
             onSubmit={(event) => {
@@ -571,21 +571,21 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
           <div className="grid gap-1.5">
             <Label htmlFor="inbox-status">{dict.statusFilter}</Label>
             <Select value={status} onValueChange={(value) => setStatus(value as ConversationStatus | "all")}>
-              <SelectTrigger id="inbox-status" className="min-h-11"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="inbox-status" className="min-h-11 w-full"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="all">{dict.filterAll}</SelectItem>{(Object.keys(statusLabels) as ConversationStatus[]).map((value) => <SelectItem key={value} value={value}>{statusLabels[value]}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="inbox-channel">{dict.channelFilter}</Label>
             <Select value={channel} onValueChange={(value) => setChannel(value as Channel | "all")}>
-              <SelectTrigger id="inbox-channel" className="min-h-11"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="inbox-channel" className="min-h-11 w-full"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="all">{dict.filterAll}</SelectItem>{(Object.keys(channelLabels) as Channel[]).map((value) => <SelectItem key={value} value={value}>{channelLabels[value]}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="inbox-assignee">{dict.assigneeFilter}</Label>
             <Select value={assignee} onValueChange={(value) => setAssigneeFilter(value as typeof assignee)}>
-              <SelectTrigger id="inbox-assignee" className="min-h-11"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="inbox-assignee" className="min-h-11 w-full"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="all">{dict.filterAll}</SelectItem><SelectItem value="mine">{dict.assigneeMine}</SelectItem><SelectItem value="unassigned">{dict.assigneeUnassigned}</SelectItem>{adminOptions.map((admin) => <SelectItem key={admin.id} value={admin.id}>{admin.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>

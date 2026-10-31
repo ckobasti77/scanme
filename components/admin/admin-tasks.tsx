@@ -365,8 +365,8 @@ function Filters({
           </button>
         ))}
       </div>
-      <div className="grid gap-3 lg:grid-cols-[minmax(15rem,1fr)_repeat(4,minmax(9rem,0.55fr))]">
-        <label className="relative block">
+      <div className="grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-[minmax(15rem,1fr)_repeat(4,minmax(9rem,0.55fr))]">
+        <label className="relative block sm:col-span-2 lg:col-span-1">
           <span className="sr-only">{dict.searchLabel}</span>
           <Search
             className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]"
