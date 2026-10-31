@@ -12,6 +12,7 @@ import { fmt, type FairModelDict } from "@/lib/i18n";
 import { fairEventThemeClass } from "@/lib/fair-theme";
 import { FAIR_PRIVACY_PATH } from "@/lib/fair-contract";
 import type { FairModelInteractions, FairModelStand } from "@/lib/fair-server/model-page";
+import type { FairCompareOption } from "@/lib/fair-server/brand-compare";
 import { FairEventShell } from "./event-shell";
 import { GarageSaveButton } from "./garage-controls";
 import { ModelActionsCheckpoint } from "./model-actions-checkpoint";
@@ -22,13 +23,7 @@ import { ModelSpecsCard } from "./model-specs-card";
 import { SurveyChatHead } from "./survey/survey-chat-head";
 import { ModelName } from "./model-name";
 import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
-
-/** "Cena na upit" / empty → "na upit"; a leading "Cena " is dropped (the block already says Cena). */
-function priceValue(priceText: string, dict: FairModelDict) {
-  const text = priceText.trim();
-  if (!text || /^(cena\s+)?na upit$/i.test(text)) return dict.priceOnRequest;
-  return text.replace(/^cena\s+/i, "");
-}
+import { fairModelPriceLabel, fairModelPriceValue } from "@/lib/fair-client/model-price";
 
 type FixtureSelection = {
   mode: FairFixtureMode;
@@ -156,6 +151,7 @@ export function FairModelPage({
   stand,
   audienceTeaser,
   openSurvey,
+  compareOptions = [],
   adminTools,
 }: {
   model: FairPublicModelFixture;
@@ -171,6 +167,8 @@ export function FairModelPage({
   audienceTeaser: string | null;
   /** `/anketa` deep link: open the survey sheet when the model offers one. */
   openSurvey: boolean;
+  /** Other published models of the same brand ("Uporedi"); empty hides the button. */
+  compareOptions?: FairCompareOption[];
   /** Admin DEV tools (components/fair/admin): null for every visitor. */
   adminTools?: ReactNode;
 }) {
@@ -271,8 +269,8 @@ export function FairModelPage({
               {model.variant ? <p>{model.variant}</p> : null}
             </div>
             <p className="fair-model-price">
-              <small>{amf && model.brandName === "Škoda" ? dict.exhibitedPriceLabel : dict.priceLabel}</small>
-              <span>{priceValue(model.priceText, dict)}</span>
+              <small>{fairModelPriceLabel(model.eventSlug, model.brandName, dict)}</small>
+              <span>{fairModelPriceValue(model.priceText, dict)}</span>
               {model.priceSecondaryText ? <small className="fair-model-price__secondary">{model.priceSecondaryText}</small> : null}
             </p>
           </div>
@@ -305,6 +303,7 @@ export function FairModelPage({
           }
           actions={actions}
           ratingMode={model.capabilities.ratingMode}
+          compare={{ eventSlug: model.eventSlug, modelSlug: model.modelSlug, options: compareOptions }}
           dict={dict}
         />
 

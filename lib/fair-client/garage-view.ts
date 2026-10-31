@@ -85,25 +85,32 @@ export function fairGarageEventCount(
   return itemsForEventKeys(document, [key.eventId, publicSlug], [publicSlug]).length;
 }
 
+/** Card of a live model; also used by the same-brand comparison, which reads models outside the garage. */
+export function fairLiveModelView(
+  live: FairPublicModel,
+  eventSlug: string,
+  savedAt = 0,
+): FairGarageModelView {
+  return {
+    id: live.id,
+    eventSlug,
+    modelSlug: live.slug,
+    brandName: live.brandName,
+    displayName: live.displayName,
+    ...(live.variant ? { variant: live.variant } : {}),
+    priceText: live.priceText,
+    ...(live.photoUrl ? { photoUrl: live.photoUrl } : {}),
+    live,
+    savedAt,
+  };
+}
+
 export function fairGarageModelView(
   item: FairGarageItem,
   live: FairPublicModel | undefined,
   fallbackEventSlug: string,
 ): FairGarageModelView | null {
-  if (live) {
-    return {
-      id: live.id,
-      eventSlug: fallbackEventSlug,
-      modelSlug: live.slug,
-      brandName: live.brandName,
-      displayName: live.displayName,
-      ...(live.variant ? { variant: live.variant } : {}),
-      priceText: live.priceText,
-      ...(live.photoUrl ? { photoUrl: live.photoUrl } : {}),
-      live,
-      savedAt: item.savedAt,
-    };
-  }
+  if (live) return fairLiveModelView(live, fallbackEventSlug, item.savedAt);
   if (!item.lastKnown) return null;
   return {
     id: item.modelId,

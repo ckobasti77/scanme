@@ -1138,6 +1138,108 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   stroke-width: 1.9;
 }
 
+/* AMF 31 Oct 2026: "Uporedi" — the same-brand model list (sheet and empty comparison). */
+.fair-compare-list {
+  display: grid;
+  margin: 0;
+  padding: 4px 14px max(16px, env(safe-area-inset-bottom));
+  gap: 8px;
+  list-style: none;
+}
+
+.fair-event .fair-compare-list a {
+  display: grid;
+  min-height: 64px;
+  margin: 0;
+  padding: 8px 10px 8px 8px;
+  grid-template-columns: 88px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 12px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font-size: 14px;
+  font-weight: 400;
+  text-align: left;
+  text-decoration: none;
+  transition:
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+@media (hover: hover) {
+  .fair-event .fair-compare-list a:hover {
+    border-color: var(--fair-accent);
+    background: var(--fair-accent-soft);
+  }
+}
+
+.fair-event .fair-compare-list a:focus-visible {
+  outline: 2px solid var(--fair-accent);
+  outline-offset: 2px;
+}
+
+.fair-event .fair-compare-list a[aria-current="true"] {
+  border-color: var(--fair-accent);
+  background: var(--fair-accent-soft);
+}
+
+.fair-compare-list__photo {
+  position: relative;
+  display: grid;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--fair-surface-warm);
+  color: var(--fair-ink-muted);
+}
+
+.fair-compare-list__photo img {
+  object-fit: cover;
+}
+
+.fair-compare-list__photo svg {
+  width: 26px;
+  height: 26px;
+}
+
+.fair-compare-list__copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.fair-compare-list__copy strong,
+.fair-compare-list__copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fair-compare-list__copy strong {
+  font-size: 15px;
+  font-weight: 740;
+  letter-spacing: -0.02em;
+}
+
+.fair-compare-list__copy small {
+  color: var(--fair-ink-muted);
+  font-size: 12px;
+}
+
+.fair-compare-list__copy span {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.fair-compare-list__chevron {
+  width: 18px;
+  height: 18px;
+  color: var(--fair-ink-muted);
+}
+
 /* The global "button:not([data-slot])" corner rule outranks one class: restate the v2 corners. */
 .fair-event button.fair-specs__toggle {
   border-radius: 0;

@@ -1,8 +1,5 @@
 "use client";
 
-import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
-import Image from "next/image";
-import { fairLocalPhotoUrl, fairPhotoUnoptimized } from "@/lib/fair-client/photo-url";
 import Link from "next/link";
 import { ArrowLeft, CarFront, WifiOff } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -25,30 +22,10 @@ import {
 import { fairEventThemeClass } from "@/lib/fair-theme";
 import type { FairGarageDict, FairModelDict } from "@/lib/i18n/types";
 import { FairEventShell } from "../event-shell";
+import { FairComparisonTable, fairComparisonRows } from "./fair-comparison-table";
 import styles from "./fair-garage.module.css";
 
 type ComparisonState = "loading" | "ready" | "error";
-
-function modelPhoto(model: FairGarageModelView, dict: FairGarageDict) {
-  return (
-    <div className={styles.comparisonPhoto}>
-      {model.photoUrl ? (
-        <Image
-          fill
-          sizes="(max-width: 640px) 46vw, 350px"
-          src={fairLocalPhotoUrl(model.photoUrl)}
-          style={fairVehiclePhotoStyle(model.photoUrl)}
-          unoptimized={fairPhotoUnoptimized(fairLocalPhotoUrl(model.photoUrl))}
-          alt={dict.modelPhotoAlt
-            .replace("{brand}", model.brandName)
-            .replace("{model}", model.displayName)}
-        />
-      ) : (
-        <CarFront aria-hidden="true" />
-      )}
-    </div>
-  );
-}
 
 export function FairGarageComparison({
   routeEventSlug,
@@ -114,41 +91,10 @@ export function FairGarageComparison({
       .filter((model): model is FairGarageModelView => model !== null);
   }, [document, event, live, modelIds]);
 
-  const specificationRows = useMemo(() => {
-    if (models.length !== 2 || !models.every((model) => model.live)) return [];
-    const rows: Array<{
-      key: string;
-      group: string;
-      label: string;
-      values: [string, string];
-    }> = [];
-    const order: Array<{ key: string; group: string; label: string }> = [];
-    const known = new Set<string>();
-    for (const model of models) {
-      for (const group of model.live!.specificationGroups) {
-        for (const item of group.items) {
-          const key = `${group.label}\u0000${item.label}`;
-          if (known.has(key)) continue;
-          known.add(key);
-          order.push({ key, group: group.label, label: item.label });
-        }
-      }
-    }
-    for (const item of order) {
-      const values = models.map((model) => {
-        for (const group of model.live!.specificationGroups) {
-          const match = group.items.find(
-            (candidate) =>
-              group.label === item.group && candidate.label === item.label,
-          );
-          if (match) return match.value;
-        }
-        return dict.noSpecification;
-      }) as [string, string];
-      rows.push({ ...item, values });
-    }
-    return rows;
-  }, [dict.noSpecification, models]);
+  const specificationRows = useMemo(
+    () => fairComparisonRows(models, dict.noSpecification),
+    [dict.noSpecification, models],
+  );
 
   const valid = modelIds.length === 2 && models.length === 2;
 
@@ -198,53 +144,22 @@ export function FairGarageComparison({
                 {dict.comparisonUnavailable}
               </div>
             ) : null}
-            <section className={styles.comparisonModels} aria-label={dict.comparisonTitle}>
-              {models.map((model) => (
-                <article key={model.id}>
-                  {modelPhoto(model, dict)}
-                  <span>{model.brandName}</span>
-                  <h2>{model.displayName}</h2>
-                  {model.variant ? <p>{model.variant}</p> : null}
-                  <strong>{model.priceText}</strong>
-                  <Link href={`/sajam/${model.eventSlug}/model/${model.modelSlug}`}>
-                    {dict.viewModel}
-                  </Link>
-                </article>
-              ))}
-            </section>
-
-            {specificationRows.length > 0 ? (
-              <section className={styles.specComparison}>
-                <h2>{dict.comparisonSpecifications}</h2>
-                <div className={styles.specHeader} aria-hidden="true">
-                  <span />
-                  {models.map((model) => (
-                    <strong key={model.id}>{model.displayName}</strong>
-                  ))}
-                </div>
-                {specificationRows.map((row, index) => {
-                  const previousGroup = specificationRows[index - 1]?.group;
-                  return (
-                    <div key={row.key} className={styles.specRow}>
-                      {row.group !== previousGroup ? (
-                        <h3>{row.group}</h3>
-                      ) : null}
-                      <span>{row.label}</span>
-                      <strong>{row.values[0]}</strong>
-                      <strong>{row.values[1]}</strong>
-                    </div>
-                  );
-                })}
-              </section>
-            ) : state === "loading" ? (
-              <p className={styles.comparisonUnavailable} role="status">
-                {dict.comparisonLoadingSpecifications}
-              </p>
-            ) : state === "ready" ? (
-              <p className={styles.comparisonUnavailable}>
-                {dict.comparisonUnavailable}
-              </p>
-            ) : null}
+            <FairComparisonTable
+              models={models}
+              rows={specificationRows}
+              dict={dict}
+              specsFallback={
+                state === "loading" ? (
+                  <p className={styles.comparisonUnavailable} role="status">
+                    {dict.comparisonLoadingSpecifications}
+                  </p>
+                ) : state === "ready" ? (
+                  <p className={styles.comparisonUnavailable}>
+                    {dict.comparisonUnavailable}
+                  </p>
+                ) : null
+              }
+            />
           </>
         ) : null}
       </main>

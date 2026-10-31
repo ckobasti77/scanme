@@ -23,3 +23,21 @@ Backend (`convex/`), validatori, šema, `mapLocationId` i API rute **nisu menjan
   tabom + skeleton). Model, deli i `pasosi/[brandSlug]` nemaju taj loading.
 - Tri linka u shell-u sada imaju podrazumevani prefetch (samo do `loading.tsx`,
   bez Convex upita); serverske stranice ostaju `force-dynamic`, podaci sveži.
+
+## "Uporedi" na stranici modela (poređenje u okviru iste marke)
+
+Backend (`convex/`), validatori, šema i API rute **nisu menjani**; koriste se postojeći
+`fairPublic.getEventMap` i `fairPublic.getModelsByIds`.
+
+- Nova ruta: `/sajam/{event}/model/{slug}/poredjenje?sa={drugiSlugIliId}`
+  (`app/sajam/[eventSlug]/model/[modelSlug]/poredjenje/page.tsx`).
+- Spisak modela iste marke: `lib/fair-server/brand-compare.ts` (`loadFairBrandModels`) —
+  isti događaj, ista marka i isti izlagač (`participationId`), samo objavljeni modeli na
+  aktivnim štandovima aktivnih učešća (kao mapa). Dugme se ne prikazuje kad marka nema
+  drugi takav model; ručno napravljen URL sa drugom markom dobija stanje "ne mogu da se uporede",
+  nepoznat slug `notFound`.
+- Tabela poređenja je izdvojena u `components/fair/garage/fair-comparison-table.tsx` i deli je
+  garaža (`/garaza/poredjenje`, ponašanje isto) i novo poređenje. Novo poređenje ne dira
+  garažu (ništa se ne dodaje) i ne šalje analitiku; navigacija nema aktivan tab.
+- `fairLiveModelView` (u `lib/fair-client/garage-view.ts`) i `lib/fair-client/model-price.ts`
+  (prikaz cene sa stranice modela) su novi izvozi.

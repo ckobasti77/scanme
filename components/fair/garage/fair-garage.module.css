@@ -961,6 +961,40 @@
   text-decoration: none;
 }
 
+/* Same-brand comparison (model page "Uporedi"): model-page price block and the switcher. */
+.comparisonModels .comparisonPriceBlock {
+  display: grid;
+  margin: 11px var(--fair-space-2) 0;
+  gap: 2px;
+  color: var(--fair-ink);
+}
+
+.comparisonModels .comparisonPriceBlock strong { margin: 0; font-size: 14px; }
+.comparisonModels .comparisonPriceBlock small { color: var(--fair-ink-muted); font-size: 10px; line-height: 1.3; }
+
+.comparisonModels .comparisonSwitch {
+  display: inline-flex;
+  min-height: 44px;
+  margin: var(--fair-space-2) var(--fair-space-2) 0;
+  padding: var(--fair-space-2) var(--fair-space-3);
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.comparisonSwitch svg { width: 16px; height: 16px; flex: none; color: var(--fair-accent); }
+
+.comparisonChoices { width: min(100%, 460px); margin-top: 18px; }
+.comparisonChoices ul { padding: 0; text-align: left; }
+
 .comparisonOffline,
 .comparisonUnavailable {
   display: flex;
@@ -1285,6 +1319,14 @@
     margin-right: 5px;
     margin-left: 5px;
   }
+
+  .comparisonModels .comparisonPriceBlock,
+  .comparisonModels .comparisonSwitch {
+    margin-right: 5px;
+    margin-left: 5px;
+  }
+
+  .comparisonModels .comparisonSwitch { padding-inline: 6px; }
 
   .comparisonModels h2 { font-size: 19px; }
   .comparisonModels strong { font-size: 12px; }
