@@ -2,8 +2,8 @@
 
 import gsap from "gsap";
 import Link from "next/link";
-import { CarFront, Check, ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { CarFront, Check, ExternalLink } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   FAIR_GARAGE_CHANGE_EVENT,
   FAIR_GARAGE_MODEL_CHANGE_EVENT,
@@ -110,6 +110,7 @@ export function GarageSaveButton({
   openGarageLabel,
   garageHref,
   errorLabel,
+  aside,
 }: {
   eventId: string;
   modelId: string;
@@ -119,6 +120,8 @@ export function GarageSaveButton({
   openGarageLabel: string;
   garageHref: string;
   errorLabel: string;
+  /** A second action beside the dock in the same row ("Uporedi"). */
+  aside?: ReactNode;
 }) {
   const [writeFailed, setWriteFailed] = useState(false);
   const flightTimelineRef = useRef<gsap.core.Timeline | null>(null);
@@ -249,31 +252,41 @@ export function GarageSaveButton({
     }
   }
 
+  const dock = (
+    <div className="fair-save-dock" data-saved={saved}>
+      <button type="button" aria-pressed={saved} onClick={toggleSaved} className="fair-save-button">
+        {saved ? (
+          <>
+            <span className="fair-save-button__check" aria-hidden="true">
+              <Check />
+            </span>
+            <span>{savedLabel}</span>
+          </>
+        ) : (
+          <>
+            <CarFront aria-hidden="true" />
+            <span>{saveLabel}</span>
+          </>
+        )}
+      </button>
+      {saved ? (
+        <Link className="fair-save-open" href={garageHref} aria-label={openGarageLabel} title={openGarageLabel}>
+          <ExternalLink aria-hidden="true" />
+        </Link>
+      ) : null}
+    </div>
+  );
+
   return (
     <div className="fair-save-bar">
-      <div className="fair-save-dock" data-saved={saved}>
-        <button type="button" aria-pressed={saved} onClick={toggleSaved} className="fair-save-button">
-          {saved ? (
-            <>
-              <span className="fair-save-button__check" aria-hidden="true">
-                <Check />
-              </span>
-              <span>{savedLabel}</span>
-            </>
-          ) : (
-            <>
-              <CarFront aria-hidden="true" />
-              <span>{saveLabel}</span>
-            </>
-          )}
-        </button>
-        {saved ? (
-          <Link className="fair-save-open" href={garageHref}>
-            {openGarageLabel}
-            <ChevronRight aria-hidden="true" />
-          </Link>
-        ) : null}
-      </div>
+      {aside ? (
+        <div className="fair-save-row">
+          {dock}
+          {aside}
+        </div>
+      ) : (
+        dock
+      )}
       {writeFailed ? (
         <p className="fair-save-error" role="alert">
           {errorLabel}

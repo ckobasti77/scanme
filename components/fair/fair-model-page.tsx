@@ -16,6 +16,7 @@ import type { FairCompareOption } from "@/lib/fair-server/brand-compare";
 import { FairEventShell } from "./event-shell";
 import { GarageSaveButton } from "./garage-controls";
 import { ModelActionsCheckpoint } from "./model-actions-checkpoint";
+import { ModelCompareAction } from "./model-compare-action";
 import { FairModelInteractionsProvider } from "./model-interactions";
 import { fairModelHasTractionBattery, fairModelKeySpecs, fairModelSpecGroups } from "./model-key-specs";
 import { ModelNewStamp } from "./model-new-stamp";
@@ -303,7 +304,6 @@ export function FairModelPage({
           }
           actions={actions}
           ratingMode={model.capabilities.ratingMode}
-          compare={{ eventSlug: model.eventSlug, modelSlug: model.modelSlug, options: compareOptions }}
           dict={dict}
         />
 
@@ -315,6 +315,16 @@ export function FairModelPage({
           openGarageLabel={dict.openGarage}
           garageHref={`/sajam/${model.eventSlug}/garaza`}
           errorLabel={dict.garageStorageError}
+          aside={
+            compareOptions.length > 0 ? (
+              <ModelCompareAction
+                eventSlug={model.eventSlug}
+                modelSlug={model.modelSlug}
+                options={compareOptions}
+                dict={dict}
+              />
+            ) : null
+          }
           lastKnown={{
             eventSlug: model.eventSlug,
             modelSlug: model.modelSlug,
