@@ -23,6 +23,10 @@ export type AdminFilterBarProps = {
   /** N2 — `touch`: 16 px on the phone (a list searched on the fair floor; adminTouchFieldClass). */
   search?: { value: string; onChange: (value: string) => void; label: string; placeholder?: string; touch?: boolean };
   hierarchy?: ReactNode;
+  /** Optional custom filter fields placed at the start of the facets grid (e.g. date range inputs). */
+  leadingFacets?: ReactNode;
+  /** Explicit desktop column count for the facets row when `leadingFacets` is provided. */
+  facetColumns?: 1 | 2 | 3 | 4 | 5;
   facets?: AdminFilterFacet[];
   values?: Record<string, string | undefined>;
   onFacetChange?: (id: string, value: string | undefined) => void;
@@ -34,30 +38,93 @@ export type AdminFilterBarProps = {
 /** Typing waits this long before the value is written (the URL is not rewritten per key). */
 const SEARCH_DELAY_MS = 250;
 
-export function AdminFilterBar({ label, search, hierarchy, facets = [], values = {}, onFacetChange, chips = [], onClear, className }: AdminFilterBarProps) {
+const FACET_GRID_COLS: Record<1 | 2 | 3 | 4 | 5, string> = {
+  1: "lg:grid-cols-1",
+  2: "lg:grid-cols-2",
+  3: "lg:grid-cols-3",
+  4: "lg:grid-cols-4",
+  5: "lg:grid-cols-5",
+};
+
+export function AdminFilterBar({
+  label,
+  search,
+  hierarchy,
+  leadingFacets,
+  facetColumns,
+  facets = [],
+  values = {},
+  onFacetChange,
+  chips = [],
+  onClear,
+  className,
+}: AdminFilterBarProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const activeFacets = facets.filter((facet) => values[facet.id]).length;
+  const hasFacets = facets.length > 0 || Boolean(leadingFacets);
+  const inlineSingleFacet = Boolean(search) && facets.length === 1 && !leadingFacets && !facetColumns;
+  const effectiveCols: 1 | 2 | 3 | 4 | 5 =
+    facetColumns ??
+    (facets.length <= 1
+      ? 1
+      : facets.length === 2
+        ? 2
+        : facets.length === 3
+          ? 3
+          : facets.length === 4
+            ? 4
+            : 5);
+
   return (
-    <section aria-label={label} data-admin-primitive="filter-bar" className={cn("grid min-w-0 gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3", className)}>
-      <div className="flex min-w-0 items-end gap-2">
-        {search ? <SearchField key={search.label} {...search} /> : <span className="flex-1" />}
-        {facets.length ? (
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-controls={`${id}-facets`}
-            onClick={() => setOpen((value) => !value)}
-            className={cn(adminSecondaryButtonClass, "shrink-0 px-3 lg:hidden")}
-          >
-            <SlidersHorizontal className="size-4" aria-hidden="true" />
-            {activeFacets ? fmt(dict.filters.toggleCount, { count: activeFacets }) : dict.filters.toggle}
-          </button>
-        ) : null}
-      </div>
-      {hierarchy}
-      {facets.length ? (
-        <div id={`${id}-facets`} className={cn("min-w-0 gap-3 sm:grid-cols-2 lg:grid lg:grid-cols-5", open ? "grid" : "hidden")}>
+    <section
+      aria-label={label}
+      data-admin-primitive="filter-bar"
+      className={cn(
+        "grid min-w-0 gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3.5 sm:p-4",
+        inlineSingleFacet && "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)] lg:items-end",
+        className,
+      )}
+    >
+      {search || hasFacets ? (
+        <div
+          className={cn(
+            "flex min-w-0 items-end gap-2",
+            !search && "lg:hidden",
+            inlineSingleFacet && "lg:order-1 lg:col-span-2",
+          )}
+        >
+          {search ? <SearchField key={search.label} {...search} /> : <span className="flex-1" />}
+          {hasFacets ? (
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={`${id}-facets`}
+              onClick={() => setOpen((value) => !value)}
+              className={cn(adminSecondaryButtonClass, "shrink-0 px-3 lg:hidden")}
+            >
+              <SlidersHorizontal className="size-4" aria-hidden="true" />
+              {activeFacets ? fmt(dict.filters.toggleCount, { count: activeFacets }) : dict.filters.toggle}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {hierarchy ? (
+        <div className={cn("min-w-0", inlineSingleFacet && "lg:order-3 lg:col-span-3")}>
+          {hierarchy}
+        </div>
+      ) : null}
+      {hasFacets ? (
+        <div
+          id={`${id}-facets`}
+          className={cn(
+            "min-w-0 gap-3 sm:grid-cols-2 sm:items-end lg:grid",
+            FACET_GRID_COLS[effectiveCols],
+            inlineSingleFacet && "lg:order-2 lg:col-span-1 lg:grid-cols-1",
+            open ? "grid" : "hidden",
+          )}
+        >
+          {leadingFacets}
           {facets.map((facet) => (
             <div key={facet.id} className="grid min-w-0 gap-1.5">
               <label htmlFor={`${id}-${facet.id}`} className="text-xs font-semibold">{facet.label}</label>
@@ -79,7 +146,7 @@ export function AdminFilterBar({ label, search, hierarchy, facets = [], values =
         </div>
       ) : null}
       {chips.length ? (
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div className={cn("flex min-w-0 flex-wrap items-center gap-2", inlineSingleFacet && "lg:order-4 lg:col-span-3")}>
           <span className="sr-only">{dict.filters.activeLabel}</span>
           <ul className="flex min-w-0 flex-wrap gap-2">
             {chips.map((chip) => (

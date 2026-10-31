@@ -257,9 +257,7 @@ function Surveys({ view, actions, now, query, onQueryChange }: { view: Interacti
         <p className="-mt-2 mb-4 max-w-3xl text-sm text-[var(--admin-text-muted)]">{dict.surveysHelp}</p>
         {anyAdvanced ? (
           <div className="grid min-w-0 gap-4">
-            <div className="max-w-2xl">
-              <AdminHierarchyPicker mode="select" data={pickData} value={{ modelId: model?.id }} onChange={(next) => onQueryChange({ model: next.modelId ?? null })} label={f.modelLabel} required />
-            </div>
+            <AdminHierarchyPicker mode="select" data={pickData} value={{ modelId: model?.id }} onChange={(next) => onQueryChange({ model: next.modelId ?? null })} label={f.modelLabel} required />
             {model ? (
               <SurveyEditor key={editorKey} model={model} versions={versions} actions={actions} setMessage={setFormMessage} />
             ) : <p className="text-sm text-[var(--admin-text-muted)]">{f.pickPrompt}</p>}

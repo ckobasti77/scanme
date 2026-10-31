@@ -142,32 +142,34 @@ function FlowStatus({ switches, consents, consentHref }: Pick<EventLeadFormsView
 function FormFields({ kind, value, onChange, note }: { kind: FairLeadKind; value: LeadFormValues; onChange: (next: LeadFormValues) => void; note?: string }) {
   const id = useId();
   return (
-    <fieldset className="grid min-w-0 content-start gap-3 rounded-xl border border-[var(--admin-border)] p-4">
+    <fieldset className="flex h-full min-w-0 flex-col gap-3 rounded-xl border border-[var(--admin-border)] p-4">
       <legend className="px-1 font-semibold">{dict.leadKinds[kind]}</legend>
       {note ? <p className="text-xs text-[var(--admin-text-muted)]">{note}</p> : null}
-      <label className="flex min-h-11 items-center gap-2 text-sm font-semibold">
-        <input type="checkbox" checked={value.enabled} onChange={(event) => onChange({ ...value, enabled: event.target.checked })} className="size-5" />
-        {dict.configEnabled}
-      </label>
-      <label htmlFor={`${id}-requirement`} className="grid gap-1.5 text-sm font-semibold">{dict.configRequirement}
-        <select id={`${id}-requirement`} value={value.contactRequirement} onChange={(event) => onChange({ ...value, contactRequirement: event.target.value as FairContactRequirement })} className={adminFieldClass}>
-          {REQUIREMENTS.map((requirement) => <option key={requirement} value={requirement}>{dict.contactRequirements[requirement]}</option>)}
-        </select>
-      </label>
-      <label htmlFor={`${id}-preferred`} className="grid gap-1.5 text-sm font-semibold">{dict.configPreferred}
-        <select
-          id={`${id}-preferred`}
-          value={value.preferredContact ?? ""}
-          onChange={(event) => {
-            const preferred = event.target.value as FairPreferredContact | "";
-            onChange(preferred ? { ...value, preferredContact: preferred } : { enabled: value.enabled, contactRequirement: value.contactRequirement });
-          }}
-          className={adminFieldClass}
-        >
-          <option value="">{dict.configPreferredNone}</option>
-          {PREFERRED.map((channel) => <option key={channel} value={channel}>{dict.preferredContacts[channel]}</option>)}
-        </select>
-      </label>
+      <div className="mt-auto grid gap-3">
+        <label className="flex min-h-11 items-center gap-2 text-sm font-semibold">
+          <input type="checkbox" checked={value.enabled} onChange={(event) => onChange({ ...value, enabled: event.target.checked })} className="size-5" />
+          {dict.configEnabled}
+        </label>
+        <label htmlFor={`${id}-requirement`} className="grid gap-1.5 text-sm font-semibold">{dict.configRequirement}
+          <select id={`${id}-requirement`} value={value.contactRequirement} onChange={(event) => onChange({ ...value, contactRequirement: event.target.value as FairContactRequirement })} className={adminFieldClass}>
+            {REQUIREMENTS.map((requirement) => <option key={requirement} value={requirement}>{dict.contactRequirements[requirement]}</option>)}
+          </select>
+        </label>
+        <label htmlFor={`${id}-preferred`} className="grid gap-1.5 text-sm font-semibold">{dict.configPreferred}
+          <select
+            id={`${id}-preferred`}
+            value={value.preferredContact ?? ""}
+            onChange={(event) => {
+              const preferred = event.target.value as FairPreferredContact | "";
+              onChange(preferred ? { ...value, preferredContact: preferred } : { enabled: value.enabled, contactRequirement: value.contactRequirement });
+            }}
+            className={adminFieldClass}
+          >
+            <option value="">{dict.configPreferredNone}</option>
+            {PREFERRED.map((channel) => <option key={channel} value={channel}>{dict.preferredContacts[channel]}</option>)}
+          </select>
+        </label>
+      </div>
     </fieldset>
   );
 }
@@ -224,7 +226,7 @@ function DefaultsForm({ exhibitor, saved, rows, actions }: {
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {LEAD_FORM_KINDS.map((kind) => (
-          <div key={kind} className="grid content-start gap-1.5">
+          <div key={kind} className="flex min-w-0 flex-col gap-1.5">
             <FormFields kind={kind} value={values[kind]} onChange={(next) => setValues((previous) => ({ ...previous, [kind]: next }))} note={kind === "test_drive" ? f.testDriveDefaultNote : undefined} />
             {!saved[kind] ? <Meta>{f.defaultNotSaved}</Meta> : null}
           </div>

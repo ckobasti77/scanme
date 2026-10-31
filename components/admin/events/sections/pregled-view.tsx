@@ -275,7 +275,7 @@ const VALUE_TONE = { danger: "text-[var(--admin-danger)]", warning: "text-[var(-
 function SectionCard({ card, urgency, href }: { card: CardDef; urgency: SectionUrgency | undefined; href: string }) {
   const Icon = card.icon;
   return (
-    <article data-card={card.id} className="grid min-w-0 content-start gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-4">
+    <article data-card={card.id} className="flex min-w-0 flex-col gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] p-4">
       <div className="flex min-w-0 items-start justify-between gap-2">
         <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
           <Icon className="size-4 shrink-0 text-[var(--admin-text-muted)]" aria-hidden="true" />
@@ -294,7 +294,7 @@ function SectionCard({ card, urgency, href }: { card: CardDef; urgency: SectionU
         </dl>
       ) : null}
       {card.note && (!card.rows || card.id === "sponzorisano") ? <p className="text-xs leading-5 text-[var(--admin-text-muted)]">{card.note}</p> : null}
-      <Link href={href} className={cn("inline-flex w-fit items-center gap-1 rounded-sm text-sm font-semibold underline-offset-4 hover:underline", focusRing)}>
+      <Link href={href} className={cn("mt-auto inline-flex w-fit items-center gap-1 rounded-sm pt-1 text-sm font-semibold underline-offset-4 hover:underline", focusRing)}>
         {d.cardOpen}<span className="sr-only">: {card.title}</span>
         <ArrowRight className="size-4" aria-hidden="true" />
       </Link>
@@ -339,7 +339,7 @@ export function EventDashboardView({ dashboard, now, base, keep = {} }: {
           </section>
           <section aria-labelledby={cardsId} className="grid min-w-0 gap-2">
             <h2 id={cardsId} className="text-xs font-bold tracking-[0.08em] text-[var(--admin-text-muted)] uppercase">{d.cardsTitle}</h2>
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-2">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-2">
               {cards(dashboard).map((card) => <SectionCard key={card.id} card={card} urgency={cardUrgency(card)} href={href(card.path)} />)}
             </div>
           </section>
