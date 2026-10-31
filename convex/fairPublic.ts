@@ -198,6 +198,7 @@ function projector(ctx: QueryCtx) {
       priceText: model.priceText,
       ...(model.priceSecondaryText ? { priceSecondaryText: model.priceSecondaryText } : {}),
       ...(model.externalUrl ? { externalUrl: model.externalUrl } : {}),
+      ...(model.highlight ? { highlight: model.highlight } : {}),
       specificationGroups: specificationGroups(model.specifications),
       ...(photoUrl ? { photoUrl } : {}),
       capabilities: deriveFairCapabilities(model.packageTier, {

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ExternalLink, MapPin } from "lucide-react";
+import { ExternalLink, MapPin, Sparkles } from "lucide-react";
 import type {
   FairFixtureMode,
   FairPhotoPresentation,
@@ -182,12 +182,19 @@ export function FairModelPage({
     performance: dict.specsGroupPerformance,
     fallback: amf ? drivetrainTitle : undefined,
   });
+  const testDriveFormAvailable = !interactions || interactions.leadForms.testDrive?.state === "open";
   const actions = [
     ...(model.capabilities.canSubmitInterest
       ? [{ kind: "interest" as const, label: dict.submitInterest }]
       : []),
     ...(model.capabilities.canRequestTestDrive
-      ? [{ kind: "testDrive" as const, label: dict.requestTestDrive }]
+      ? [
+          {
+            kind: "testDrive" as const,
+            label: dict.requestTestDrive,
+            highlighted: Boolean(model.highlight) && testDriveFormAvailable,
+          },
+        ]
       : []),
   ];
   const audienceSearch = new URLSearchParams({
@@ -262,6 +269,15 @@ export function FairModelPage({
               <MapPin aria-hidden="true" />
               {stand.text}
             </Link>
+          ) : null}
+          {model.highlight ? (
+            <div className="fair-model-highlight">
+              <span className="fair-model-highlight__shine" aria-hidden="true" />
+              <Sparkles className="fair-model-highlight__icon" aria-hidden="true" />
+              <span className="fair-model-highlight__label">
+                {dict.modelHighlights[model.highlight]}
+              </span>
+            </div>
           ) : null}
           <div className="fair-model-identity">
             <div className="fair-model-identity__name">

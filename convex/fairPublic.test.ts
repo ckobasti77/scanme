@@ -9,7 +9,7 @@ import { convexTest } from "convex-test";
 import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import type { Infer } from "convex/values";
 import { afterEach, beforeEach, describe, expect, expectTypeOf, test, vi } from "vitest";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import schema from "./schema";
 import { fairPublicEventMapView, fairPublicEventView, fairPublicModelView } from "./lib/fairValidators";
@@ -201,6 +201,42 @@ describe("getModelBySlug", () => {
     expect(await read()).toBeNull();
     await f.t.run((ctx) => ctx.db.patch(f.draftEvent.eventId, { status: "published" }));
     expect(await read()).toMatchObject({ id: inDraft.modelId, eventSlug: "test-auto-moto-fest-2026" });
+  });
+
+  test("AMF 31 Oct 2026: setModelHighlight sets, updates and clears highlight on the public model view", async () => {
+    const f = await setup();
+    const read = () => f.t.query(api.fairPublic.getModelBySlug, { eventSlug: "test-elektromobilnost-2026", modelSlug: f.starter.slug });
+    expect((await read())?.highlight).toBeUndefined();
+
+    const setRes = await f.t.mutation(internal.fairSetup.setModelHighlight, {
+      eventCode: "test-elektromobilnost-2026",
+      modelSlug: f.starter.slug,
+      highlight: "most_popular",
+      actorEmail: ADMIN_EMAIL,
+    });
+    expect(setRes).toEqual({
+      eventModelId: f.starter.modelId,
+      modelSlug: f.starter.slug,
+      before: null,
+      after: "most_popular",
+    });
+    expect((await read())?.highlight).toBe("most_popular");
+
+    const day1Res = await f.t.mutation(internal.fairSetup.setModelHighlight, {
+      eventCode: "test-elektromobilnost-2026",
+      modelSlug: f.starter.slug,
+      highlight: "most_popular_day1",
+    });
+    expect(day1Res).toMatchObject({ before: "most_popular", after: "most_popular_day1" });
+    expect((await read())?.highlight).toBe("most_popular_day1");
+
+    const clearRes = await f.t.mutation(internal.fairSetup.setModelHighlight, {
+      eventCode: "test-elektromobilnost-2026",
+      modelSlug: f.starter.slug,
+      highlight: null,
+    });
+    expect(clearRes).toMatchObject({ before: "most_popular_day1", after: null });
+    expect((await read())?.highlight).toBeUndefined();
   });
 });
 

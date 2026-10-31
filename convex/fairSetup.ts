@@ -10,7 +10,7 @@ import { scheduleFairBrandPassportSync } from "./lib/fairPassportSync";
 import { syncFairSponsoredSnapshot } from "./lib/fairSponsored";
 import { fairModelTierAt } from "./lib/fairInteractions";
 import { applyDestination, prepareDestination, syncChannel } from "./lib/accessOperations";
-import { fairContactRequirement, fairLeadKind } from "./lib/fairValidators";
+import { fairContactRequirement, fairLeadKind, fairModelHighlight } from "./lib/fairValidators";
 import type { Doc } from "./_generated/dataModel";
 import { createEventOnlyClient } from "./fairAdmin";
 import { commitFairImport, fairImportPayload, planFairImport } from "./fairImport";
@@ -590,5 +590,54 @@ export const scheduleSponsoredDays = internalMutation({
     }
     await writeAdminAudit(ctx, { actorUserId, action: "fair_setup_sponsored_days_scheduled", detail: { eventCode: event.code, days: out }, now: Date.now() });
     return out;
+  },
+});
+
+/**
+ * AMF 31 Oct 2026: sets or clears `fairEventModels.highlight` ("most_popular" |
+ * "most_popular_day1") for one model by event code + model slug without a
+ * deploy. Passing `highlight: null` (or omitting `highlight`) clears it.
+ */
+export const setModelHighlight = internalMutation({
+  args: {
+    eventCode: v.string(),
+    modelSlug: v.string(),
+    highlight: v.optional(v.union(fairModelHighlight, v.null())),
+    actorEmail: v.optional(v.string()),
+  },
+  returns: v.object({
+    eventModelId: v.id("fairEventModels"),
+    modelSlug: v.string(),
+    before: v.union(fairModelHighlight, v.null()),
+    after: v.union(fairModelHighlight, v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const actorUserId = args.actorEmail ? await setupActor(ctx, args.actorEmail) : undefined;
+    const event = await fairEventByCode(ctx, args.eventCode);
+    if (!event) throw new Error("fair_setup_event_missing");
+    const model = await ctx.db
+      .query("fairEventModels")
+      .withIndex("by_eventId_and_slug", (q) => q.eq("eventId", event._id).eq("slug", args.modelSlug))
+      .unique();
+    if (!model) throw new Error(`fair_setup_model_missing:${args.modelSlug}`);
+    const before = model.highlight ?? null;
+    const next = args.highlight ?? undefined;
+    const after = next ?? null;
+    const now = Date.now();
+    if (before !== after) {
+      await ctx.db.patch(model._id, { highlight: next, updatedAt: now });
+      if (actorUserId) {
+        const participation = await ctx.db.get(model.participationId);
+        await writeAdminAudit(ctx, {
+          actorUserId,
+          accountId: participation?.accountId,
+          businessId: participation?.businessId,
+          action: "fair_model_highlight_updated",
+          detail: { eventModelId: model._id, modelSlug: model.slug, before, after },
+          now,
+        });
+      }
+    }
+    return { eventModelId: model._id, modelSlug: model.slug, before, after };
   },
 });

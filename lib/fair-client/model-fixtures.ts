@@ -1,4 +1,4 @@
-import type { FairPublicModel } from "@/lib/fair-contract";
+import type { FairModelHighlight, FairPublicModel } from "@/lib/fair-contract";
 import { fairLocalPhotoUrl } from "./photo-url";
 
 export type FairFixtureMode = "free" | "starter" | "advanced";
@@ -43,6 +43,8 @@ export type FairPublicModelFixture = {
   /** AMF 30 Oct 2026: second price line and the exhibitor's model page. */
   priceSecondaryText?: string;
   externalUrl?: string;
+  /** AMF 31 Oct 2026: optional highlight badge ("most_popular" | "most_popular_day1"). */
+  highlight?: FairModelHighlight;
   description: string;
   photoUrl?: string;
   photoPresentation: FairPhotoPresentation;
@@ -165,6 +167,7 @@ export function fairPublicModelToFixture(input: {
       priceText: input.model.priceText,
       ...(input.model.priceSecondaryText ? { priceSecondaryText: input.model.priceSecondaryText } : {}),
       ...(input.model.externalUrl ? { externalUrl: input.model.externalUrl } : {}),
+      ...(input.model.highlight ? { highlight: input.model.highlight } : {}),
       description: "",
       ...(input.withPhoto && photoUrl ? { photoUrl } : {}),
       photoPresentation: input.photoPresentation,

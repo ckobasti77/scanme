@@ -258,4 +258,8 @@ export const fairModelSr = {
   surveyAnonBody: "{exhibitor} neće moći da vam pošalje ponudu. Odgovori će biti poslati anonimno.",
   surveyAnonAddContact: "Dodaj kontakt",
   surveyAnonSend: "Pošalji bez kontakta",
+  modelHighlights: {
+    most_popular: "Najpopularniji model",
+    most_popular_day1: "Najpopularniji model 1. dana",
+  },
 } as const satisfies FairModelDict;

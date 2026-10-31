@@ -18,6 +18,7 @@ import {
   fairMapZoneId,
   fairMessageTemplateKind,
   fairMessageTemplateStatus,
+  fairModelHighlight,
   fairModelStatus,
   fairPackageTier,
   fairParticipationStatus,
@@ -3428,6 +3429,8 @@ export default defineSchema({
     // price (e.g. "Osnovni model od 19.400 €") and the exhibitor's model page.
     priceSecondaryText: v.optional(v.string()),
     externalUrl: v.optional(v.string()),
+    // AMF 31 Oct 2026: optional highlight badge ("most_popular" | "most_popular_day1").
+    highlight: v.optional(fairModelHighlight),
     // Bounded (FAIR_MAX_SPECIFICATIONS_PER_MODEL), ≤4 isHighlight.
     specifications: v.array(fairSpecification),
     photoStorageId: v.optional(v.id("_storage")),
