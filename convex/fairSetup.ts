@@ -9,6 +9,8 @@ import { fairEventByCode, fairIssueValidator, setFairModelStatus, upsertFairEven
 import { scheduleFairBrandPassportSync } from "./lib/fairPassportSync";
 import { syncFairSponsoredSnapshot } from "./lib/fairSponsored";
 import { fairModelTierAt } from "./lib/fairInteractions";
+import { fairScanCountKey, readFairCount } from "./lib/fairCountShards";
+import { fairAnalyticsCutoff, fairDayCountFrom } from "./lib/fairPreEvent";
 import { applyDestination, prepareDestination, syncChannel } from "./lib/accessOperations";
 import { fairContactRequirement, fairLeadKind, fairModelHighlight } from "./lib/fairValidators";
 import type { Doc } from "./_generated/dataModel";
@@ -603,6 +605,7 @@ export const setModelHighlight = internalMutation({
     eventCode: v.string(),
     modelSlug: v.string(),
     highlight: v.optional(v.union(fairModelHighlight, v.null())),
+    disableAuto: v.optional(v.boolean()),
     actorEmail: v.optional(v.string()),
   },
   returns: v.object({
@@ -624,6 +627,9 @@ export const setModelHighlight = internalMutation({
     const next = args.highlight ?? undefined;
     const after = next ?? null;
     const now = Date.now();
+    if (args.disableAuto && event.highlightAutoLeader !== false) {
+      await ctx.db.patch(event._id, { highlightAutoLeader: false, updatedAt: now });
+    }
     if (before !== after) {
       await ctx.db.patch(model._id, { highlight: next, updatedAt: now });
       if (actorUserId) {
@@ -633,11 +639,286 @@ export const setModelHighlight = internalMutation({
           accountId: participation?.accountId,
           businessId: participation?.businessId,
           action: "fair_model_highlight_updated",
-          detail: { eventModelId: model._id, modelSlug: model.slug, before, after },
+          detail: { eventModelId: model._id, modelSlug: model.slug, before, after, disableAuto: args.disableAuto === true },
           now,
         });
       }
     }
-    return { eventModelId: model._id, modelSlug: model.slug, before, after };
+    return {
+      eventModelId: model._id,
+      modelSlug: model.slug,
+      before,
+      after,
+    };
+  },
+});
+
+export type PopularModelCandidate = {
+  slug: string;
+  totalScans: number;
+  uniqueScans: number;
+  isCurrentHolder: boolean;
+};
+
+export function pickPopularModelLeader<T extends PopularModelCandidate>(candidates: readonly T[]): T | null {
+  if (candidates.length === 0) return null;
+  const sorted = [...candidates].sort((a, b) => {
+    if (b.totalScans !== a.totalScans) return b.totalScans - a.totalScans;
+    if (a.isCurrentHolder !== b.isCurrentHolder) return a.isCurrentHolder ? -1 : 1;
+    if (b.uniqueScans !== a.uniqueScans) return b.uniqueScans - a.uniqueScans;
+    return a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0;
+  });
+  return sorted[0] ?? null;
+}
+
+const popularTopItem = v.object({
+  slug: v.string(),
+  displayName: v.string(),
+  totalScans: v.number(),
+  uniqueScans: v.number(),
+  isCurrentHolder: v.boolean(),
+});
+
+const recomputePopularResult = v.object({
+  status: v.union(
+    v.literal("updated"),
+    v.literal("unchanged"),
+    v.literal("skipped_outside_window"),
+    v.literal("skipped_auto_disabled"),
+    v.literal("skipped_no_event"),
+    v.literal("skipped_no_models"),
+  ),
+  autoEnabled: v.boolean(),
+  leaderSlug: v.union(v.string(), v.null()),
+  previousHolderSlug: v.union(v.string(), v.null()),
+  changed: v.boolean(),
+  top5: v.array(popularTopItem),
+});
+
+const popularTestCount = v.object({
+  slug: v.string(),
+  totalScans: v.number(),
+  uniqueScans: v.optional(v.number()),
+});
+
+async function runRecomputePopularModelHighlight(
+  ctx: MutationCtx,
+  args: {
+    eventCode?: string;
+    now?: number;
+    force?: boolean;
+    testCounts?: Array<{ slug: string; totalScans: number; uniqueScans?: number }>;
+  },
+) {
+  const eventCode = args.eventCode ?? "auto-moto-fest-2026";
+  const now = args.now ?? Date.now();
+  const event = await fairEventByCode(ctx, eventCode);
+  if (!event || event.status !== "published") {
+    return {
+      status: "skipped_no_event" as const,
+      autoEnabled: event ? event.highlightAutoLeader !== false : false,
+      leaderSlug: null,
+      previousHolderSlug: null,
+      changed: false,
+      top5: [],
+    };
+  }
+  const autoEnabled = event.highlightAutoLeader !== false;
+  if (!autoEnabled && !args.force) {
+    return {
+      status: "skipped_auto_disabled" as const,
+      autoEnabled,
+      leaderSlug: null,
+      previousHolderSlug: null,
+      changed: false,
+      top5: [],
+    };
+  }
+  if (now < event.startsAt || now >= event.endsAt) {
+    return {
+      status: "skipped_outside_window" as const,
+      autoEnabled,
+      leaderSlug: null,
+      previousHolderSlug: null,
+      changed: false,
+      top5: [],
+    };
+  }
+
+  const allModels = await ctx.db
+    .query("fairEventModels")
+    .withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id))
+    .take(FAIR_ADMIN_LIST_LIMIT);
+  const publishedModels = allModels.filter((model) => model.status === "published");
+  const currentHolders = allModels.filter((model) => model.highlight !== undefined);
+  const previousHolderSlug = currentHolders.find((model) => model.highlight === "most_popular")?.slug ?? null;
+
+  if (publishedModels.length === 0) {
+    return {
+      status: "skipped_no_models" as const,
+      autoEnabled,
+      leaderSlug: null,
+      previousHolderSlug,
+      changed: false,
+      top5: [],
+    };
+  }
+
+  const days = await ctx.db
+    .query("fairEventDays")
+    .withIndex("by_eventId_and_dateKey", (q) => q.eq("eventId", event._id))
+    .take(60);
+  const cutoff = fairAnalyticsCutoff(event);
+  const testBySlug = new Map((args.testCounts ?? []).map((entry) => [entry.slug, entry]));
+
+  const scored = await Promise.all(
+    publishedModels.map(async (model) => {
+      const testOverride = testBySlug.get(model.slug);
+      if (testOverride) {
+        return {
+          model,
+          slug: model.slug,
+          displayName: model.displayName,
+          totalScans: testOverride.totalScans,
+          uniqueScans: testOverride.uniqueScans ?? testOverride.totalScans,
+          isCurrentHolder: model.highlight === "most_popular",
+        };
+      }
+      const totalKey = fairScanCountKey("scan_total", "model", model._id);
+      const uniqueKey = fairScanCountKey("scan_unique", "model", model._id);
+      const dayTotals = await Promise.all(days.map((day) => fairDayCountFrom(ctx, totalKey, day, cutoff)));
+      let totalScans = dayTotals.reduce((sum, n) => sum + n, 0);
+      if (totalScans === 0 && cutoff <= event.startsAt) {
+        totalScans = await readFairCount(ctx, totalKey);
+      }
+      const dayUniques = await Promise.all(days.map((day) => fairDayCountFrom(ctx, uniqueKey, day, cutoff)));
+      let uniqueScans = dayUniques.reduce((sum, n) => sum + n, 0);
+      if (uniqueScans === 0 && cutoff <= event.startsAt) {
+        uniqueScans = await readFairCount(ctx, uniqueKey);
+      }
+      return {
+        model,
+        slug: model.slug,
+        displayName: model.displayName,
+        totalScans,
+        uniqueScans,
+        isCurrentHolder: model.highlight === "most_popular",
+      };
+    }),
+  );
+
+  const leader = pickPopularModelLeader(scored);
+  const top5 = [...scored]
+    .sort((a, b) => {
+      if (b.totalScans !== a.totalScans) return b.totalScans - a.totalScans;
+      if (a.isCurrentHolder !== b.isCurrentHolder) return a.isCurrentHolder ? -1 : 1;
+      if (b.uniqueScans !== a.uniqueScans) return b.uniqueScans - a.uniqueScans;
+      return a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0;
+    })
+    .slice(0, 5)
+    .map(({ slug, displayName, totalScans, uniqueScans, isCurrentHolder }) => ({
+      slug,
+      displayName,
+      totalScans,
+      uniqueScans,
+      isCurrentHolder,
+    }));
+
+  if (!leader) {
+    return {
+      status: "skipped_no_models" as const,
+      autoEnabled,
+      leaderSlug: null,
+      previousHolderSlug,
+      changed: false,
+      top5,
+    };
+  }
+
+  const othersWithHighlight = allModels.filter(
+    (model) => model._id !== leader.model._id && model.highlight !== undefined,
+  );
+  const leaderNeedsWrite = leader.model.highlight !== "most_popular";
+  const changed = leaderNeedsWrite || othersWithHighlight.length > 0;
+
+  if (changed) {
+    for (const other of othersWithHighlight) {
+      await ctx.db.patch(other._id, { highlight: undefined, updatedAt: now });
+    }
+    if (leaderNeedsWrite) {
+      await ctx.db.patch(leader.model._id, { highlight: "most_popular", updatedAt: now });
+    }
+  }
+
+  return {
+    status: changed ? ("updated" as const) : ("unchanged" as const),
+    autoEnabled,
+    leaderSlug: leader.slug,
+    previousHolderSlug,
+    changed,
+    top5,
+  };
+}
+
+/**
+ * AMF 1 Nov 2026: recomputes the whole-fair `scan_total` leader for the event
+ * (defaults to `auto-moto-fest-2026`) and assigns `highlight: "most_popular"`
+ * to the leader while clearing it from every other model of the event.
+ * Runs from the 5-minute cron only inside `[event.startsAt, event.endsAt)` and
+ * writes only when the holder changes.
+ */
+export const recomputePopularModelHighlight = internalMutation({
+  args: {
+    eventCode: v.optional(v.string()),
+    now: v.optional(v.number()),
+    force: v.optional(v.boolean()),
+    testCounts: v.optional(v.array(popularTestCount)),
+  },
+  returns: recomputePopularResult,
+  handler: async (ctx, args) => runRecomputePopularModelHighlight(ctx, args),
+});
+
+/**
+ * AMF 1 Nov 2026: turns automatic whole-fair leader mode on or off on the
+ * event (`fairEvents.highlightAutoLeader`). When `recomputeNow` is true and
+ * `enabled` is true, runs one immediate recompute in the same mutation.
+ */
+export const setHighlightAutoMode = internalMutation({
+  args: {
+    eventCode: v.optional(v.string()),
+    enabled: v.boolean(),
+    recomputeNow: v.optional(v.boolean()),
+    actorEmail: v.optional(v.string()),
+  },
+  returns: v.object({
+    eventCode: v.string(),
+    before: v.boolean(),
+    after: v.boolean(),
+    recompute: v.optional(recomputePopularResult),
+  }),
+  handler: async (ctx, args) => {
+    const actorUserId = args.actorEmail ? await setupActor(ctx, args.actorEmail) : undefined;
+    const eventCode = args.eventCode ?? "auto-moto-fest-2026";
+    const event = await fairEventByCode(ctx, eventCode);
+    if (!event) throw new Error("fair_setup_event_missing");
+    const before = event.highlightAutoLeader !== false;
+    const after = args.enabled;
+    const now = Date.now();
+    if (before !== after) {
+      await ctx.db.patch(event._id, { highlightAutoLeader: after, updatedAt: now });
+      if (actorUserId) {
+        await writeAdminAudit(ctx, {
+          actorUserId,
+          action: "fair_highlight_auto_mode_updated",
+          detail: { eventCode, before, after },
+          now,
+        });
+      }
+    }
+    const recompute =
+      after && args.recomputeNow
+        ? await runRecomputePopularModelHighlight(ctx, { eventCode, now })
+        : undefined;
+    return { eventCode, before, after, ...(recompute ? { recompute } : {}) };
   },
 });

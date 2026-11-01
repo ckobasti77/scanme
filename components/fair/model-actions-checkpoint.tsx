@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AnimatePresence } from "framer-motion";
-import { ChevronRight, Mail, Star } from "lucide-react";
+import { ChevronRight, Star, ThumbsUp } from "lucide-react";
 import { TbSteeringWheel } from "react-icons/tb";
 import { useEffect, useId, useRef, useState } from "react";
 import {
@@ -29,6 +29,7 @@ type Action = {
   kind: LeadKind;
   label: string;
   highlighted?: boolean;
+  shineAfterBadge?: boolean;
 };
 
 type Dimension = "appearance" | "specifications" | "price";
@@ -36,7 +37,7 @@ type Dimension = "appearance" | "specifications" | "price";
 const DIMENSIONS: Dimension[] = ["appearance", "specifications", "price"];
 
 const icons = {
-  interest: Mail,
+  interest: ThumbsUp,
   testDrive: TbSteeringWheel,
 };
 
@@ -411,11 +412,13 @@ export function ModelActionsCheckpoint({
               action.kind === "testDrive" &&
               Boolean(action.highlighted) &&
               (!live || leadForms.testDrive?.state === "open");
+            const shineAfterBadge = highlighted && Boolean(action.shineAfterBadge);
             return (
               <button
                 key={action.kind}
                 type="button"
                 data-highlight={highlighted ? "true" : undefined}
+                data-shine-sequence={shineAfterBadge ? "after-badge" : undefined}
                 onClick={() => setOpenSheet(action.kind)}
               >
                 {highlighted ? (

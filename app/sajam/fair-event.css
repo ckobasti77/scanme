@@ -426,8 +426,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   max-width: calc(100% - 96px);
   overflow: hidden;
   align-items: center;
-  gap: 5px;
-  padding: 6px 11px 6px 9px;
+  justify-content: center;
+  padding: 6px 11px;
   border: 1px solid rgb(255 255 255 / 0.34);
   border-radius: var(--fair-radius-pill);
   background: linear-gradient(135deg, var(--fair-accent) 0%, var(--fair-accent-strong) 100%);
@@ -443,20 +443,9 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   white-space: nowrap;
 }
 
-.fair-model-highlight__icon,
 .fair-model-highlight__label {
   position: relative;
   z-index: 1;
-}
-
-.fair-model-highlight__icon {
-  width: 13px;
-  height: 13px;
-  flex: none;
-  stroke-width: 2.3;
-}
-
-.fair-model-highlight__label {
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -479,22 +468,53 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   animation: fair-highlight-shine 3.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
+.fair-action-grid button[data-shine-sequence="after-badge"] .fair-action-highlight__shine,
+.fair-model-main:has(.fair-model-highlight) .fair-action-highlight__shine {
+  animation-name: fair-highlight-shine-after-badge;
+}
+
 @keyframes fair-highlight-shine {
   0% {
     opacity: 0;
     transform: translate3d(-120%, 0, 0) skewX(-22deg);
   }
-  12% {
+  6% {
     opacity: 1;
   }
-  36% {
+  30% {
     opacity: 1;
-    transform: translate3d(460%, 0, 0) skewX(-22deg);
   }
-  44%,
+  36%,
   100% {
     opacity: 0;
     transform: translate3d(460%, 0, 0) skewX(-22deg);
+  }
+}
+
+@keyframes fair-highlight-shine-after-badge {
+  0%,
+  36% {
+    opacity: 0;
+    transform: translate3d(-120%, 0, 0) skewX(-22deg);
+  }
+  42% {
+    opacity: 1;
+  }
+  66% {
+    opacity: 1;
+  }
+  72%,
+  100% {
+    opacity: 0;
+    transform: translate3d(460%, 0, 0) skewX(-22deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fair-model-highlight__shine,
+  .fair-action-highlight__shine {
+    animation: none;
+    opacity: 0;
   }
 }
 
@@ -504,8 +524,7 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
 @media (max-width: 380px) {
   .fair-model-highlight {
-    padding: 5px 9px 5px 8px;
-    gap: 4px;
+    padding: 5px 10px;
     font-size: 11.5px;
   }
 }

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ExternalLink, MapPin, Sparkles } from "lucide-react";
+import { ExternalLink, MapPin } from "lucide-react";
 import type {
   FairFixtureMode,
   FairPhotoPresentation,
@@ -192,7 +192,8 @@ export function FairModelPage({
           {
             kind: "testDrive" as const,
             label: dict.requestTestDrive,
-            highlighted: Boolean(model.highlight) && testDriveFormAvailable,
+            highlighted: testDriveFormAvailable,
+            shineAfterBadge: Boolean(model.highlight),
           },
         ]
       : []),
@@ -273,7 +274,6 @@ export function FairModelPage({
           {model.highlight ? (
             <div className="fair-model-highlight">
               <span className="fair-model-highlight__shine" aria-hidden="true" />
-              <Sparkles className="fair-model-highlight__icon" aria-hidden="true" />
               <span className="fair-model-highlight__label">
                 {dict.modelHighlights[model.highlight]}
               </span>

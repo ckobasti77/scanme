@@ -618,12 +618,36 @@ button.mount,
   color: #fff;
 }
 
-.heart[aria-disabled="true"] {
-  cursor: default;
+.heartPop {
+  animation: heartPop 280ms cubic-bezier(0.3, 1.55, 0.5, 1) var(--heart-delay, 0ms) both;
 }
 
-.heart[aria-disabled="true"] .heartDisc {
-  opacity: 0.45;
+.heartFade {
+  animation: heartFade 180ms ease-out both;
+}
+
+@keyframes heartPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.16);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes heartFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .heart:focus-visible {
@@ -714,5 +738,12 @@ button.mount,
 
   .heartDisc {
     transition: none;
+  }
+
+  .heartPop,
+  .heartFade {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }

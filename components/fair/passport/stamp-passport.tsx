@@ -214,11 +214,11 @@ export function StampPassport({
   const [sealRun, setSealRun] = useState(0);
   const [countDone, setCountDone] = useState(complete);
   const [pick, setPick] = useState(complete);
+  const [heartPop, setHeartPop] = useState(false);
   const [favoriteId, setFavoriteId] = useState<string | undefined>(progress.favoriteModelId);
   const [favoriteRun, setFavoriteRun] = useState(0);
   const [pillOverride, setPillOverride] = useState<string | null>(null);
   const [liveText, setLiveText] = useState("");
-  const [lockedHint, setLockedHint] = useState(false);
   const syncRef = useRef<FavoriteSync | null>(null);
   const latestRef = useRef({ progress, onProgress, devTools, devThreshold });
 
@@ -230,6 +230,9 @@ export function StampPassport({
 
   useEffect(() => {
     completeRef.current = complete;
+    if (!complete) {
+      wasCompleteRef.current = false;
+    }
     latestRef.current = { progress, onProgress, devTools, devThreshold };
   });
 
@@ -314,6 +317,7 @@ export function StampPassport({
       setSealOn(true);
       setSealRun((run) => run + 1);
       setCountDone(true);
+      setHeartPop(true);
       setPick(true);
       return;
     }
@@ -373,6 +377,9 @@ export function StampPassport({
   function stick(modelId: string, index: number) {
     if (busyRef.current || stateOf(modelId) !== "new") return;
     busyRef.current = true;
+    setSealOn(false);
+    setCountDone(false);
+    setPick(false);
     if (reducedMotion()) {
       land(modelId, index, nowMs());
       return;
@@ -499,7 +506,10 @@ export function StampPassport({
         setCountDone(true);
       }
     }, 290);
-    later(() => setPick(true), 800);
+    later(() => {
+      setHeartPop(true);
+      setPick(true);
+    }, 860);
   }, [sealRun]);
 
   // Heart badge pops on the newly chosen stamp.
@@ -521,13 +531,6 @@ export function StampPassport({
     fairHaptic(14, { iosTick: true });
     setPill(fmt(dict.stampFavoriteChosen, { model: nameOf(modelId) }));
     syncRef.current?.choose(modelId);
-  }
-
-  // Before the set is complete the heart explains when the pick opens.
-  function showLockedHint() {
-    setLockedHint(true);
-    setLiveText(dict.stampFavoriteLocked);
-    later(() => setLockedHint(false), 4000);
   }
 
   const publicResult = progress.favoriteModelId && progress.favoriteResult?.state === "public" ? progress.favoriteResult : undefined;
@@ -583,7 +586,6 @@ export function StampPassport({
                 {countDone ? dict.stampComplete : <><strong>{gotCount}</strong> <em>{countLabel(dict, models.length)}</em></>}
               </div>
             </div>
-            {lockedHint && !pick ? <p className={styles.resultsSoon}>{dict.stampFavoriteLocked}</p> : null}
             <div className={`${styles.ask}${pick ? ` ${styles.askOpen}` : ""}`} aria-hidden={!pick}>
               <div>
                 <div className={styles.pill} role="status">
@@ -619,7 +621,7 @@ export function StampPassport({
             const kind = carKindFor(index);
             const isFav = favoriteId === id;
             // Same rule as before: the pick opens once the set is complete and sealed.
-            const canPick = pick && state === "got";
+            const canPick = complete && pick && state === "got";
             const at = stuckAt[id];
             const postmarkStyle: CSSProperties = { transform: inkOffset(id, [-5, 5], [-4, 5], [-28, 22]) };
             const mount =
@@ -680,22 +682,23 @@ export function StampPassport({
                 />
                 <div className={styles.mountBox}>
                   {mount}
-                  <button
-                    type="button"
-                    className={`${styles.heart}${isFav ? ` ${styles.heartOn}` : ""}`}
-                    aria-pressed={isFav}
-                    aria-disabled={canPick ? undefined : true}
-                    aria-label={fmt(dict.stampFavoriteAria, { model: name })}
-                    onClick={(clickEvent) => {
-                      clickEvent.stopPropagation();
-                      if (canPick) choose(id);
-                      else showLockedHint();
-                    }}
-                  >
-                    <span className={styles.heartDisc} data-fav-badge>
-                      <Heart aria-hidden="true" fill={isFav ? "currentColor" : "none"} />
-                    </span>
-                  </button>
+                  {canPick ? (
+                    <button
+                      type="button"
+                      className={`${styles.heart} ${heartPop ? styles.heartPop : styles.heartFade}${isFav ? ` ${styles.heartOn}` : ""}`}
+                      style={{ "--heart-delay": `${index * 95}ms` } as CSSProperties}
+                      aria-pressed={isFav}
+                      aria-label={fmt(dict.stampFavoriteAria, { model: name })}
+                      onClick={(clickEvent) => {
+                        clickEvent.stopPropagation();
+                        choose(id);
+                      }}
+                    >
+                      <span className={styles.heartDisc} data-fav-badge>
+                        <Heart aria-hidden="true" fill={isFav ? "currentColor" : "none"} />
+                      </span>
+                    </button>
+                  ) : null}
                 </div>
                 <div className={styles.info} data-info>
                   <div className={styles.modelName} data-model-name>{name}</div>

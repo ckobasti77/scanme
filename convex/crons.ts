@@ -189,4 +189,16 @@ crons.interval(
   {},
 );
 
+//   • the 5-minute AMF popular-model badge recompute (1 Nov 2026) — assigns
+//     `highlight: "most_popular"` to the published, non-withdrawn AMF model
+//     with the highest whole-fair `scan_total` count across all fair days.
+//     Runs only inside `[event.startsAt, event.endsAt)` and writes only when
+//     the holder changes.
+crons.interval(
+  "fair popular model highlight",
+  { minutes: 5 },
+  internal.fairSetup.recomputePopularModelHighlight,
+  {},
+);
+
 export default crons;

@@ -86,7 +86,6 @@ export const fairPassportSr = {
   stampFavoriteAsk: "Koji model vam se najviše dopao? Dodirnite srce na markici.",
   stampFavoriteChosen: "Vaš favorit: {model}. Dodirnite drugo srce da promenite.",
   stampFavoriteAria: "Omiljeni model: {model}",
-  stampFavoriteLocked: "Omiljeni model birate kada skupite sve markice ovog brenda.",
   stampOpenModelAria: "Otvori {model}",
   newStampEyebrowStamps: "Nova markica",
   newStampActionStamps: "Zalepi",

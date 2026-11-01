@@ -3343,6 +3343,8 @@ export default defineSchema({
     // is the scheduled re-check for a package that starts later (dedupe).
     sponsoredAutoPublish: v.optional(v.boolean()),
     sponsoredAutoCheckAt: v.optional(v.number()),
+    // AMF 1 Nov 2026: automatic "Najpopularniji model" badge by whole-fair scan_total leader (unset/true = on, false = manual only).
+    highlightAutoLeader: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
