@@ -7,6 +7,7 @@ import { convexTest } from "convex-test";
 import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { internal } from "./_generated/api";
+import { bumpFairCount, fairScanCountKey } from "./lib/fairCountShards";
 import schema from "./schema";
 import type { FairImportPayload } from "./fairImport";
 import payloadJson from "../docs/events/sajam-automobila-2026/intake/elektromobilnost-2026-2026-10-07/b1-payload.json";
@@ -128,4 +129,184 @@ test("Auto Moto Fest: the real 18-model intake imports and brings its six brand 
   // SWM exhibits more cars than it bought the service for: it gets no passport.
   const brandNames = await t.run(async (ctx) => Promise.all(passports.map(async (row) => (await ctx.db.get(row.brandId))!.name)));
   expect(brandNames.sort()).toEqual(["Dongfeng", "Fiat", "Ford", "Ineos", "MG", "Škoda"].sort());
+});
+
+async function setupAmfWithModels() {
+  const liveNow = Date.parse("2026-10-31T12:00:00+01:00");
+  vi.setSystemTime(liveNow);
+  const t = await setup();
+  const amfPayload = amfPayloadJson as FairImportPayload;
+  await t.mutation(internal.fairSetup.bootstrapEvent, {
+    actorEmail: ADMIN_EMAIL,
+    eventCode: "auto-moto-fest-2026",
+  });
+  await t.mutation(internal.fairSetup.importCommit, { payload: amfPayload, actorEmail: ADMIN_EMAIL });
+  await t.mutation(internal.fairSetup.publishEventModels, {
+    eventCode: "auto-moto-fest-2026",
+    actorEmail: ADMIN_EMAIL,
+  });
+  return { t, liveNow };
+}
+
+async function seedModelScans(
+  t: Awaited<ReturnType<typeof setup>>,
+  slug: string,
+  opts: { total: number; unique?: number; dateKey?: string },
+) {
+  await t.run(async (ctx) => {
+    const model = await ctx.db
+      .query("fairEventModels")
+      .filter((q) => q.eq(q.field("slug"), slug))
+      .first();
+    if (!model) throw new Error(`missing_model:${slug}`);
+    const dateKey = opts.dateKey ?? "2026-10-31";
+    const hourKey = `${dateKey}T12`;
+    if (opts.total > 0) {
+      await bumpFairCount(ctx, fairScanCountKey("scan_total", "model", model._id), opts.total);
+      await bumpFairCount(ctx, fairScanCountKey("scan_total", "model", model._id, dateKey), opts.total);
+      await bumpFairCount(ctx, fairScanCountKey("scan_total", "model", model._id, hourKey), opts.total);
+    }
+    if ((opts.unique ?? 0) > 0) {
+      await bumpFairCount(ctx, fairScanCountKey("scan_unique", "model", model._id), opts.unique!);
+      await bumpFairCount(ctx, fairScanCountKey("scan_unique", "model", model._id, dateKey), opts.unique!);
+      await bumpFairCount(ctx, fairScanCountKey("scan_unique", "model", model._id, hourKey), opts.unique!);
+    }
+  });
+}
+
+test("popular model leader: highest whole-fair total wins across all days", async () => {
+  const { t, liveNow } = await setupAmfWithModels();
+  await seedModelScans(t, "ineos-grenadier", { total: 40, unique: 35, dateKey: "2026-10-30" });
+  await seedModelScans(t, "skoda-kodiaq", { total: 25, unique: 20, dateKey: "2026-10-30" });
+  await seedModelScans(t, "skoda-kodiaq", { total: 30, unique: 22, dateKey: "2026-10-31" });
+
+  const res = await t.mutation(internal.fairSetup.recomputePopularModelHighlight, { now: liveNow });
+  expect(res).toMatchObject({
+    status: "updated",
+    leaderSlug: "skoda-kodiaq",
+    changed: true,
+  });
+
+  const highlighted = await t.run(async (ctx) => {
+    const models = await ctx.db.query("fairEventModels").collect();
+    return models.filter((m) => m.highlight !== undefined).map((m) => [m.slug, m.highlight]);
+  });
+  expect(highlighted).toEqual([["skoda-kodiaq", "most_popular"]]);
+});
+
+test("popular model leader: a tie keeps the current holder, or breaks by unique scans then alphabetical slug", async () => {
+  const { t, liveNow } = await setupAmfWithModels();
+  // Nobody holds it yet: tie on totalScans (50) breaks by uniqueScans, then alphabetical by slug.
+  await seedModelScans(t, "mg-hs-hybrid", { total: 50, unique: 40 });
+  await seedModelScans(t, "ford-kuga", { total: 50, unique: 40 });
+  const first = await t.mutation(internal.fairSetup.recomputePopularModelHighlight, { now: liveNow });
+  expect(first.leaderSlug).toBe("ford-kuga");
+
+  // Put badge on ineos-grenadier and tie it at the top (50 total) with ford-kuga (even with higher unique on ford-kuga).
+  await t.mutation(internal.fairSetup.setModelHighlight, {
+    eventCode: "auto-moto-fest-2026",
+    modelSlug: "ineos-grenadier",
+    highlight: "most_popular",
+  });
+  await t.mutation(internal.fairSetup.setModelHighlight, {
+    eventCode: "auto-moto-fest-2026",
+    modelSlug: "ford-kuga",
+    highlight: null,
+  });
+  await seedModelScans(t, "ineos-grenadier", { total: 50, unique: 10 });
+
+  const tied = await t.mutation(internal.fairSetup.recomputePopularModelHighlight, { now: liveNow });
+  expect(tied).toMatchObject({
+    status: "unchanged",
+    leaderSlug: "ineos-grenadier",
+    previousHolderSlug: "ineos-grenadier",
+    changed: false,
+  });
+});
+
+test("popular model leader: a withdrawn model is never chosen", async () => {
+  const { t, liveNow } = await setupAmfWithModels();
+  await seedModelScans(t, "ineos-grenadier", { total: 200, unique: 150 });
+  await seedModelScans(t, "skoda-kodiaq", { total: 80, unique: 70 });
+
+  await t.run(async (ctx) => {
+    const grenadier = await ctx.db
+      .query("fairEventModels")
+      .filter((q) => q.eq(q.field("slug"), "ineos-grenadier"))
+      .first();
+    await ctx.db.patch(grenadier!._id, { status: "withdrawn", highlight: "most_popular" });
+  });
+
+  const res = await t.mutation(internal.fairSetup.recomputePopularModelHighlight, { now: liveNow });
+  expect(res).toMatchObject({
+    status: "updated",
+    leaderSlug: "skoda-kodiaq",
+    changed: true,
+  });
+
+  const highlighted = await t.run(async (ctx) => {
+    const models = await ctx.db.query("fairEventModels").collect();
+    return models.filter((m) => m.highlight !== undefined).map((m) => [m.slug, m.highlight]);
+  });
+  expect(highlighted).toEqual([["skoda-kodiaq", "most_popular"]]);
+});
+
+test("popular model leader: nothing is written when the holder is unchanged", async () => {
+  const { t, liveNow } = await setupAmfWithModels();
+  await seedModelScans(t, "ineos-grenadier", { total: 90, unique: 70 });
+
+  const first = await t.mutation(internal.fairSetup.recomputePopularModelHighlight, { now: liveNow });
+  expect(first).toMatchObject({ status: "updated", leaderSlug: "ineos-grenadier", changed: true });
+
+  const snapshotBefore = await t.run(async (ctx) => {
+    const models = await ctx.db.query("fairEventModels").collect();
+    return models.map((m) => ({ id: m._id, highlight: m.highlight, updatedAt: m.updatedAt }));
+  });
+
+  const laterNow = liveNow + 300_000;
+  const second = await t.mutation(internal.fairSetup.recomputePopularModelHighlight, { now: laterNow });
+  expect(second).toMatchObject({ status: "unchanged", leaderSlug: "ineos-grenadier", changed: false });
+
+  const snapshotAfter = await t.run(async (ctx) => {
+    const models = await ctx.db.query("fairEventModels").collect();
+    return models.map((m) => ({ id: m._id, highlight: m.highlight, updatedAt: m.updatedAt }));
+  });
+  expect(snapshotAfter).toEqual(snapshotBefore);
+});
+
+test("popular model leader: no runs outside the event window (and keeps final leader after endsAt)", async () => {
+  const { t, liveNow } = await setupAmfWithModels();
+  await seedModelScans(t, "ineos-grenadier", { total: 60, unique: 50 });
+  await t.mutation(internal.fairSetup.recomputePopularModelHighlight, { now: liveNow });
+
+  // Another model gets more scans, but we call recompute before startsAt and after endsAt.
+  await seedModelScans(t, "skoda-kodiaq", { total: 120, unique: 100 });
+  const event = await t.run((ctx) =>
+    ctx.db
+      .query("fairEvents")
+      .withIndex("by_code", (q) => q.eq("code", "auto-moto-fest-2026"))
+      .unique(),
+  );
+
+  const beforeStart = await t.mutation(internal.fairSetup.recomputePopularModelHighlight, {
+    now: event!.startsAt - 1,
+  });
+  expect(beforeStart).toMatchObject({ status: "skipped_outside_window", changed: false });
+
+  const atEnd = await t.mutation(internal.fairSetup.recomputePopularModelHighlight, {
+    now: event!.endsAt,
+  });
+  expect(atEnd).toMatchObject({ status: "skipped_outside_window", changed: false });
+
+  const afterEnd = await t.mutation(internal.fairSetup.recomputePopularModelHighlight, {
+    now: event!.endsAt + 60_000,
+  });
+  expect(afterEnd).toMatchObject({ status: "skipped_outside_window", changed: false });
+
+  // Badge stays on ineos-grenadier.
+  const highlighted = await t.run(async (ctx) => {
+    const models = await ctx.db.query("fairEventModels").collect();
+    return models.filter((m) => m.highlight !== undefined).map((m) => m.slug);
+  });
+  expect(highlighted).toEqual(["ineos-grenadier"]);
 });

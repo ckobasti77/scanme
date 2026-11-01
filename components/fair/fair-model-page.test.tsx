@@ -146,4 +146,21 @@ describe("room for the new-stamp card (Aleksa §2.2)", () => {
     );
     expect(markup).not.toMatch(/position:\s*fixed/);
   });
+
+  test("the highlight badge has no star icon and sequences its shine before Probna vožnja, while all models with test drive get the button shine", () => {
+    const [model] = REAL_MODELS;
+    const withoutBadge = render(model);
+    expect(withoutBadge).not.toContain("fair-model-highlight");
+    expect(withoutBadge).toContain('data-highlight="true"');
+    expect(withoutBadge).toContain("fair-action-highlight__shine");
+    expect(withoutBadge).not.toContain('data-shine-sequence="after-badge"');
+
+    const withBadge = render({ ...model, highlight: "most_popular" });
+    expect(withBadge).toContain('class="fair-model-highlight"');
+    expect(withBadge).toContain('class="fair-model-highlight__shine"');
+    expect(withBadge).toContain('class="fair-model-highlight__label">Najpopularniji model<');
+    expect(withBadge).not.toContain("fair-model-highlight__icon");
+    expect(withBadge).toContain('data-highlight="true"');
+    expect(withBadge).toContain('data-shine-sequence="after-badge"');
+  });
 });

@@ -68,7 +68,15 @@ import {
 } from "@/lib/fair-client/garage-view";
 import { fairHaptic } from "@/lib/fair-client/haptics";
 import { useFairHistoryLayer } from "@/lib/fair-client/history-layer";
-import { getFairRotationItem } from "@/lib/fair-client/rotation-slot";
+import {
+  advanceSponsoredTimeline,
+  createSponsoredTimeline,
+  getSponsoredTimelineTiming,
+  pauseSponsoredTimeline,
+  resumeSponsoredTimeline,
+  swipeSponsoredTimeline,
+  type FairSponsoredTimeline,
+} from "@/lib/fair-client/rotation-slot";
 import { fairPublicEventSlug } from "@/lib/fair-public-event";
 import { fairEventThemeClass } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
@@ -653,12 +661,13 @@ function SponsoredSlideVisual({ item, dict }: { item: FairSponsoredModelCard; di
         src={photoUrl}
         unoptimized={fairPhotoUnoptimized(photoUrl)}
         alt={fmt(dict.sponsoredPhotoAlt, { brand: cleanTestLabel(item.brandName), model: displayModelName(item.brandName, item.displayName) })}
+        draggable={false}
         className={styles.spPhoto}
         style={fairVehiclePhotoStyle(photoUrl)}
       />
     );
   }
-  if (item.brandLogoUrl) return <Image fill sizes="120px" src={item.brandLogoUrl} alt="" unoptimized={fairPhotoUnoptimized(item.brandLogoUrl)} className={styles.spLogo} />;
+  if (item.brandLogoUrl) return <Image fill sizes="120px" src={item.brandLogoUrl} alt="" unoptimized={fairPhotoUnoptimized(item.brandLogoUrl)} draggable={false} className={styles.spLogo} />;
   return <FairBrandMark brandName={cleanTestLabel(item.brandName)} className={styles.spMark} />;
 }
 
@@ -676,21 +685,16 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
   const intervalMs = rotation ? Math.max(SPONSORED_INTERVAL_MS, rotation.intervalMs) : SPONSORED_INTERVAL_MS;
   // Map renders this card on the server too: hydrate the same first model,
   // then join the live clock (including a device with a different clock).
-  const [now, setNow] = useState(0);
-  const slot = rotation && now > 0 ? getFairRotationItem(items, { epochMs: rotation.epochMs, nowMs: now, intervalMs }) : null;
-  const targetIndex = slot?.slot.index ?? 0;
-  const nextSlotAt = slot?.slot.nextSlotAt;
-  const slotStartedAt = slot?.slot.slotStartedAt;
-  const [shownIndex, setShownIndex] = useState(targetIndex);
+  const [timeline, setTimeline] = useState<FairSponsoredTimeline | null>(null);
+  const [shownIndex, setShownIndex] = useState(0);
+  const shownIndexRef = useRef(0);
   const [incomingIndex, setIncomingIndex] = useState<number | null>(null);
   const [slideDirection, setSlideDirection] = useState(1);
   const [swipeRelease, setSwipeRelease] = useState(0);
   const trackRef = useRef<HTMLDivElement | null>(null);
-  const manualSlotRef = useRef<number | null>(null);
   const swipeRef = useRef<{ start: number; offset: number; direction: number; active: boolean; commit: boolean; pointerId?: number } | null>(null);
   // The gesture moved past the swipe threshold: the photo link must not open.
   const swipedRef = useRef(false);
-  const [paused, setPaused] = useState(false);
   const [storageError, setStorageError] = useState(false);
   const [addingId, setAddingId] = useState<string | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -698,29 +702,65 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
   const addAttemptRef = useRef<{ id: string; committed: boolean; fallback: number | null } | null>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setNow(Date.now()), 0);
-    return () => window.clearTimeout(timer);
-  }, []);
+    shownIndexRef.current = shownIndex;
+  }, [shownIndex]);
 
-  // Next slot boundary: read the clock again (rotation keeps running while paused).
   useEffect(() => {
-    if (!rotation || paused || nextSlotAt === undefined) return;
-    const timeout = window.setTimeout(() => setNow(Date.now()), Math.max(100, nextSlotAt - Date.now() + 20));
-    return () => window.clearTimeout(timeout);
-  }, [nextSlotAt, paused, rotation]);
-
-  // A new slot: start the conveyor (or swap at once under reduced motion).
-  useEffect(() => {
-    if (!rotation || paused || incomingIndex !== null || targetIndex === shownIndex || manualSlotRef.current === slot?.slot.slotNumber) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const frame = window.requestAnimationFrame(() => {
-        setShownIndex(targetIndex);
+    if (!rotation || items.length === 0) return;
+    const timer = window.setTimeout(() => {
+      const initial = createSponsoredTimeline({
+        epochMs: rotation.epochMs,
+        nowMs: Date.now(),
+        intervalMs,
+        itemCount: items.length,
       });
-      return () => window.cancelAnimationFrame(frame);
-    }
-    const frame = window.requestAnimationFrame(() => { setSlideDirection(1); setIncomingIndex(targetIndex); });
-    return () => window.cancelAnimationFrame(frame);
-  }, [incomingIndex, paused, rotation, shownIndex, targetIndex, slot?.slot.slotNumber]);
+      if (initial) {
+        shownIndexRef.current = initial.index;
+        setShownIndex(initial.index);
+        setIncomingIndex(null);
+        setTimeline(initial);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [intervalMs, items.length, rotation]);
+
+  const pause = useCallback(() => {
+    if (display) return;
+    const nowMs = Date.now();
+    setTimeline((current) => (current ? pauseSponsoredTimeline(current, nowMs) : current));
+  }, [display]);
+
+  const resume = useCallback(() => {
+    if (display) return;
+    const nowMs = Date.now();
+    setTimeline((current) => (current ? resumeSponsoredTimeline(current, nowMs) : current));
+  }, [display]);
+
+  // One source of truth drives both the slot switch timer and the progress bar fill.
+  useEffect(() => {
+    if (!rotation || !timeline || timeline.paused !== null || items.length < 2) return;
+    const timing = getSponsoredTimelineTiming(timeline);
+    const delayMs = Math.max(1, timing.switchAtMs - Date.now());
+    const timeout = window.setTimeout(() => {
+      const nowMs = Date.now();
+      const next = advanceSponsoredTimeline(timeline, {
+        nowMs,
+        epochMs: rotation.epochMs,
+        itemCount: items.length,
+        forceShared: display,
+      });
+      setTimeline(next);
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        shownIndexRef.current = next.index;
+        setShownIndex(next.index);
+        setIncomingIndex(null);
+      } else if (next.index !== shownIndexRef.current) {
+        setSlideDirection(1);
+        setIncomingIndex(next.index);
+      }
+    }, delayMs);
+    return () => window.clearTimeout(timeout);
+  }, [display, items.length, rotation, timeline]);
 
   useLayoutEffect(() => {
     const track = trackRef.current;
@@ -738,7 +778,10 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
       duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : SPONSORED_SLIDE_MS / 1000,
       ease: "power2.inOut",
       onComplete: () => {
-        if (commit) setShownIndex(incomingIndex);
+        if (commit) {
+          shownIndexRef.current = incomingIndex;
+          setShownIndex(incomingIndex);
+        }
         swipeRef.current = null;
         setIncomingIndex(null);
       },
@@ -747,6 +790,7 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
   }, [incomingIndex, slideDirection, swipeRelease]);
 
   function swipeMove(clientX: number) {
+    if (display) return;
     const swipe = swipeRef.current;
     const viewport = viewportRef.current;
     if (!swipe || !viewport) return;
@@ -762,44 +806,64 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
   }
 
   function swipeEnd(cancel = false) {
+    if (display) return;
     const swipe = swipeRef.current;
     if (!swipe) return;
     swipe.active = false;
     swipe.commit = !cancel && Math.abs(swipe.offset) > (viewportRef.current?.clientWidth ?? 0) * 0.18;
-    manualSlotRef.current = slot?.slot.slotNumber ?? null;
-    if (incomingIndex === null) swipeRef.current = null;
-    setSwipeRelease(value => value + 1);
-    setPaused(false);
+    const nowMs = Date.now();
+    if (swipe.commit) {
+      const nextIndex = (shownIndex + swipe.direction + items.length) % items.length;
+      setSlideDirection(swipe.direction);
+      setIncomingIndex(nextIndex);
+      setTimeline((current) =>
+        swipeSponsoredTimeline(current, {
+          nextIndex,
+          nowMs,
+          intervalMs,
+          itemCount: items.length,
+        }),
+      );
+    } else {
+      if (incomingIndex === null) swipeRef.current = null;
+      setTimeline((current) => (current ? resumeSponsoredTimeline(current, nowMs) : current));
+    }
+    setSwipeRelease((value) => value + 1);
   }
 
   // Progress segments: earlier ones full, the current one fills linearly to the slot end.
-  const activeIndex = incomingIndex ?? shownIndex;
+  const activeIndex = timeline?.index ?? incomingIndex ?? shownIndex;
   useEffect(() => {
     const bars = barsRef.current;
-    if (!bars || slotStartedAt === undefined) return;
+    if (!bars || !timeline) return;
+    const timing = getSponsoredTimelineTiming(timeline);
     const fills = Array.from(bars.querySelectorAll<HTMLElement>("b"));
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let animation: Animation | null = null;
     fills.forEach((fill, index) => {
       fill.getAnimations().forEach((running) => running.cancel());
-      fill.style.transform = index < activeIndex ? "scaleX(1)" : "scaleX(0)";
+      fill.style.transform = index < timing.index ? "scaleX(1)" : "scaleX(0)";
     });
-    const current = fills[activeIndex];
+    const current = fills[timing.index];
     if (current) {
-      const progress = Math.min(1, Math.max(0, (Date.now() - slotStartedAt) / intervalMs));
       if (reduced) {
         current.style.transform = "scaleX(1)";
+      } else if (timing.paused) {
+        current.style.transform = `scaleX(${timing.barStartProgress})`;
       } else {
-        animation = current.animate([{ transform: `scaleX(${progress})` }, { transform: "scaleX(1)" }], {
-          duration: Math.max(1, (1 - progress) * intervalMs),
-          easing: "linear",
-          fill: "forwards",
-        });
-        if (paused) animation.pause();
+        current.style.transform = `scaleX(${timing.barStartProgress})`;
+        animation = current.animate(
+          [{ transform: `scaleX(${timing.barStartProgress})` }, { transform: "scaleX(1)" }],
+          {
+            duration: Math.max(1, timing.barDurationMs),
+            easing: "linear",
+            fill: "forwards",
+          },
+        );
       }
     }
     return () => animation?.cancel();
-  }, [activeIndex, intervalMs, paused, slotStartedAt]);
+  }, [timeline]);
 
   useEffect(() => () => {
     const fallback = addAttemptRef.current?.fallback;
@@ -817,11 +881,6 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
       body: JSON.stringify({ eventModelId: model.eventModelId, surface: "garage", kind, requestId: createClientRequestId() }),
       keepalive: true,
     }).catch(() => undefined);
-  }
-
-  function resume() {
-    setPaused(false);
-    setNow(Date.now());
   }
 
   function commitAdd(model: FairSponsoredModelCard) {
@@ -857,7 +916,7 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
 
   function add(model: FairSponsoredModelCard) {
     if (addingId || eventContainsModel(garageDocument, model.eventModelId)) return;
-    setPaused(true);
+    pause();
     setAddingId(model.eventModelId);
     setStorageError(false);
     addAttemptRef.current = { id: model.eventModelId, committed: false, fallback: null };
@@ -936,32 +995,53 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
       className={inline ? styles.spInline : styles.spDock}
       data-fair-sponsored={inline ? "map" : "garage"}
       data-sponsored-model={item.eventModelId}
-      data-sponsored-slot={slot?.slot.slotNumber}
+      data-sponsored-slot={timeline?.slotNumber}
       aria-label={dict.sponsoredLabel}
-      onPointerEnter={(pointerEvent) => { if (pointerEvent.pointerType === "mouse") setPaused(true); }}
-      onPointerLeave={(pointerEvent) => { if (pointerEvent.pointerType === "mouse") resume(); }}
-      onFocusCapture={() => setPaused(true)}
-      onBlurCapture={(focusEvent) => { if (!focusEvent.currentTarget.contains(focusEvent.relatedTarget)) resume(); }}
+      onPointerEnter={display ? undefined : (pointerEvent) => { if (pointerEvent.pointerType === "mouse") pause(); }}
+      onPointerLeave={display ? undefined : (pointerEvent) => { if (pointerEvent.pointerType === "mouse") resume(); }}
+      onFocusCapture={display ? undefined : (focusEvent) => {
+        if (swipeRef.current !== null) return;
+        const target = focusEvent.target as HTMLElement | null;
+        if (target && target !== viewportRef.current) pause();
+      }}
+      onBlurCapture={display ? undefined : (focusEvent) => {
+        if (!focusEvent.currentTarget.contains(focusEvent.relatedTarget)) resume();
+      }}
     >
       <div className={styles.spCard}>
-        <div className={styles.spViewport} ref={viewportRef} tabIndex={items.length > 1 ? 0 : undefined}
-          onKeyDown={event => {
+        <div className={styles.spViewport} ref={viewportRef} tabIndex={!display && items.length > 1 ? 0 : undefined}
+          onKeyDown={display ? undefined : event => {
             if (event.target !== event.currentTarget || incomingIndex !== null || !["ArrowLeft", "ArrowRight"].includes(event.key)) return;
             event.preventDefault();
             const direction = event.key === "ArrowLeft" ? 1 : -1;
-            manualSlotRef.current = slot?.slot.slotNumber ?? null;
+            const nextIndex = (shownIndex + direction + items.length) % items.length;
+            const nowMs = Date.now();
             setSlideDirection(direction);
-            setIncomingIndex((shownIndex + direction + items.length) % items.length);
+            if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+              shownIndexRef.current = nextIndex;
+              setShownIndex(nextIndex);
+              setIncomingIndex(null);
+            } else {
+              setIncomingIndex(nextIndex);
+            }
+            setTimeline((current) =>
+              swipeSponsoredTimeline(current, {
+                nextIndex,
+                nowMs,
+                intervalMs,
+                itemCount: items.length,
+              }),
+            );
           }}
-          onPointerDown={event => {
+          onPointerDown={display ? undefined : event => {
             swipedRef.current = false;
             if (items.length < 2 || incomingIndex !== null || (event.target as HTMLElement).closest("button, a:not([data-sponsored-open])")) return;
             swipeRef.current = { start: event.clientX, offset: 0, direction: 1, active: true, commit: false, pointerId: event.pointerId };
-            setPaused(true);
+            pause();
           }}
-          onPointerMove={event => swipeMove(event.clientX)}
-          onPointerUp={() => swipeEnd()}
-          onPointerCancel={() => swipeEnd(true)}
+          onPointerMove={display ? undefined : event => swipeMove(event.clientX)}
+          onPointerUp={display ? undefined : () => swipeEnd()}
+          onPointerCancel={display ? undefined : () => swipeEnd(true)}
         >
           <div className={styles.spTrack} ref={trackRef}>
             {incoming && slideDirection < 0 ? slide(incoming, "incoming") : null}
@@ -969,7 +1049,7 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
             {incoming && slideDirection > 0 ? slide(incoming, "incoming") : null}
           </div>
         </div>
-        <div className={styles.spBars} ref={barsRef} data-sponsored-progress="" data-slot={slot?.slot.slotNumber} aria-hidden="true">
+        <div className={styles.spBars} ref={barsRef} data-sponsored-progress="" data-slot={timeline?.slotNumber} aria-hidden="true">
           {items.map((entry, index) => <i key={entry.eventModelId} data-active={index === activeIndex}><b /></i>)}
         </div>
       </div>

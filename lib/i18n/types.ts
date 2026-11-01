@@ -824,7 +824,6 @@ export interface FairPassportDict {
   stampFavoriteAsk: string;
   stampFavoriteChosen: string;
   stampFavoriteAria: string;
-  stampFavoriteLocked: string;
   stampOpenModelAria: string;
   newStampEyebrowStamps: string;
   newStampActionStamps: string;
