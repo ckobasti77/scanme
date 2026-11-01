@@ -97,10 +97,14 @@ function candidates(from: string, specifier: string): string[] {
   return [target, `${target}.ts`, `${target}.tsx`, `${target}/index.ts`, `${target}/index.tsx`];
 }
 
+// The 3D Rendgen of the fair (`/sajam/3d`) is its own `three` kit with its own chunk, not the admin's:
+// this boundary does not cover it.
+const SEPARATE_KIT = "components/fair/auto3d/";
+
 const files = ["app", "components", "lib"]
   .flatMap((dir) => sourcesUnder(join(ROOT, dir)))
   .map(rel)
-  .filter((file) => file !== SELF);
+  .filter((file) => file !== SELF && !file.startsWith(SEPARATE_KIT));
 const read = (file: string) => readFileSync(join(ROOT, file), "utf8").split(/\r?\n/);
 
 describe("three import boundary", () => {

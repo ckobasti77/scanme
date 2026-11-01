@@ -84,6 +84,10 @@ const DICTIONARIES: ReadonlyArray<readonly [string, unknown]> = [
   ["venue-admin", venueAdminSr],
 ];
 
+// The DEV passport simulation of the fair app (components/fair/admin, components/fair/passport) names itself
+// „DEV“ on purpose: it is fair code on main, not admin text, so these keys are not checked here.
+const FAIR_DEV_SIMULATION_KEYS = new Set(["simNote", "simMenuTitle", "simTabAria", "simBar"]);
+
 function* strings(value: unknown, path: string): Generator<[string, string]> {
   if (typeof value === "string") yield [path, value];
   else if (Array.isArray(value)) for (const [index, item] of value.entries()) yield* strings(item, `${path}[${index}]`);
@@ -102,6 +106,7 @@ describe("rečnik admina: tekst bez programerskog jezika", () => {
     test(`${name}: nijedan izraz iz rečnika u vidljivom tekstu`, () => {
       const hits: string[] = [];
       for (const [key, text] of strings(dictionary, "")) {
+        if (name === "fair-admin-dev" && FAIR_DEV_SIMULATION_KEYS.has(key)) continue;
         const found = forbiddenIn(text);
         if (found.length) hits.push(`${name}.${key}: ${found.join(", ")} → „${text.slice(0, 90)}“`);
       }
