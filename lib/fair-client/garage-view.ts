@@ -1,11 +1,12 @@
-import type {
-  FairPassportCatalogEntry,
-  FairPublicEvent,
-  FairPublicModel,
-  FairSponsoredRotationView,
+import {
+  FAIR_GARAGE_MAX_MODELS,
+  type FairPassportCatalogEntry,
+  type FairPublicEvent,
+  type FairPublicModel,
+  type FairSponsoredRotationView,
 } from "@/lib/fair-contract";
 import { fairPublicEventSlug } from "@/lib/fair-public-event";
-import type { FairGarageDocument, FairGarageItem } from "./garage-store";
+import { addFairGarageModel, type FairGarageDocument, type FairGarageItem } from "./garage-store";
 
 export type FairGarageEventView = {
   publicSlug: string;
@@ -141,4 +142,37 @@ export async function fetchFairGarageModels(ids: string[]): Promise<FairPublicMo
     | { ok: false; code: string };
   if (!response.ok || !body.ok) throw new Error(body.ok ? "SERVICE_UNAVAILABLE" : body.code);
   return body.value;
+}
+
+/**
+ * AMF 1 Nov 2026 — the garage email link (`?vrati=`): adds the models of the
+ * code that this event’s garage does not hold yet, in the emailed order
+ * (first = newest), never past FAIR_GARAGE_MAX_MODELS. Models of another event
+ * are ignored. `added` 0 → nothing changed (no toast, no write).
+ */
+export function fairGarageRestore(
+  document: FairGarageDocument,
+  event: FairGarageEventView,
+  models: readonly FairPublicModel[],
+  now: number,
+): { document: FairGarageDocument; added: number } {
+  const publicSlug = fairPublicEventSlug(event.publicSlug);
+  const held = new Set(fairGarageItemsForEvent(document, event).map((item) => item.modelId));
+  let room = FAIR_GARAGE_MAX_MODELS - held.size;
+  let next = document;
+  let added = 0;
+  for (const model of models) {
+    if (room <= 0) break;
+    if (held.has(model.id) || fairPublicEventSlug(model.eventSlug) !== publicSlug) continue;
+    held.add(model.id);
+    next = addFairGarageModel(next, {
+      eventId: model.eventId,
+      modelId: model.id,
+      savedAt: now - added,
+      lastKnown: { eventSlug: publicSlug, modelSlug: model.slug, brandName: model.brandName, displayName: model.displayName, priceText: model.priceText, ...(model.photoUrl ? { photoUrl: model.photoUrl } : {}) },
+    });
+    added += 1;
+    room -= 1;
+  }
+  return { document: next, added };
 }

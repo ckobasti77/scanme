@@ -63,7 +63,8 @@ export type FairEmailDeliveryKind =
   | "immediate_confirmation"
   | "post_event_follow_up"
   | "exhibitor_delivery"
-  | "daily_report";
+  | "daily_report"
+  | "garage_email";
 /** K3 `skipped`: a lead email whose hard switch was off at claim time; closed, never sent. */
 export type FairEmailDeliveryStatus = "queued" | "sent" | "failed" | "suppressed" | "skipped";
 /** B0 design: HANDOFF §5.5 names fairPassportConfigs without fields. */
@@ -160,6 +161,19 @@ export const FAIR_MAP_ROTATION_INTERVAL_MS = 12_000;
 export const FAIR_GARAGE_ROTATION_INTERVAL_MS = 8_000;
 export const FAIR_SHARE_COLLECTION_MAX_MODELS = 5;
 export const FAIR_SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{24}$/;
+/**
+ * AMF 1 Nov 2026 "Sačuvaj garažu": the most models one garage holds in practice
+ * (the garage refresh reads every saved ID in one getModelsByIds call), so also
+ * the cap of one emailed garage and of a `?vrati=` restore.
+ */
+export const FAIR_GARAGE_MAX_MODELS = FAIR_MAX_MODEL_IDS_PER_READ;
+/** Garage emails per visitor per hour and per address per day. */
+export const FAIR_GARAGE_EMAIL_PER_VISITOR = 3;
+export const FAIR_GARAGE_EMAIL_VISITOR_WINDOW_MS = 60 * 60 * 1000;
+export const FAIR_GARAGE_EMAIL_PER_ADDRESS = 3;
+export const FAIR_GARAGE_EMAIL_ADDRESS_WINDOW_MS = 24 * 60 * 60 * 1000;
+/** `fairEmailDeliveries.recipient` of a garage email: the address HMAC, never the address. */
+export const FAIR_GARAGE_EMAIL_HASH_PATTERN = /^[0-9a-f]{64}$/;
 /**
  * Survey size. Owner decision 9 Oct 2026: the admin allows up to 10 questions
  * of up to 6 answers each; exhibitors are still told "5" (MASTER §9.2) and more
@@ -829,6 +843,8 @@ export const FAIR_EMAIL_DELIVERY_ERRORS = [
   "FOLLOW_UP_MERGED",
   // N5 — soft cap per address (FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT): the lead is stored, its confirmation is `skipped`
   "RECIPIENT_CAP",
+  // AMF 1 Nov 2026 — a garage email row without its message (already removed)
+  "GARAGE_EMAIL_MISSING",
 ] as const;
 export type FairEmailDeliveryError = (typeof FAIR_EMAIL_DELIVERY_ERRORS)[number];
 

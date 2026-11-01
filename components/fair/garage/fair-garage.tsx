@@ -14,6 +14,7 @@ import {
   CircleAlert,
   Copy,
   GitCompareArrows,
+  Mail,
   MapPin,
   MessageCircleMore,
   PhoneCall,
@@ -36,11 +37,13 @@ import {
 import type {
   FairPassportProgress,
   FairPassportState,
+  FairPublicModel,
   FairShareChannel,
   FairSponsoredActionKind,
   FairSponsoredModelCard,
 } from "@/lib/fair-contract";
-import { FAIR_PRIVACY_PATH } from "@/lib/fair-contract";
+import { FAIR_PRIVACY_PATH, isFairLeadEmail } from "@/lib/fair-contract";
+import { browserContactStorage, readSavedContact } from "@/lib/fair-client/contact-store";
 import {
   FAIR_GARAGE_CHANGE_EVENT,
   FAIR_GARAGE_MODEL_CHANGE_EVENT,
@@ -62,6 +65,7 @@ import {
   fairGarageEventTitle,
   fairGarageItemsForEvent,
   fairGarageModelView,
+  fairGarageRestore,
   fetchFairGarageModels,
   type FairGarageEventView,
   type FairGarageModelView,
@@ -329,6 +333,110 @@ function ShareDialog({
               <span>{dict.shareCopy}</span>
             </button>
           </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+type SaveGarageState = "idle" | "sending" | "sent" | "rate_limited" | "failed";
+
+function SaveGarageDialog({
+  open,
+  eventSlug,
+  modelIds,
+  dict,
+  onClose,
+}: {
+  open: boolean;
+  eventSlug: string;
+  modelIds: string[];
+  dict: FairGarageDict;
+  onClose: () => void;
+}) {
+  const requestClose = useFairHistoryLayer(open, onClose, "garage-save");
+  const [email, setEmail] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const [state, setState] = useState<SaveGarageState>("idle");
+  // One submission ID per filled-in form: a double tap or a retry of the same form sends one email.
+  const submissionId = useRef<string | null>(null);
+  // "Zapamti moj kontakt" of the lead forms: offered with "Koristi", never written here.
+  const savedEmail = useMemo(() => (open ? readSavedContact(browserContactStorage())?.email ?? null : null), [open]);
+  const emailValid = isFairLeadEmail(email);
+  const emailHint = touched && !emailValid ? dict.saveGarageEmailInvalid : null;
+  const consentHint = touched && emailValid && !consent ? dict.saveGarageConsentNeeded : null;
+
+  function edit(next: () => void) {
+    next();
+    submissionId.current = null;
+    setState((current) => (current === "sending" ? current : "idle"));
+  }
+
+  async function send(event: React.FormEvent) {
+    event.preventDefault();
+    setTouched(true);
+    if (!emailValid || !consent || state === "sending" || state === "sent") return;
+    submissionId.current ??= createClientRequestId();
+    setState("sending");
+    try {
+      const response = await fetch("/api/fair/garage-email", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), consent: true, eventSlug, eventModelIds: modelIds, submissionId: submissionId.current }),
+      });
+      setState(response.ok ? "sent" : response.status === 429 ? "rate_limited" : "failed");
+      if (response.ok) fairHaptic(12);
+    } catch {
+      setState("failed");
+    }
+  }
+
+  if (!open) return null;
+  const status = state === "sent" ? dict.saveGarageSent : state === "rate_limited" ? dict.saveGarageRateLimited : state === "failed" ? dict.saveGarageFailed : null;
+
+  return (
+    <Dialog.Root open onOpenChange={(next) => { if (!next) requestClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className={styles.dialogOverlay} />
+        <Dialog.Content className={`${styles.shareDialog} ${styles.saveDialog}`}>
+          <div className={styles.dialogHandle} aria-hidden="true" />
+          <button type="button" className={styles.dialogClose} aria-label={dict.saveGarageClose} onClick={() => requestClose()}><X aria-hidden="true" /></button>
+          <Dialog.Title>{dict.saveGarageTitle}</Dialog.Title>
+          <Dialog.Description>{dict.saveGarageBody}</Dialog.Description>
+          <form className={styles.saveForm} onSubmit={(event) => void send(event)} noValidate>
+            {savedEmail && savedEmail !== email.trim() ? (
+              <div className={styles.saveSaved} role="group" aria-label={dict.saveGarageSavedContactAria}>
+                <span>{savedEmail}</span>
+                <button type="button" onClick={() => edit(() => setEmail(savedEmail))}>{dict.saveGarageSavedContactUse}</button>
+              </div>
+            ) : null}
+            <label className={styles.saveField} htmlFor="garage-save-email">
+              <span>{dict.saveGarageEmailLabel}</span>
+              <input
+                id="garage-save-email"
+                name="email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                aria-invalid={emailHint ? true : undefined}
+                aria-describedby={emailHint ? "garage-save-email-hint" : undefined}
+                onChange={(event) => edit(() => setEmail(event.target.value))}
+                onBlur={() => { if (email.trim()) setTouched(true); }}
+              />
+            </label>
+            {emailHint ? <p id="garage-save-email-hint" className={styles.saveHint} role="alert">{emailHint}</p> : null}
+            <label className={styles.saveConsent}>
+              <input type="checkbox" checked={consent} onChange={(event) => edit(() => setConsent(event.target.checked))} />
+              <span>{dict.saveGarageConsent}</span>
+            </label>
+            {consentHint ? <p className={styles.saveHint} role="alert">{consentHint}</p> : null}
+            <button type="submit" className={styles.saveSubmit} disabled={state === "sending" || state === "sent"}>
+              {state === "sending" ? dict.saveGarageSending : state === "sent" ? <><Check aria-hidden="true" />{dict.saveGarageSent}</> : dict.saveGarageSend}
+            </button>
+            <p className={styles.saveStatus} role="status" aria-live="polite">{state === "sent" ? null : status}</p>
+          </form>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -1065,6 +1173,7 @@ export function FairGarage({
   dict,
   shellDict,
   adminTools,
+  restoreModels,
 }: {
   routeEventSlug: string;
   event: FairGarageEventView;
@@ -1073,6 +1182,8 @@ export function FairGarage({
   shellDict: FairModelDict;
   /** Admin DEV tools, rendered on the server for a verified admin only. */
   adminTools?: ReactNode;
+  /** `?vrati=` of the garage email: the models behind the code (empty when it is unknown or expired). */
+  restoreModels?: FairPublicModel[];
 }) {
   const router = useRouter();
   const [garageDocument, setGarageDocument] = useState<FairGarageDocument>(() => createEmptyFairGarageDocument());
@@ -1088,7 +1199,9 @@ export function FairGarage({
   const [shareBusy, setShareBusy] = useState(false);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [shareDraft, setShareDraft] = useState<ShareDraft | null>(null);
+  const [saveOpen, setSaveOpen] = useState(false);
   const [clockNow] = useState(() => Date.now());
+  const restoreHandled = useRef(false);
   const modelListRef = useRef<HTMLDivElement | null>(null);
   const previousModelLayout = useRef<{ eventSlug: string; rects: Map<string, DOMRect> }>({ eventSlug: "", rects: new Map() });
   const requestSelectionClose = useFairHistoryLayer(selectionMode, closeSelection, "garage-selection");
@@ -1163,6 +1276,17 @@ export function FairGarage({
     if (!mounted || eventIsLocked(activeEvent, Date.now())) return;
     writeFairGarageActiveEvent(window.localStorage, activeEvent.publicSlug);
   }, [activeEvent, mounted]);
+
+  // The garage email link (`?vrati=`): merge the missing models into this device once, then drop the code from the URL.
+  useEffect(() => {
+    if (!mounted || restoreModels === undefined || restoreHandled.current) return;
+    restoreHandled.current = true;
+    const restored = fairGarageRestore(garageDocument, activeEvent, restoreModels, Date.now());
+    window.requestAnimationFrame(() => {
+      if (restored.added > 0 && writeDocument(restored.document)) setShareMessage(dict.garageRestored);
+      router.replace(`/sajam/${routeEventSlug}/garaza`, { scroll: false });
+    });
+  }, [activeEvent, dict.garageRestored, garageDocument, mounted, restoreModels, routeEventSlug, router, writeDocument]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -1422,6 +1546,11 @@ export function FairGarage({
             <div className={styles.modelList} ref={modelListRef} data-garage-list>
               {activeModels.map((model, index) => <GarageModelCard key={model.id} model={model} selected={selected.includes(model.id)} selectionMode={selectionMode} selectionDisabled={selected.length >= MAX_SELECTED_MODELS} stale={!model.live && (refreshState === "error" || !online)} dict={dict} onSelect={() => toggleSelected(model.id)} onEnterSelection={() => enterSelection(model.id)} onShare={() => void shareModels([model])} onRemove={() => removeModel(model.id)} preload={index === 0} bay={index + 1} />)}
             </div>
+            {!selectionMode && activeEvent.publicSlug !== "demo-auto-moto-fest-2026" ? (
+              <div className={styles.saveGarageRow}>
+                <button type="button" className={styles.saveGarageButton} onClick={() => setSaveOpen(true)}><Mail aria-hidden="true" /><span>{dict.saveGarageAction}</span></button>
+              </div>
+            ) : null}
           </section>
         ) : mounted ? (
           <section className={styles.emptyState} data-garage-empty><div className={styles.emptyVisual} aria-hidden="true"><CarFront /></div><h2>{dict.emptyTitle}</h2>{FAIR_PUBLIC_MAP_ENABLED ? <><p>{dict.emptyBody}</p><Link href={`/sajam/${routeEventSlug}`}><MapPin aria-hidden="true" />{dict.emptyAction}</Link></> : <p>{dict.emptyBodyNoMap}</p>}</section>
@@ -1447,6 +1576,7 @@ export function FairGarage({
         onNativeShare={() => completeShare("native")}
         onChannel={completeShare}
       />
+      <SaveGarageDialog open={saveOpen} eventSlug={activeEvent.publicSlug} modelIds={activeModels.map((model) => model.id)} dict={dict} onClose={() => setSaveOpen(false)} />
       {shareMessage ? <div className={styles.shareToast} role="status">{shareMessage}</div> : null}
     </div>
   );

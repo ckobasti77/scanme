@@ -49,6 +49,8 @@ export type AnalyticsViewProps = {
   onRefresh: () => void;
   refreshing: boolean;
   onExport: () => void;
+  /** AMF 1 Nov 2026: garages emailed by visitors ("Sačuvaj garažu"); a count only. */
+  garageEmails?: number;
 };
 
 function SectionTitle({ id, children, action }: { id: string; children: ReactNode; action?: ReactNode }) {
@@ -279,7 +281,7 @@ function HeatMap({ eventCode, rows, period, onPeriod }: { eventCode: string; row
   );
 }
 
-export function EventAnalyticsView({ eventCode, data, audience, hourDay, onHourDay, onRefresh, refreshing, onExport }: AnalyticsViewProps) {
+export function EventAnalyticsView({ eventCode, data, audience, hourDay, onHourDay, onRefresh, refreshing, onExport, garageEmails }: AnalyticsViewProps) {
   const ids = { kpi: useId(), days: useId(), hours: useId(), models: useId(), stands: useId(), heat: useId(), devices: useId() };
   const [heatPeriod, setHeatPeriod] = useState<FairHeatPeriod>("today");
   const models = useMemo(() => analyticsModelRows(data, audience), [data, audience]);
@@ -298,6 +300,7 @@ export function EventAnalyticsView({ eventCode, data, audience, hourDay, onHourD
     { id: "surveys", label: k.surveys, value: number(data.kpis.surveys.total), hint: data.kpis.surveys.capped ? `${k.surveysHint} · ${d.capped}` : k.surveysHint },
     { id: "stamps", label: k.stamps, value: number(audience?.stamps.total), hint: fmt(k.stampsHint, { passports: number(audience?.stamps.passportsCompleted) }) },
     { id: "shares", label: k.shares, value: number(data.kpis.shares.total), hint: k.sharesHint },
+    { id: "garage-emails", label: k.garageEmails, value: number(garageEmails), hint: k.garageEmailsHint },
   ];
   const devices = audience?.devices;
   const deviceTotal = devices ? devices.mobile + devices.tablet + devices.desktop + devices.unknown : 0;

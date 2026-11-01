@@ -11,7 +11,8 @@ import {
 } from "@/lib/fair-server/garage-page";
 import { fairGarageSr as dict } from "@/lib/i18n/sr/fair-garage";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
-import { AMF_PUBLIC_GATE_OPENS_AT } from "@/lib/fair-contract";
+import { AMF_PUBLIC_GATE_OPENS_AT, FAIR_SHARE_CODE_PATTERN } from "@/lib/fair-contract";
+import { readFairSharedCollection } from "@/lib/fair-server/shared-collection";
 
 type RouteParams = { eventSlug: string };
 
@@ -46,6 +47,11 @@ export default async function FairGaragePage({
     (await loadFairGarageEventView(definition));
   // `next dev` only: `?sponzor=1` previews the sponsored dock without a DEV snapshot.
   const event = await withDevSponsoredRotation(loaded, query.sponzor === "1");
+  // `?vrati=` (the garage email): the models behind the code; an unknown or expired code restores nothing.
+  const restoreCode = typeof query.vrati === "string" ? query.vrati : null;
+  const restoreModels = restoreCode === null
+    ? undefined
+    : FAIR_SHARE_CODE_PATTERN.test(restoreCode) ? (await readFairSharedCollection(restoreCode))?.models ?? [] : [];
 
   return (
     <FairGarage
@@ -54,6 +60,7 @@ export default async function FairGaragePage({
       switchEvents={switchEvents}
       dict={dict}
       shellDict={fairModelSr}
+      restoreModels={restoreModels}
       adminTools={event.event ? <FairAdminTools event={{ id: event.event.id, slug: eventSlug, dataSlug: event.dataSlug, title: event.event.title }} /> : null}
     />
   );

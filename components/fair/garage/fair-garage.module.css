@@ -3219,3 +3219,182 @@
     transition: none;
   }
 }
+
+/* AMF 1 Nov 2026 — "Sačuvaj garažu": one button under the list, the share sheet pattern. */
+.saveGarageRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.saveGarageButton {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .saveGarageButton:hover {
+    border-color: color-mix(in srgb, var(--fair-accent) 48%, var(--fair-line));
+    color: var(--fair-accent);
+  }
+}
+
+.saveGarageButton svg {
+  width: 17px;
+  height: 17px;
+  color: var(--fair-accent);
+}
+
+.saveGarageButton:focus-visible,
+.saveForm input:focus-visible,
+.saveForm button:focus-visible {
+  outline: 2px solid #b8461a;
+  outline-offset: 2px;
+}
+
+.saveDialog {
+  --fair-accent: #e2602a;
+}
+
+.saveForm {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.saveField {
+  display: grid;
+  gap: 4px;
+}
+
+.saveField > span {
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.saveField input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #bdb4a8;
+  border-radius: 12px;
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.saveField input[aria-invalid="true"] {
+  border-color: #b42332;
+}
+
+.saveDialog .saveHint {
+  margin: -4px 0 0;
+  padding-right: 0;
+  color: #b42332;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.saveConsent {
+  display: flex;
+  min-height: 44px;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.saveConsent input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin: 1px 0 0;
+  accent-color: var(--fair-accent);
+}
+
+.saveSaved {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--fair-accent) 25%, transparent);
+  border-radius: 16px;
+  background: #f2decf;
+}
+
+.saveSaved span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saveSaved button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--fair-accent);
+  color: #fffdf8;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.saveSubmit {
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #b8461a;
+  border-radius: 12px;
+  background: var(--fair-accent);
+  color: #fffdf8;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.saveSubmit:disabled {
+  cursor: default;
+  opacity: 0.86;
+}
+
+.saveSubmit svg {
+  width: 18px;
+  height: 18px;
+}
+
+.saveDialog .saveStatus {
+  min-height: 18px;
+  margin: 0;
+  padding-right: 0;
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialogOverlay,
+  .saveDialog {
+    animation: none !important;
+  }
+}

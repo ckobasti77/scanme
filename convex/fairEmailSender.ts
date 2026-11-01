@@ -29,7 +29,7 @@ export const sendDelivery = internalAction({
     const config = fairResendConfig(env);
     if (!config) {
       // N5: one line for the deployment log — a code and the outbox kind, never a recipient, name or key.
-      console.warn(`[fair-email] RESEND_NOT_CONFIGURED: ${claim.action === "send" ? claim.message.kind : "daily_report"} not sent, the row is failed; set RESEND_API_KEY and RESEND_FROM_EMAIL, then retry it in the admin`);
+      console.warn(`[fair-email] RESEND_NOT_CONFIGURED: ${claim.action === "send" ? claim.message.kind : claim.action === "send_garage" ? "garage_email" : "daily_report"} not sent, the row is failed; set RESEND_API_KEY and RESEND_FROM_EMAIL, then retry it in the admin`);
       await ctx.runMutation(internal.fairEmails.markFailed, { deliveryId: args.deliveryId, error: "RESEND_NOT_CONFIGURED", retryable: false });
       return null;
     }
@@ -51,6 +51,21 @@ export const sendDelivery = internalAction({
         await ctx.runMutation(internal.fairEmails.markSent, { deliveryId: args.deliveryId, providerMessageId: reportOutcome.providerMessageId });
       } else {
         await ctx.runMutation(internal.fairEmails.markFailed, { deliveryId: args.deliveryId, error: reportOutcome.error, retryable: reportOutcome.retryable });
+      }
+      return null;
+    }
+    if (claim.action === "send_garage") {
+      // AMF 1 Nov 2026 "Sačuvaj garažu": the message rendered by the gateway, as-is.
+      const { subject, text, html } = claim.email;
+      const garageOutcome = await sendFairResendEmail(
+        { subject, text, html },
+        { ...config, to: claim.email.recipient, idempotencyKey: claim.email.dedupeKey },
+        fetch,
+      );
+      if (garageOutcome.ok) {
+        await ctx.runMutation(internal.fairEmails.markSent, { deliveryId: args.deliveryId, providerMessageId: garageOutcome.providerMessageId });
+      } else {
+        await ctx.runMutation(internal.fairEmails.markFailed, { deliveryId: args.deliveryId, error: garageOutcome.error, retryable: garageOutcome.retryable });
       }
       return null;
     }
@@ -77,7 +92,12 @@ export const sendDelivery = internalAction({
 export const sendDevTestEmail = internalAction({
   // 9 Oct 2026: `variant` sends one of the visitor confirmations with sample
   // data (JMEV EWIND, CUBI d.o.o.) instead of the generic test message.
-  args: { to: v.string(), variant: v.optional(v.union(v.literal("interest"), v.literal("test_drive"), v.literal("survey"))) },
+  // AMF 1 Nov 2026: `garage` sends a pre-rendered "Sačuvaj garažu" email (the preview) instead.
+  args: {
+    to: v.string(),
+    variant: v.optional(v.union(v.literal("interest"), v.literal("test_drive"), v.literal("survey"))),
+    garage: v.optional(v.object({ subject: v.string(), text: v.string(), html: v.string() })),
+  },
   returns: v.object({ ok: v.boolean(), providerMessageId: v.optional(v.string()), error: v.optional(v.string()) }),
   handler: async (_ctx, args) => {
     const to = args.to.trim();
@@ -85,7 +105,9 @@ export const sendDevTestEmail = internalAction({
     const config = fairResendConfig(env);
     if (!config) return { ok: false, error: "RESEND_NOT_CONFIGURED" };
     const baseUrl = fairPublicBaseUrl(env.FAIR_PUBLIC_BASE_URL);
-    const email = args.variant
+    const email = args.garage
+      ? args.garage
+      : args.variant
       ? buildFairLeadEmail({
           kind: "immediate_confirmation", dedupeKey: "fair-dev-test", recipient: to,
           leadKind: args.variant === "test_drive" ? "test_drive" : "interest",

@@ -60,6 +60,15 @@ export const fairReportEmailMessage = v.object({
 });
 export type FairReportEmailMessage = Infer<typeof fairReportEmailMessage>;
 
+/** AMF 1 Nov 2026: what claimDelivery hands to the sender for a `garage_email` row (internal only — it carries the address). */
+export const fairGarageEmailMessage = v.object({
+  dedupeKey: v.string(),
+  recipient: v.string(),
+  subject: v.string(),
+  text: v.string(),
+  html: v.string(),
+});
+
 /** A Resend attachment: base64 file content. */
 export type FairEmailAttachment = { filename: string; content: string };
 

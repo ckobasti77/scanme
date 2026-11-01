@@ -117,6 +117,7 @@ export const fairEmailDeliveryKind = v.union(
   v.literal("post_event_follow_up"),
   v.literal("exhibitor_delivery"),
   v.literal("daily_report"),
+  v.literal("garage_email"),
 );
 
 export const fairEmailDeliveryStatus = v.union(

@@ -135,6 +135,7 @@ const FAIR_INDEXES: Record<string, string[]> = {
   fairExhibitorFollowUpTemplates: ["by_participationId_and_status", "by_eventId_and_status"],
   fairEmailDeliveries: [
     "by_dedupeKey",
+    "by_visitorId_and_createdAt", // AMF 1 Nov 2026 garage emails per visitor
     "by_status_and_scheduledFor",
     "by_leadId_and_kind",
     "by_recipient_and_kind_and_createdAt", // B7 per-address confirmation cap
