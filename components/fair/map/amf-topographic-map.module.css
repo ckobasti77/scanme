@@ -185,9 +185,7 @@
 .legendSymbols { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; line-height: 20px; }
 .interest, .collected, .dots { display: inline-flex; align-items: center; gap: 5px; }
 .collected svg { box-sizing: border-box; width: 18px; height: 18px; padding: 2px; border: 1px solid var(--topo-orange); border-radius: 50%; }
-.dots i { width: 10px; height: 10px; border: 1px solid rgb(226 96 42 / 0.16); border-radius: 50%; background: rgb(226 96 42 / 0.2); }
-.dots i:nth-child(2) { background: rgb(226 96 42 / 0.5); }
-.dots i:nth-child(3) { background: var(--topo-orange); }
+.dots i { width: 10px; height: 10px; border: 1px solid rgb(226 96 42 / 0.16); border-radius: 50%; }
 .heatRetry { min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--topo-ink); font-size: 11px; text-decoration: underline; }
 
 .sponsor { flex: 0 0 auto; min-width: 0; }

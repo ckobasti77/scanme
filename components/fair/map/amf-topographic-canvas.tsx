@@ -5,7 +5,7 @@ import { Check, Maximize2 } from "lucide-react";
 import { siAudi, siDacia, siFord, siOpel, siVespa } from "simple-icons";
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { fairMapClamp, fairMapFit, fairMapLimits, fairMapZoomAt, type FairMapSize, type FairMapViewport, type FairMapZoneId } from "@/lib/fair-map";
-import { AMF_TOPOGRAPHIC_HALL, AMF_TOPOGRAPHIC_SIZE, amfTopographicPopupPosition, amfTopographicSize, fairMapContourOpacity, fairMapContourPath, hitAmfTopographicExhibit, type AmfTopographicExhibit } from "@/lib/fair-map/topography";
+import { AMF_TOPOGRAPHIC_HALL, AMF_TOPOGRAPHIC_SIZE, amfTopographicPopupPosition, amfTopographicSize, amfMapHeatColor, amfMapHeatStep, fairMapContourOpacity, fairMapContourPath, hitAmfTopographicExhibit, type AmfTopographicExhibit } from "@/lib/fair-map/topography";
 import { FairBrandMark } from "../garage/fair-brand-mark";
 import Image from "next/image";
 import { amfMapSr as dict } from "./amf-map-copy";
@@ -306,7 +306,7 @@ export function AmfTopographicCanvas({ items, zoneId, selectedKey, levels, compl
       <g clipPath={`url(#${clipId})`}>
         {drawingItems.map((item) => <g key={item.key} data-heat-eligible={item.paid} data-exhibit={item.key} data-area={item.area} aria-hidden="true">
           {item.footprint ? <polygon className={styles.foyerStand} data-scanme={item.key === "scanme" || undefined} points={item.footprint.map((point) => point.join(",")).join(" ")} /> : item.area === "foyer" ? <rect className={styles.foyerStand} x={item.x - item.rx} y={item.y - item.ry} width={item.rx * 2} height={item.ry * 2} rx="8" /> : null}
-          {item.area !== "foyer" ? <g>{Array.from({ length: 6 }, (_, band) => <path key={band} d={fairMapContourPath(item, band)} fill={item.paid ? "var(--topo-orange)" : "var(--topo-grey)"} fillOpacity={fairMapContourOpacity(item.paid, levels.get(item.key) ?? 0, band)} stroke={item.paid ? "var(--topo-orange)" : "var(--topo-grey)"} strokeOpacity={item.paid ? 0.13 : 0.15} strokeWidth="1.2" />)}</g> : null}
+          {item.area !== "foyer" ? <g data-heat-step={item.paid ? amfMapHeatStep(levels.get(item.key) ?? 0) : undefined}>{Array.from({ length: 6 }, (_, band) => <path key={band} d={fairMapContourPath(item, band)} fill={item.paid ? amfMapHeatColor(levels.get(item.key) ?? 0) : "var(--topo-grey)"} fillOpacity={fairMapContourOpacity(item.paid, band)} stroke={item.paid ? amfMapHeatColor(levels.get(item.key) ?? 0) : "var(--topo-grey)"} strokeOpacity={item.paid ? 0.13 : 0.15} strokeWidth="1.2" />)}</g> : null}
         </g>)}
       </g>
       <path className={styles.wall} data-amf-wall="" d={zoneId === "hala" ? AMF_TOPOGRAPHIC_HALL : ENTRANCE_FOYER} transform={`scale(1 ${stretchY})`} />

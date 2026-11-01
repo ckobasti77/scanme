@@ -125,11 +125,26 @@ export function fairMapHeatEligible(source: FairMapHeatSource): boolean {
   return source.brands?.some((brand) => brand.models.some((model) => model.packageTier && getFairEntitlements(model.packageTier).modelAnalytics)) ?? false;
 }
 
-/** No activity never removes the paid tint; an ineligible booth never heats up. */
-export function fairMapContourOpacity(paid: boolean, level: number, band: number): number {
+/** AMF map heat: muted yellow (no scans today) to bright orange, OKLCH-interpolated. */
+export const AMF_MAP_HEAT_STEPS = ["#d8c27a", "#dab86a", "#dcad5a", "#dea24b", "#e0963e", "#e28933", "#e37c2b", "#e36e28", "#e2602a"] as const;
+
+/** 1-based step; any scan leaves step 1, the top level is step 9. */
+export function amfMapHeatStep(level: number): number {
+  if (!Number.isFinite(level) || level <= 0) return 1;
+  return Math.max(2, Math.min(9, 1 + Math.ceil(level * 8)));
+}
+
+/** Legend dots: "manje" → "više". */
+export const AMF_MAP_LEGEND_STEPS = [1, 5, 9] as const;
+
+export function amfMapHeatColor(level: number): string {
+  return AMF_MAP_HEAT_STEPS[amfMapHeatStep(level) - 1];
+}
+
+/** Fixed band profile: the paid colour carries the heat, not the opacity. */
+export function fairMapContourOpacity(paid: boolean, band: number): number {
   if (!paid) return 0.025 + band * 0.015;
-  const value = Math.max(0, Math.min(1, Number.isFinite(level) ? level : 0));
-  return 0.035 + band * (0.028 + value * 0.14);
+  return 0.1 + band * 0.14;
 }
 
 export type AmfTopographicExhibit = Anchor & {
