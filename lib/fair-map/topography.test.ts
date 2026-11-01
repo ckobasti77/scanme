@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { FairPublicMapStand } from "../fair-contract";
 import { AUTO_MOTO_FEST_2026_MAP } from "./auto-moto-fest-2026";
 import { buildFairMapView } from "./view";
-import { AMF_ENTRANCE_ANCHORS, AMF_HALL_ANCHORS, amfTopographicPopupPosition, amfTopographicSize, buildAmfTopographicExhibits, fairMapContourOpacity, fairMapContourPath, fairMapHeatEligible, fairMapTopographicLevel, hitAmfTopographicExhibit, searchAmfTopographicExhibits } from "./topography";
+import { AMF_ENTRANCE_ANCHORS, AMF_HALL_ANCHORS, AMF_MAP_HEAT_STEPS, AMF_MAP_LEGEND_STEPS, amfMapHeatStep, amfTopographicPopupPosition, amfTopographicSize, buildAmfTopographicExhibits, fairMapContourOpacity, fairMapContourPath, fairMapHeatEligible, fairMapTopographicLevel, hitAmfTopographicExhibit, searchAmfTopographicExhibits } from "./topography";
 import { fairMapWebsiteUrl } from "./websites";
 import { amfEntrancePoint } from "./amf-entrance-plan";
 
@@ -31,12 +31,19 @@ describe("AMF topographic heat eligibility", () => {
     expect(fairMapHeatEligible({ brands: [{ models: [{ packageTier: "included" }, { packageTier: "starter" }] }] })).toBe(true);
     expect(fairMapHeatEligible({})).toBe(false);
   });
-  test.each([0, 1, 2, 3, 4, 5])("paid zero-scans tint stays visible, grey never heats (band %d)", (band) => {
-    expect(fairMapContourOpacity(true, 0, band)).toBeGreaterThan(0);
-    expect(fairMapContourOpacity(false, 0, band)).toBe(fairMapContourOpacity(false, 1, band));
-    if (band > 0) expect(fairMapContourOpacity(true, 1, band)).toBeGreaterThan(fairMapContourOpacity(true, 0, band));
-    expect(fairMapContourOpacity(true, 100, band)).toBeLessThanOrEqual(1);
-    expect(fairMapContourOpacity(true, NaN, band)).toBe(fairMapContourOpacity(true, 0, band));
+  test.each([0, 1, 2, 3, 4, 5])("fixed band profile, visible and below 1 (band %d)", (band) => {
+    expect(fairMapContourOpacity(true, band)).toBeGreaterThanOrEqual(0.1);
+    expect(fairMapContourOpacity(true, band)).toBeLessThanOrEqual(0.8 + 1e-9);
+    if (band > 0) expect(fairMapContourOpacity(true, band)).toBeGreaterThan(fairMapContourOpacity(true, band - 1));
+  });
+  test.each([[0, 1], [0.01, 2], [0.5, 5], [1, 9], [NaN, 1], [-1, 1], [5, 9]])("heat level %d is step %d", (level, step) => {
+    expect(amfMapHeatStep(level)).toBe(step);
+  });
+  test("nine steps from muted yellow to the bright orange, legend 1/5/9", () => {
+    expect(AMF_MAP_HEAT_STEPS).toHaveLength(9);
+    expect(AMF_MAP_HEAT_STEPS[0]).toBe("#d8c27a");
+    expect(AMF_MAP_HEAT_STEPS[8]).toBe("#e2602a");
+    expect(AMF_MAP_LEGEND_STEPS).toEqual([1, 5, 9]);
   });
 });
 

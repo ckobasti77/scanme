@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 import type { FairPassportCatalogEntry, FairPublicMapStand } from "@/lib/fair-contract";
 import { AUTO_MOTO_FEST_2026_MAP } from "@/lib/fair-map/auto-moto-fest-2026";
 import { buildFairMapView } from "@/lib/fair-map/view";
-import { buildAmfTopographicExhibits } from "@/lib/fair-map/topography";
+import { AMF_MAP_HEAT_STEPS, buildAmfTopographicExhibits } from "@/lib/fair-map/topography";
 import { FairEventMapView } from "./fair-event-map";
 import { MapSkeleton } from "@/app/sajam/[eventSlug]/_mapa/map-skeleton";
 import { AmfTopographicMap } from "./amf-topographic-map";
@@ -40,6 +40,16 @@ describe("canonical AMF visitor markup", () => {
     // The popup (passport stamps, website) renders only once the canvas has
     // measured itself (`ready`), so it is not part of static markup.
     expect(buildAmfTopographicExhibits(view).find((item) => item.key === "audi")?.websiteUrl).toBe("https://www.brosauto.rs/");
+  });
+  test("legend dots are heat steps 1/5/9; a paid stand without scans is step 1, free stays grey", () => {
+    const dots = html.match(/<i data-heat-step="\d" style="background:#[0-9a-f]+"><\/i>/g);
+    expect(dots).toEqual([1, 5, 9].map(step => `<i data-heat-step="${step}" style="background:${AMF_MAP_HEAT_STEPS[step - 1]}"></i>`));
+    const audi = html.match(/data-exhibit="audi"[^]*?<\/g><\/g>/)?.[0] ?? "";
+    expect(audi).toContain('data-heat-step="1"');
+    expect(audi).toContain(`fill="${AMF_MAP_HEAT_STEPS[0]}"`);
+    const toyota = html.match(/data-exhibit="toyota"[^]*?<\/g><\/g>/)?.[0] ?? "";
+    expect(toyota).toContain('fill="var(--topo-grey)"');
+    expect(toyota).not.toContain("data-heat-step");
   });
   test("the demo uses the same real exhibitors and website pop-up, not anonymous demo logos", () => {
     const demo = renderToStaticMarkup(createElement(AmfTopographicMap, { demo: true, eventSlug: "demo-auto-moto-fest-2026", view, rotation: null, display: false, initialLink: { stand: "hala-1" }, passportProgress: [] }));

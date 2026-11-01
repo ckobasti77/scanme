@@ -6,7 +6,7 @@ import { useDemoHeat } from "../demo/use-demo-heat";
 import { FAIR_DEMO_PASSPORTS } from "@/lib/fair-demo";
 import { getDict } from "@/lib/i18n";
 import { fairMapDeepLinkSearch, fairMapReadDeepLink, fairPassportProgressFor, type FairMapZoneId } from "@/lib/fair-map";
-import { buildAmfTopographicExhibits, fairMapTopographicLevel, searchAmfTopographicExhibits, type AmfTopographicExhibit } from "@/lib/fair-map/topography";
+import { AMF_MAP_HEAT_STEPS, AMF_MAP_LEGEND_STEPS, buildAmfTopographicExhibits, fairMapTopographicLevel, searchAmfTopographicExhibits, type AmfTopographicExhibit } from "@/lib/fair-map/topography";
 import { fmt } from "@/lib/i18n/format";
 import type { FairEventMapViewProps } from "./fair-event-map";
 import { amfMapSr as dict } from "./amf-map-copy";
@@ -147,7 +147,7 @@ export function AmfTopographicMap({ eventSlug, view, rotation, display, initialL
 
     <div className={styles.legend}>
       <div className={styles.legendSymbols}>
-        <span className={styles.interest}><span className={styles.dots} aria-hidden="true"><i /><i /><i /></span>{dict.interestLabel}</span>
+        <span className={styles.interest}><span className={styles.dots} aria-hidden="true">{AMF_MAP_LEGEND_STEPS.map(step => <i key={step} data-heat-step={step} style={{ background: AMF_MAP_HEAT_STEPS[step - 1] }} />)}</span>{dict.interestLabel}</span>
         {demo ? <span className={styles.demoHeat} data-demo-heat="">
           <span>{demoDict.heatSimulation}</span>
           <button type="button" aria-label={demoDict.heatHelp} aria-expanded={heatHelpOpen} aria-describedby={heatHelpOpen ? "demo-heat-help" : undefined} onClick={() => setHeatHelpOpen(value => !value)}><CircleHelp aria-hidden="true" /></button>
