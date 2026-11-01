@@ -209,6 +209,7 @@ function projector(ctx: QueryCtx) {
         interestLeadEnabled: interest?.enabled === true,
         testDriveLeadEnabled: testDrive?.enabled === true,
         surveyAllTiers: participationRow.surveyAllTiers === true,
+        sponsoredOverride: model.sponsoredOverride === true,
       }),
     };
   };

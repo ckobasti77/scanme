@@ -185,6 +185,7 @@ async function loadFacts(ctx: QueryCtx, event: Doc<"fairEvents">, at: number): P
         status: model.status,
         packageTier: model.packageTier,
         packageActivatedAt: model.packageActivatedAt,
+        sponsoredOverride: model.sponsoredOverride === true,
         passportEligible: model.passportEligible,
         hasPhoto: Boolean(model.photoUrl || model.photoStorageId),
         hasActiveQr: assigned.has(model._id),

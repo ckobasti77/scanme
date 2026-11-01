@@ -74,6 +74,7 @@ import { fairHaptic } from "@/lib/fair-client/haptics";
 import { useFairHistoryLayer } from "@/lib/fair-client/history-layer";
 import {
   advanceSponsoredTimeline,
+  canStartSponsoredSwipe,
   createSponsoredTimeline,
   getSponsoredTimelineTiming,
   pauseSponsoredTimeline,
@@ -803,6 +804,8 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
   const swipeRef = useRef<{ start: number; offset: number; direction: number; active: boolean; commit: boolean; pointerId?: number } | null>(null);
   // The gesture moved past the swipe threshold: the photo link must not open.
   const swipedRef = useRef(false);
+  // A slide tween (swipe release or auto advance) is running: no new swipe until its onComplete.
+  const slidingRef = useRef(false);
   const [storageError, setStorageError] = useState(false);
   const [addingId, setAddingId] = useState<string | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -881,6 +884,7 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
     if (swipe?.active) { gsap.set(track, { x: start }); return; }
     const commit = swipe?.commit ?? true;
     const end = commit ? (slideDirection > 0 ? -width : 0) : (slideDirection > 0 ? 0 : -width);
+    slidingRef.current = true;
     const animation = gsap.fromTo(track, { x: start }, {
       x: end,
       duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : SPONSORED_SLIDE_MS / 1000,
@@ -891,17 +895,19 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
           setShownIndex(incomingIndex);
         }
         swipeRef.current = null;
+        slidingRef.current = false;
         setIncomingIndex(null);
       },
     });
-    return () => { animation.kill(); };
+    return () => { animation.kill(); slidingRef.current = false; };
   }, [incomingIndex, slideDirection, swipeRelease]);
 
   function swipeMove(clientX: number) {
     if (display) return;
     const swipe = swipeRef.current;
     const viewport = viewportRef.current;
-    if (!swipe || !viewport) return;
+    // A released swipe (still sliding) ignores further moves.
+    if (!swipe?.active || !viewport) return;
     swipe.offset = Math.max(-viewport.clientWidth, Math.min(viewport.clientWidth, clientX - swipe.start));
     if (Math.abs(swipe.offset) < 4) return;
     swipedRef.current = true;
@@ -916,7 +922,7 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
   function swipeEnd(cancel = false) {
     if (display) return;
     const swipe = swipeRef.current;
-    if (!swipe) return;
+    if (!swipe?.active) return;
     swipe.active = false;
     swipe.commit = !cancel && Math.abs(swipe.offset) > (viewportRef.current?.clientWidth ?? 0) * 0.18;
     const nowMs = Date.now();
@@ -1143,7 +1149,7 @@ export function SponsoredStrip({ event, document: garageDocument, dict, onDocume
           }}
           onPointerDown={display ? undefined : event => {
             swipedRef.current = false;
-            if (items.length < 2 || incomingIndex !== null || (event.target as HTMLElement).closest("button, a:not([data-sponsored-open])")) return;
+            if (!canStartSponsoredSwipe({ itemCount: items.length, sliding: slidingRef.current, incomingIndex }) || (event.target as HTMLElement).closest("button, a:not([data-sponsored-open])")) return;
             swipeRef.current = { start: event.clientX, offset: 0, direction: 1, active: true, commit: false, pointerId: event.pointerId };
             pause();
           }}

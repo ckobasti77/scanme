@@ -38,7 +38,7 @@ import {
 } from "./lib/fairInteractions";
 import { requireFairGateway } from "./lib/fairGateway";
 import { fairSessionAdminUserId, fairTimeKeys } from "./lib/fairScans";
-import { fairActiveSponsoredSnapshot, fairSponsoredCountKeys, fairSponsoredItems } from "./lib/fairSponsored";
+import { fairActiveSponsoredSnapshot, fairModelSponsoredAt, fairSponsoredCountKeys, fairSponsoredItems } from "./lib/fairSponsored";
 import {
   fairAudienceResultView,
   fairMyModelStateView,
@@ -423,7 +423,7 @@ export const recordSponsoredAction = mutation({
     }
 
     const { model } = await requireInteractiveModel(ctx, args.eventModelId, now);
-    if (!getFairEntitlements(await fairModelTierAt(ctx, model, now)).sponsoredGarageRotation) fairInteractionError("FEATURE_NOT_ENTITLED");
+    if (!(await fairModelSponsoredAt(ctx, model, now))) fairInteractionError("FEATURE_NOT_ENTITLED");
     const snapshot = await fairActiveSponsoredSnapshot(ctx, model.eventId);
     const inSnapshot = snapshot ? (await fairSponsoredItems(ctx, snapshot._id)).some((item) => item.eventModelId === model._id) : false;
     if (!inSnapshot) fairInteractionError("FEATURE_NOT_ENTITLED");

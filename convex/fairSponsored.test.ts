@@ -30,7 +30,7 @@ import {
   getFairRotationSlot,
 } from "../lib/fair-client/rotation-slot";
 import { fairSponsoredActionResultView, fairSponsoredRotationView } from "./lib/fairValidators";
-import { fairSponsoredCountKeys, fairSponsoredOrder, fairSponsoredSeed } from "./lib/fairSponsored";
+import { fairSponsoredCountKeys, fairSponsoredLeadOrder, fairSponsoredOrder, fairSponsoredSeed } from "./lib/fairSponsored";
 import { readFairCount } from "./lib/fairCountShards";
 
 vi.mock("server-only", () => ({}));
@@ -690,8 +690,48 @@ describe("A9 automatic sponsored snapshot (ADMIN-UX §8, §12.1)", () => {
 // Pure helpers and the contract
 // =============================================================================
 
+describe("AMF 1 Nov 2026 owner override: one Starter model in the sponsored rotation, first", () => {
+  test("only the overridden model joins, first on map and garage; the others keep their order; off removes it", async () => {
+    const f = await setup({ auto: true });
+    const otherStarter = await f.a.model("test-volta-x5", "starter");
+    const seed = fairSponsoredSeed(f.eventId);
+    const advancedOrder = fairSponsoredOrder([f.models.advanced, f.models.advanced2, f.models.advancedB], seed, "2026-10-09");
+    const slug = await f.t.run(async (ctx) => (await ctx.db.get(f.models.starter))!.slug);
+    const override = (enabled: boolean, modelSlug = slug) =>
+      f.t.mutation(internal.fairSetup.setSponsoredOverride, { eventCode: "test-elektromobilnost-2026", modelSlug, enabled });
+
+    expect(await override(true)).toMatchObject({ enabled: true, sync: "published" });
+    const map = ids(await mapRotation(f));
+    expect(map).toEqual([f.models.starter, ...advancedOrder]);
+    expect(ids(await garageRotation(f))).toEqual(map);
+    expect(map).not.toContain(otherStarter);
+    // The package is unchanged; the garage action follows the override, other Starter models stay refused.
+    expect((await f.t.run(async (ctx) => ctx.db.get(f.models.starter)))?.packageTier).toBe("starter");
+    await action(f, visitor(), f.models.starter);
+    await expectCode(action(f, visitor(), otherStarter), "FEATURE_NOT_ENTITLED");
+    // Idempotent: the same call publishes nothing new.
+    expect(await override(true)).toMatchObject({ sync: "unchanged" });
+
+    expect(await override(false)).toMatchObject({ enabled: false, sync: "published" });
+    expect(ids(await mapRotation(f))).toEqual(advancedOrder);
+    await expectCode(action(f, visitor(), f.models.starter), "FEATURE_NOT_ENTITLED");
+    expect((await f.t.run(async (ctx) => ctx.db.get(f.models.starter)))?.sponsoredOverride).toBeUndefined();
+
+    // Never on an unpaid model.
+    const includedSlug = await f.t.run(async (ctx) => (await ctx.db.get(f.models.included))!.slug);
+    await expect(override(true, includedSlug)).rejects.toThrow("fair_setup_sponsored_override_unpaid");
+  });
+
+  test("the lead order puts the overrides first and shuffles the rest as before", () => {
+    const list = ["m01", "m02", "m03", "m04"];
+    expect(fairSponsoredLeadOrder(list, ["m03"], "seed-a", "2026-10-09")).toEqual(["m03", ...fairSponsoredOrder(["m01", "m02", "m04"], "seed-a", "2026-10-09")]);
+    expect(fairSponsoredLeadOrder(list, [], "seed-a", "2026-10-09")).toEqual(fairSponsoredOrder(list, "seed-a", "2026-10-09"));
+    expect(fairSponsoredLeadOrder(list, ["m99"], "seed-a", "2026-10-09")).toEqual(fairSponsoredOrder(list, "seed-a", "2026-10-09"));
+  });
+});
+
 describe("B5 stable daily shuffle and contract types", () => {
-  const list = ["m01", "m02", "m03", "m04", "m05", "m06", "m07", "m08"];
+  const list =["m01", "m02", "m03", "m04", "m05", "m06", "m07", "m08"];
 
   test("same seed + day = same order; it is a permutation; adding a model keeps the others' order", () => {
     const order = fairSponsoredOrder(list, "seed-a", "2026-10-09");
