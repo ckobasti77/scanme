@@ -3,6 +3,7 @@ import {
   FAIR_GARAGE_ROTATION_INTERVAL_MS,
   FAIR_MAP_ROTATION_INTERVAL_MS,
   advanceSponsoredTimeline,
+  canStartSponsoredSwipe,
   createSponsoredTimeline,
   getFairRotationItem,
   getFairRotationSlot,
@@ -11,6 +12,34 @@ import {
   resumeSponsoredTimeline,
   swipeSponsoredTimeline,
 } from "./rotation-slot";
+
+describe("sponsored swipe lock", () => {
+  test("a second swipe during the slide is ignored; after onComplete a swipe works; one slide per swipe", () => {
+    const itemCount = 5;
+    const intervalMs = FAIR_GARAGE_ROTATION_INTERVAL_MS;
+    let state = { itemCount, sliding: false, incomingIndex: null as number | null };
+    expect(canStartSponsoredSwipe(state)).toBe(true);
+
+    // Swipe released past the threshold: one timeline step, the tween runs.
+    const timeline = swipeSponsoredTimeline(null, { nextIndex: 1, nowMs: 10_000, intervalMs, itemCount });
+    state = { ...state, sliding: true, incomingIndex: 1 };
+    expect(canStartSponsoredSwipe(state)).toBe(false);
+    // Tween still running after the incoming index is drawn: still locked.
+    expect(canStartSponsoredSwipe({ ...state, incomingIndex: null })).toBe(false);
+    expect(timeline?.index).toBe(1);
+
+    // onComplete: incomingIndex back to null and the tween is done.
+    state = { ...state, sliding: false, incomingIndex: null };
+    expect(canStartSponsoredSwipe(state)).toBe(true);
+
+    // An automatic advance locks the same way until its onComplete.
+    expect(canStartSponsoredSwipe({ ...state, sliding: true, incomingIndex: 2 })).toBe(false);
+    // Reduced motion swaps at once: nothing incoming, nothing sliding, never stuck.
+    expect(canStartSponsoredSwipe({ itemCount, sliding: false, incomingIndex: null })).toBe(true);
+    // One model: nothing to swipe.
+    expect(canStartSponsoredSwipe({ itemCount: 1, sliding: false, incomingIndex: null })).toBe(false);
+  });
+});
 
 describe("fair rotation slot", () => {
   test("uses the locked map and garage intervals", () => {

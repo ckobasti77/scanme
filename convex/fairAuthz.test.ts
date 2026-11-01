@@ -176,7 +176,7 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
     functions: { seedTestCatalog: I, seedTestQr: I, seedTestPassport: I, seedTestSponsoredSnapshot: I, seedIntegrationTest: I, seedShowcaseCatalog: I, seedElectromobilityReviewCatalog: I },
   },
   // Aleksa (8. 10., ebb3102): the real elektromobilnost-2026 setup, internal only (RUNBOOK-EVENT-SETUP.md).
-  fairSetup: { module: fairSetup, functions: { bootstrapEvent: I, importDryRun: I, importCommit: I, publishEventModels: I, setupAudienceQuestions: I, setupSurveys: I, setupLeads: I, amfQrHousekeeping: I, pointSponsoredToDay: I, scheduleSponsoredDays: I, setModelHighlight: I, recomputePopularModelHighlight: I, setHighlightAutoMode: I } },
+  fairSetup: { module: fairSetup, functions: { bootstrapEvent: I, importDryRun: I, importCommit: I, publishEventModels: I, setupAudienceQuestions: I, setupSurveys: I, setupLeads: I, amfQrHousekeeping: I, pointSponsoredToDay: I, scheduleSponsoredDays: I, setModelHighlight: I, setSponsoredOverride: I, recomputePopularModelHighlight: I, setHighlightAutoMode: I } },
   fairAmfReview: { module: fairAmfReview, functions: { applySpecs: I, removeAccidentalVote: I, removeReviewLead: I, backfillAmfScans: I, setupSingleModelPassports: I } },
   // JOVAN-DELTA 2026-10-08b — "Resetuj pre-event podatke" (admin) and the one-off package alignment (CLI).
   fairPreEvent: { module: fairPreEvent, functions: { previewPreEventReset: A, resetPreEventData: A, resetPreEventContinue: I, alignFuturePackageActivations: I } },

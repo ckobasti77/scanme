@@ -7,6 +7,7 @@ import { fairAdminError, requireFairEvent } from "./lib/fairCatalog";
 import { fairAudienceOptionCounts, fairVoteThreshold } from "./lib/fairInteractions";
 import {
   FAIR_SPONSORED_ITEMS_CAP,
+  fairSponsoredCandidateRows,
   FAIR_SPONSORED_SYNC_RESULTS,
   fairActiveSponsoredSnapshot,
   fairPublishSponsoredSnapshot,
@@ -191,10 +192,7 @@ export const getSponsoredRotationAdmin = query({
       ...(row.publishedAt !== undefined ? { publishedAt: row.publishedAt } : {}),
       trigger: row.trigger ?? "admin",
     }));
-    const rows = await ctx.db
-      .query("fairEventModels")
-      .withIndex("by_eventId_and_packageTier", (q) => q.eq("eventId", event._id).eq("packageTier", "advanced"))
-      .take(FAIR_SPONSORED_ITEMS_CAP);
+    const { rows } = await fairSponsoredCandidateRows(ctx, event._id);
     const candidates = [];
     for (const model of rows) {
       if (model.status !== "published") continue;
@@ -220,10 +218,7 @@ export const getSponsoredQuestionVotes = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const event = await requireFairEvent(ctx, args.eventId);
-    const rows = await ctx.db
-      .query("fairEventModels")
-      .withIndex("by_eventId_and_packageTier", (q) => q.eq("eventId", event._id).eq("packageTier", "advanced"))
-      .take(FAIR_SPONSORED_ITEMS_CAP);
+    const { rows } = await fairSponsoredCandidateRows(ctx, event._id);
     const questions: { eventModelId: Id<"fairEventModels">; questionId: Id<"fairAudienceQuestions">; votes: number }[] = [];
     for (const model of rows) {
       if (model.status !== "published") continue;

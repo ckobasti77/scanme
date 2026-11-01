@@ -3,6 +3,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { FairSponsoredActionKind, FairSponsoredModelCard, FairSponsoredSnapshotTrigger } from "../../lib/fair-contract";
 import { writeAdminAudit } from "./adminAudit";
+import { fairSponsoredRotationAllowed } from "../../lib/fair-entitlements";
 import { fairModelQuestions, fairModelTierAt } from "./fairInteractions";
 import { fairTimeKeys } from "./fairScans";
 
@@ -60,6 +61,12 @@ export function fairSponsoredOrder<T extends string>(ids: readonly T[], seed: st
     .map((row) => row.id);
 }
 
+/** The owner overrides first (in id order), then the others in the day's stable shuffle. */
+export function fairSponsoredLeadOrder<T extends string>(ids: readonly T[], first: readonly T[], seed: string, dayKey: string): T[] {
+  const lead = [...new Set(first)].filter((id) => ids.includes(id)).sort();
+  return [...lead, ...fairSponsoredOrder(ids.filter((id) => !lead.includes(id)), seed, dayKey)];
+}
+
 /** The event's one `published` snapshot (or null). */
 export async function fairActiveSponsoredSnapshot(ctx: Ctx, eventId: Id<"fairEvents">) {
   return ctx.db
@@ -109,9 +116,34 @@ export async function fairSponsoredQuestionId(ctx: Ctx, eventModelId: Id<"fairEv
   return chosen?._id;
 }
 
+/** Sponsored rotation right of one model at `at`: its package in force, or the owner override (sponsoredOverride). */
+export async function fairModelSponsoredAt(ctx: Ctx, model: Doc<"fairEventModels">, at: number): Promise<boolean> {
+  return fairSponsoredRotationAllowed(await fairModelTierAt(ctx, model, at), model.sponsoredOverride);
+}
+
+/**
+ * Every model of the event that may enter the rotation: the stored-Advanced
+ * ones plus the owner overrides (bounded; `tooMany` past the snapshot cap).
+ * Callers still check status and the right in force.
+ */
+export async function fairSponsoredCandidateRows(ctx: Ctx, eventId: Id<"fairEvents">) {
+  const advanced = await ctx.db
+    .query("fairEventModels")
+    .withIndex("by_eventId_and_packageTier", (q) => q.eq("eventId", eventId).eq("packageTier", "advanced"))
+    .take(FAIR_SPONSORED_ITEMS_CAP + 1);
+  const overrides = await ctx.db
+    .query("fairEventModels")
+    .withIndex("by_eventId_and_sponsoredOverride", (q) => q.eq("eventId", eventId).eq("sponsoredOverride", true))
+    .take(FAIR_SPONSORED_ITEMS_CAP);
+  const rows = [...advanced, ...overrides.filter((model) => model.packageTier !== "advanced")];
+  return { rows, tooMany: advanced.length > FAIR_SPONSORED_ITEMS_CAP };
+}
+
 export type FairSponsoredEligible = {
-  /** Published models whose package in force at `now` is Advanced → their map question. */
+  /** Published models with the sponsored right in force at `now` (Advanced or override) → their map question. */
   items: Map<Id<"fairEventModels">, Id<"fairAudienceQuestions"> | undefined>;
+  /** Owner overrides among `items`: they lead the rotation, ahead of the shuffle. */
+  first: Id<"fairEventModels">[];
   /** More stored-Advanced models than one snapshot may hold (FAIR_SPONSORED_LIMIT). */
   tooMany: boolean;
   /** Earliest later activation of a published stored-Advanced model (not applied early), or null. */
@@ -120,19 +152,19 @@ export type FairSponsoredEligible = {
 
 /** What a snapshot published at `now` would contain (bounded: ≤ cap + 1 models, one question read each). */
 export async function fairSponsoredEligible(ctx: Ctx, eventId: Id<"fairEvents">, now: number): Promise<FairSponsoredEligible> {
-  const rows = await ctx.db
-    .query("fairEventModels")
-    .withIndex("by_eventId_and_packageTier", (q) => q.eq("eventId", eventId).eq("packageTier", "advanced"))
-    .take(FAIR_SPONSORED_ITEMS_CAP + 1);
+  const { rows, tooMany } = await fairSponsoredCandidateRows(ctx, eventId);
   const items: FairSponsoredEligible["items"] = new Map();
+  const first: FairSponsoredEligible["first"] = [];
   let nextActivationAt: number | null = null;
-  if (rows.length > FAIR_SPONSORED_ITEMS_CAP) return { items, tooMany: true, nextActivationAt };
+  if (tooMany) return { items, first, tooMany: true, nextActivationAt };
   for (const model of rows) {
     if (model.status !== "published") continue;
-    if ((await fairModelTierAt(ctx, model, now)) === "advanced") items.set(model._id, await fairSponsoredQuestionId(ctx, model._id));
-    else if (model.packageActivatedAt > now) nextActivationAt = Math.min(nextActivationAt ?? Infinity, model.packageActivatedAt);
+    if (await fairModelSponsoredAt(ctx, model, now)) {
+      items.set(model._id, await fairSponsoredQuestionId(ctx, model._id));
+      if (model.sponsoredOverride === true && model.packageTier !== "advanced") first.push(model._id);
+    } else if (model.packageActivatedAt > now) nextActivationAt = Math.min(nextActivationAt ?? Infinity, model.packageActivatedAt);
   }
-  return { items, tooMany: false, nextActivationAt };
+  return { items, first, tooMany: false, nextActivationAt };
 }
 
 /**
@@ -147,7 +179,7 @@ export async function fairPublishSponsoredSnapshot(
   const { eventId, eligible, now, trigger } = input;
   const dayKey = fairTimeKeys(now).dateKey;
   const seed = fairSponsoredSeed(eventId);
-  const order = fairSponsoredOrder([...eligible.items.keys()], seed, dayKey);
+  const order = fairSponsoredLeadOrder([...eligible.items.keys()], eligible.first, seed, dayKey);
   const latest = await ctx.db
     .query("fairSponsoredSnapshots")
     .withIndex("by_eventId_and_version", (q) => q.eq("eventId", eventId))

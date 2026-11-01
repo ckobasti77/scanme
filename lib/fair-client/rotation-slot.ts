@@ -97,6 +97,14 @@ export function createSponsoredTimeline(
   };
 }
 
+/**
+ * A new swipe may start only while no slide runs: nothing incoming and no
+ * slide tween (swipe release or auto advance) before its onComplete.
+ */
+export function canStartSponsoredSwipe(state: { itemCount: number; sliding: boolean; incomingIndex: number | null }): boolean {
+  return state.itemCount > 1 && !state.sliding && state.incomingIndex === null;
+}
+
 export function swipeSponsoredTimeline(
   current: FairSponsoredTimeline | null,
   input: {

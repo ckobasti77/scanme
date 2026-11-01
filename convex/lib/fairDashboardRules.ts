@@ -20,7 +20,7 @@ import {
   type FairPassportConfigStatus,
   type FairReportStatus,
 } from "../../lib/fair-contract";
-import { fairBrandPassportProblems, getFairEntitlements } from "../../lib/fair-entitlements";
+import { fairBrandPassportProblems, fairSponsoredRotationAllowed, getFairEntitlements } from "../../lib/fair-entitlements";
 import { PASSPORT_MODELS_CAP } from "./fairInteractions";
 
 // =============================================================================
@@ -61,6 +61,8 @@ export type FairDashboardModelFact = {
   status: FairModelStatus;
   packageTier: FairPackageTier;
   packageActivatedAt: number;
+  /** fairEventModels.sponsoredOverride (owner, 1 Nov 2026). */
+  sponsoredOverride?: boolean;
   passportEligible: boolean;
   hasPhoto: boolean;
   hasActiveQr: boolean;
@@ -259,10 +261,10 @@ export function buildFairDashboard(facts: FairDashboardFacts) {
   if (nextDay && nextDay.startsAt - at < FAIR_DASHBOARD_NEXT_DAY_MS) add("question_missing_next_day", "uskoro", missingOn(nextDay.id), "interakcije", { dan: nextDay.dateKey });
 
   // Napredni (rules 7, 8, 19): the sponsored list holds the published models
-  // whose Napredni package is in force now, each with its map question.
+  // whose Napredni package (or owner override) is in force now, each with its map question.
   const mapQuestion = new Map<string, string>();
   for (const question of facts.questions) if (question.showOnSponsoredRotation) mapQuestion.set(question.modelId, question.id);
-  const due = published.filter((model) => tierNow(model) === "advanced");
+  const due = published.filter((model) => fairSponsoredRotationAllowed(tierNow(model), model.sponsoredOverride, event.code));
   const dueWithoutQuestion = due.filter((model) => !mapQuestion.has(model.id)).length;
   const advancedLive = live.filter((model) => model.packageTier === "advanced");
   // Same comparison as the A9 drift (admin-events-sponsored.tsx sponsoredDrift): missing, extra or a changed map question.

@@ -653,6 +653,51 @@ export const setModelHighlight = internalMutation({
   },
 });
 
+/**
+ * AMF 1 Nov 2026 (owner): turns `fairEventModels.sponsoredOverride` on or off
+ * for one paid model without a deploy. On: the model enters the sponsored
+ * rotation first (its package stays) and its Glas publike question open now
+ * (else its latest published one) becomes the map result. Off: the flag and
+ * the map result are cleared. Refreshes the snapshot either way. Idempotent.
+ */
+export const setSponsoredOverride = internalMutation({
+  args: { eventCode: v.string(), modelSlug: v.string(), enabled: v.boolean(), actorEmail: v.optional(v.string()) },
+  returns: v.object({ eventModelId: v.id("fairEventModels"), enabled: v.boolean(), questionChosen: v.boolean(), sync: v.string() }),
+  handler: async (ctx, args) => {
+    const actorUserId = args.actorEmail ? await setupActor(ctx, args.actorEmail) : undefined;
+    const event = await fairEventByCode(ctx, args.eventCode);
+    if (!event) throw new Error("fair_setup_event_missing");
+    const model = await ctx.db
+      .query("fairEventModels")
+      .withIndex("by_eventId_and_slug", (q) => q.eq("eventId", event._id).eq("slug", args.modelSlug))
+      .unique();
+    if (!model) throw new Error(`fair_setup_model_missing:${args.modelSlug}`);
+    const now = Date.now();
+    const tier = await fairModelTierAt(ctx, model, now);
+    if (args.enabled && tier === "included") throw new Error(`fair_setup_sponsored_override_unpaid:${args.modelSlug}`);
+    if ((model.sponsoredOverride === true) !== args.enabled) await ctx.db.patch(model._id, { sponsoredOverride: args.enabled ? true : undefined, updatedAt: now });
+
+    let chosenId: Doc<"fairAudienceQuestions">["_id"] | null = null;
+    const questions = await ctx.db.query("fairAudienceQuestions").withIndex("by_eventModelId_and_eventDayId", (q) => q.eq("eventModelId", model._id)).take(50);
+    if (args.enabled) {
+      const published = questions.filter((row) => row.status === "published").sort((a, b) => b.startsAt - a.startsAt || a.sortOrder - b.sortOrder);
+      chosenId = (published.find((row) => row.startsAt <= now && (row.endsAt === undefined || now < row.endsAt)) ?? published[0])?._id ?? null;
+    }
+    // Off on a package without its own rotation right: no map result is left behind.
+    if (args.enabled || !getFairEntitlements(tier, event.code).sponsoredMapRotation) {
+      for (const row of questions) {
+        const want = row._id === chosenId;
+        if (row.showOnSponsoredRotation !== want) await ctx.db.patch(row._id, { showOnSponsoredRotation: want, updatedAt: now });
+      }
+    }
+    const sync = await syncFairSponsoredSnapshot(ctx, event._id, now, actorUserId);
+    if (actorUserId) {
+      await writeAdminAudit(ctx, { actorUserId, action: "fair_setup_sponsored_override", detail: { eventCode: event.code, modelSlug: model.slug, enabled: args.enabled, questionChosen: chosenId !== null }, now });
+    }
+    return { eventModelId: model._id, enabled: args.enabled, questionChosen: chosenId !== null, sync };
+  },
+});
+
 export type PopularModelCandidate = {
   slug: string;
   totalScans: number;

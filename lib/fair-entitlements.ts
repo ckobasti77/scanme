@@ -391,7 +391,18 @@ export type FairCapabilityContext = {
   testDriveLeadEnabled: boolean;
   /** 30 Oct 2026: owner override, the exhibitor's survey also on Starter (fairParticipations.surveyAllTiers). */
   surveyAllTiers?: boolean;
+  /** 1 Nov 2026: owner override, this model in the sponsored rotation below Napredni (fairEventModels.sponsoredOverride). */
+  sponsoredOverride?: boolean;
 };
+
+/**
+ * Sponsored map/garage rotation right of one model: the package's own right,
+ * or the owner override of 1 Nov 2026 on a paid package (never `included`).
+ */
+export function fairSponsoredRotationAllowed(tier: FairPackageTier, sponsoredOverride?: boolean, eventCode?: string): boolean {
+  const rights = getFairEntitlements(tier, eventCode);
+  return rights.sponsoredMapRotation || rights.sponsoredGarageRotation || (tier !== "included" && sponsoredOverride === true);
+}
 
 export function deriveFairCapabilities(
   tier: FairPackageTier,
@@ -405,7 +416,7 @@ export function deriveFairCapabilities(
     hasAudienceQuestions: rights.audienceQuestionsPerDay > 0 && context.hasOpenAudienceQuestions,
     hasSurvey: (rights.survey || (tier !== "included" && context.surveyAllTiers === true)) && context.hasPublishedSurvey,
     isSponsored:
-      (rights.sponsoredMapRotation || rights.sponsoredGarageRotation) &&
+      fairSponsoredRotationAllowed(tier, context.sponsoredOverride, context.eventCode) &&
       context.inPublishedSponsoredSnapshot,
   };
 }

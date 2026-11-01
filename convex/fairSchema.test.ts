@@ -86,6 +86,7 @@ const FAIR_INDEXES: Record<string, string[]> = {
     "by_eventId_and_standId",
     "by_eventId_and_brandId",
     "by_eventId_and_packageTier",
+    "by_eventId_and_sponsoredOverride",
   ],
   fairQrAssignments: [
     "by_eventModelId_and_status",

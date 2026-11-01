@@ -23,7 +23,7 @@ import {
   fairRatingSummary,
   fairSurveyAllowed,
 } from "./lib/fairInteractions";
-import { syncFairSponsoredSnapshot } from "./lib/fairSponsored";
+import { fairModelSponsoredAt, syncFairSponsoredSnapshot } from "./lib/fairSponsored";
 import {
   fairAudienceQuestionStatus,
   fairChoiceOption,
@@ -259,7 +259,7 @@ export const setSponsoredResultQuestion = mutation({
     const admin = await requireAdmin(ctx);
     const now = Date.now();
     const model = await requireModel(ctx, args.eventModelId);
-    if (!getFairEntitlements(await fairModelTierAt(ctx, model, now)).sponsoredMapRotation) {
+    if (!(await fairModelSponsoredAt(ctx, model, now))) {
       fairAdminError("FAIR_FEATURE_NOT_ENTITLED", { feature: "sponsoredMapRotation" });
     }
     if (args.questionId) {

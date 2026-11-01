@@ -3439,6 +3439,9 @@ export default defineSchema({
     photoUrl: v.optional(v.string()),
     packageTier: fairPackageTier,
     packageActivatedAt: v.number(),
+    // AMF 1 Nov 2026 (owner): sponsored map/garage rotation for this one paid
+    // model below Napredni, first in the rotation; its package stays as it is.
+    sponsoredOverride: v.optional(v.boolean()),
     passportEligible: v.boolean(),
     status: fairModelStatus,
     sortOrder: v.number(),
@@ -3450,7 +3453,8 @@ export default defineSchema({
     .index("by_eventId_and_externalKey", ["eventId", "externalKey"])
     .index("by_eventId_and_standId", ["eventId", "standId"])
     .index("by_eventId_and_brandId", ["eventId", "brandId"])
-    .index("by_eventId_and_packageTier", ["eventId", "packageTier"]),
+    .index("by_eventId_and_packageTier", ["eventId", "packageTier"])
+    .index("by_eventId_and_sponsoredOverride", ["eventId", "sponsoredOverride"]),
 
   // Links a pre-made EXISTING QR identity (event QR inventory) to a model.
   // Assign/release and the new immutable cardTargets + accessDestinationHistory
