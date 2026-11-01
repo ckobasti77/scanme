@@ -3,7 +3,7 @@ import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { FAIR_PII_PURGE_AT_MS, fairModelPath } from "../lib/fair-contract";
-import { buildFairReportEmail, fairLeadEmailMessage, fairReportEmailMessage, type FairLeadEmailMessage } from "./lib/fairEmails";
+import { buildFairReportEmail, fairGarageEmailMessage, fairLeadEmailMessage, fairReportEmailMessage, type FairLeadEmailMessage } from "./lib/fairEmails";
 import { fairDailyReportFileName, fairReportDateText } from "./lib/fairReportFiles";
 import { fairFollowUpValues, renderFairFollowUp } from "./lib/fairFollowUp";
 import { fairPairFollowUpFacts, fairPairLeads } from "./lib/fairLeadActivity";
@@ -68,6 +68,7 @@ export const claimDelivery = internalMutation({
     v.object({ action: v.literal("skip") }),
     v.object({ action: v.literal("send"), message: fairLeadEmailMessage }),
     v.object({ action: v.literal("send_report"), report: fairReportEmailMessage }),
+    v.object({ action: v.literal("send_garage"), email: fairGarageEmailMessage }),
   ),
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -76,6 +77,16 @@ export const claimDelivery = internalMutation({
     if (!delivery || delivery.status !== "queued" || delivery.scheduledFor > now) return skip;
     // N5: another sender holds this row (a send in flight) — never a parallel second send.
     if (delivery.claimedAt !== undefined && now - delivery.claimedAt < FAIR_EMAIL_CLAIM_LEASE_MS) return skip;
+    if (delivery.kind === "garage_email") {
+      // AMF 1 Nov 2026: the message was rendered at request time; the address leaves the row once the send is final.
+      if (!delivery.garageEmail) {
+        await ctx.db.patch(delivery._id, { status: "failed", lastError: "GARAGE_EMAIL_MISSING", updatedAt: now });
+        return skip;
+      }
+      await ctx.db.patch(delivery._id, { attemptCount: delivery.attemptCount + 1, claimedAt: now, updatedAt: now });
+      const { to, subject, text, html } = delivery.garageEmail;
+      return { action: "send_garage" as const, email: { dedupeKey: delivery.dedupeKey, recipient: to, subject, text, html } };
+    }
     if (delivery.kind === "daily_report") {
       const run = delivery.reportRunId ? await ctx.db.get(delivery.reportRunId) : null;
       // The approval gate, again, immediately before delivery (MASTER §12).
@@ -215,7 +226,8 @@ export const markSent = internalMutation({
     const delivery = await ctx.db.get(args.deliveryId);
     if (!delivery || delivery.status === "sent") return null;
     const now = Date.now();
-    await ctx.db.patch(delivery._id, { status: "sent", providerMessageId: args.providerMessageId, lastError: undefined, claimedAt: undefined, updatedAt: now });
+    // AMF 1 Nov 2026: a sent garage email keeps only its send log (address HMAC, time, model count).
+    await ctx.db.patch(delivery._id, { status: "sent", providerMessageId: args.providerMessageId, lastError: undefined, claimedAt: undefined, garageEmail: undefined, updatedAt: now });
     const run = delivery.reportRunId ? await ctx.db.get(delivery.reportRunId) : null;
     if (run) await ctx.db.patch(run._id, { status: "sent", providerMessageId: args.providerMessageId, error: undefined, updatedAt: now });
     return null;
@@ -248,7 +260,8 @@ export const markFailed = internalMutation({
 
 /** Final failure (admin may retry). B6: also fails a run's first send; a failed RESEND keeps the run `sent`. */
 async function failFairDelivery(ctx: MutationCtx, delivery: Doc<"fairEmailDeliveries">, lastError: string, now: number) {
-  await ctx.db.patch(delivery._id, { status: "failed", lastError, claimedAt: undefined, updatedAt: now });
+  // A garage email has no admin retry: its address and message go with the final failure.
+  await ctx.db.patch(delivery._id, { status: "failed", lastError, claimedAt: undefined, garageEmail: undefined, updatedAt: now });
   const run = delivery.reportRunId ? await ctx.db.get(delivery.reportRunId) : null;
   if (run && (run.status === "approved" || run.status === "sent")) {
     await ctx.db.patch(run._id, { ...(run.status === "approved" ? { status: "failed" as const } : {}), error: lastError, updatedAt: now });

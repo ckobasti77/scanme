@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
-import type { FairGarageDocument } from "./garage-store";
-import { fairGarageEventCount } from "./garage-view";
+import type { FairPublicModel } from "@/lib/fair-contract";
+import { FAIR_GARAGE_MAX_MODELS } from "@/lib/fair-contract";
+import { createEmptyFairGarageDocument, type FairGarageDocument } from "./garage-store";
+import { fairGarageEventCount, fairGarageItemsForEvent, fairGarageRestore, type FairGarageEventView } from "./garage-view";
 
 function item(modelId: string, eventSlug: string, savedAt = 1) {
   return {
@@ -44,5 +46,30 @@ describe("fair garage header count", () => {
       passportBadges: [],
     };
     expect(fairGarageEventCount(document, { eventId: "convex-event-id", eventSlug: "elektromobilnost-2026" })).toBe(1);
+  });
+});
+
+describe("garage email restore (?vrati=)", () => {
+  const event = { publicSlug: "auto-moto-fest-2026", dataSlug: "auto-moto-fest-2026", event: null, fallbackId: "auto-moto-fest-2026", fallbackTitle: "AMF", fallbackDates: "", passportCatalog: [], sponsoredRotation: null } satisfies FairGarageEventView;
+  const live = (id: string, eventSlug = "auto-moto-fest-2026") =>
+    ({ id, eventId: "amf-event-id", eventSlug, slug: id, brandName: "Ford", displayName: `Ford ${id}`, priceText: "od 27.490 €" }) as FairPublicModel;
+
+  test("adds only the missing models, in order, without duplicates", () => {
+    const start: FairGarageDocument = { version: 2, events: { "amf-event-id": [item("kuga", "auto-moto-fest-2026", 5)] }, passportBadges: [] };
+    const first = fairGarageRestore(start, event, [live("kodiaq"), live("kuga"), live("grenadier"), live("ev3", "elektromobilnost-2026")], 100);
+    expect(first.added).toBe(2);
+    expect(fairGarageItemsForEvent(first.document, event).map((entry) => entry.modelId).sort()).toEqual(["grenadier", "kodiaq", "kuga"]);
+    const again = fairGarageRestore(first.document, event, [live("kodiaq"), live("kuga"), live("grenadier")], 200);
+    expect(again.added).toBe(0);
+    expect(again.document).toBe(first.document);
+  });
+
+  test("fills an empty garage and respects the garage maximum", () => {
+    const empty = fairGarageRestore(createEmptyFairGarageDocument(), event, [live("a"), live("b"), live("c")], 100);
+    expect(empty.added).toBe(3);
+    const full: FairGarageDocument = { version: 2, events: { "amf-event-id": Array.from({ length: FAIR_GARAGE_MAX_MODELS - 1 }, (_, index) => item(`m${index}`, "auto-moto-fest-2026")) }, passportBadges: [] };
+    const capped = fairGarageRestore(full, event, [live("x"), live("y")], 100);
+    expect(capped.added).toBe(1);
+    expect(fairGarageItemsForEvent(capped.document, event)).toHaveLength(FAIR_GARAGE_MAX_MODELS);
   });
 });

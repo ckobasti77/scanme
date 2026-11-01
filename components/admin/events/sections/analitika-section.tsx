@@ -24,6 +24,7 @@ export function AnalitikaSection() {
   const [query, setQuery] = useAdminQueryState();
   const analytics = usePolled(`analytics:${eventId}`, (convex) => convex.query(api.fairEventAnalytics.getEventAnalytics, { eventId, at: Date.now() }));
   const audience = usePolled(`audience:${eventId}`, (convex) => convex.query(api.fairEventAnalytics.getEventAudience, { eventId, at: Date.now() }));
+  const garageEmails = usePolled(`garage-emails:${eventId}`, (convex) => convex.query(api.fairGarageEmail.countGarageEmails, { eventId }));
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
 
   if (analytics.data === undefined) {
@@ -38,6 +39,7 @@ export function AnalitikaSection() {
       eventCode={catalog.event.code}
       data={data}
       audience={audience.data}
+      garageEmails={garageEmails.data?.count}
       hourDay={query.dan}
       onHourDay={(dateKey) => setQuery({ dan: dateKey })}
       refreshing={refreshing}
@@ -45,6 +47,7 @@ export function AnalitikaSection() {
         setRefreshedAt(Date.now());
         analytics.refresh();
         audience.refresh();
+        garageEmails.refresh();
       }}
       onExport={() => {
         const csv = analyticsCsv({ eventTitle: catalog.event.title, data, audience: audience.data });

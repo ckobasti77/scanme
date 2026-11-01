@@ -607,6 +607,38 @@ export interface FairGarageDict {
   brandComparisonRefusedBody: string;
   brandComparisonChooseTitle: string;
   brandComparisonChooseBody: string;
+  /** AMF 1 Nov 2026: "Sačuvaj garažu" sheet, the `?vrati=` toast and the garage email. */
+  saveGarageAction: string;
+  saveGarageTitle: string;
+  saveGarageBody: string;
+  saveGarageEmailLabel: string;
+  saveGarageEmailInvalid: string;
+  saveGarageConsent: string;
+  saveGarageConsentNeeded: string;
+  saveGarageSavedContactAria: string;
+  saveGarageSavedContactUse: string;
+  saveGarageSend: string;
+  saveGarageSending: string;
+  saveGarageSent: string;
+  saveGarageRateLimited: string;
+  saveGarageFailed: string;
+  saveGarageClose: string;
+  garageRestored: string;
+  garageEmailSubject: string;
+  garageEmailPreheader: string;
+  garageEmailEventName: string;
+  garageEmailTitle: string;
+  garageEmailIntroOne: string;
+  garageEmailIntroFew: string;
+  garageEmailIntroMany: string;
+  garageEmailOpen: string;
+  garageEmailViewModel: string;
+  garageEmailPriceOnRequest: string;
+  garageEmailFooterRequested: string;
+  garageEmailFooterPrivacy: string;
+  garageEmailFooterContact: string;
+  garageEmailContact: string;
+  garageEmailBrandMark: string;
   poweredBy: string;
   privacyLink: string;
 }
@@ -5603,6 +5635,8 @@ export interface AdminEventsAnalyticsDict {
     stampsHint: string;
     shares: string;
     sharesHint: string;
+    garageEmails: string;
+    garageEmailsHint: string;
     /** {today} {total} */
     pair: string;
   };

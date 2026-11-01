@@ -3791,11 +3791,21 @@ export default defineSchema({
     claimedAt: v.optional(v.number()),
     providerMessageId: v.optional(v.string()),
     lastError: v.optional(v.string()),
+    // AMF 1 Nov 2026 "Sačuvaj garažu" (kind garage_email): `recipient` holds
+    // the address HMAC (the send log and the per-address limit); the address
+    // itself and the rendered message live only in `garageEmail` until the
+    // send is final (sent or failed), then they are removed.
+    garageEmail: v.optional(v.object({ to: v.string(), subject: v.string(), text: v.string(), html: v.string() })),
+    visitorId: v.optional(v.id("fairVisitors")),
+    eventId: v.optional(v.id("fairEvents")),
+    modelCount: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     // unique: dedupeKey
     .index("by_dedupeKey", ["dedupeKey"])
+    // Garage emails per visitor (FAIR_GARAGE_EMAIL_PER_VISITOR).
+    .index("by_visitorId_and_createdAt", ["visitorId", "createdAt"])
     // N5: the 5-minute outbox sweep (fairEmails.requeueStaleDeliveries) ranges queued rows by moment.
     .index("by_status_and_scheduledFor", ["status", "scheduledFor"])
     .index("by_leadId_and_kind", ["leadId", "kind"])
