@@ -134,7 +134,7 @@ export function QrDetailSection({ code }: { code: string }) {
   useEffect(() => {
     if (canonical && canonical !== code) router.replace(eventDetailHref(base, "qr", canonical, listQuery));
   }, [canonical, code, base, listQuery, router]);
-  if (!qrConfigured) return <AdminPanel><AdminEmptyState title={dict.detailQrTitle} body={dict.qrNotConfigured} /></AdminPanel>;
+  if (!qrConfigured) return <AdminPanel><AdminEmptyState title={dict.qrNotConfiguredTitle} body={dict.qrNotConfigured} /></AdminPanel>;
   return (
     <EventQrDetailView
       key={code}
@@ -146,7 +146,7 @@ export function QrDetailSection({ code }: { code: string }) {
       onChanged={detail.refresh}
       listHref={eventSectionHref(base, "qr", listQuery)}
       modelHref={(id) => eventDetailHref(base, "modeli", id)}
-      generalQrHref={(row) => `/admin/operativa/qr?code=${encodeURIComponent(row.resolverCode)}&channel=${encodeURIComponent(row.accessChannelId)}`}
+      generalQrHref={(row) => `/admin/operativa/qr?q=${encodeURIComponent(row.resolverCode)}&channel=${encodeURIComponent(row.accessChannelId)}`}
     />
   );
 }

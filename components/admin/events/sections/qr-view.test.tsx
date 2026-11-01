@@ -3,14 +3,21 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import type { CatalogView, InventoryRowView, ModelView, QrDetailView, QrScanStatsView } from "@/components/admin/admin-events";
 import { AdminViewModeOverride } from "@/components/admin/admin-ui";
+import { modelName } from "@/components/admin/events/event-ui";
+import { AdminSidebarView } from "@/components/admin/frame/admin-sidebar-view";
 import { eventDetailHref, eventSectionHref } from "@/lib/admin-v1/event-sections";
+import { modelHierarchy } from "@/lib/admin-v1/model-filters";
 import { qrListQuery } from "@/lib/admin-v1/qr-filters";
 import type { AdminQueryState } from "@/lib/admin-v1/query-state";
+import { resolveAdminSidebar } from "@/lib/admin-v2/sidebar/registry";
+import type { SidebarState } from "@/lib/admin-v2/sidebar/types";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
+import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { fmt } from "@/lib/i18n/format";
-import { EventQrDetailView, EventQrView, QrBulkPanel, QrConfirmPanel, QrFlowForm, qrTargetHierarchy } from "./qr-view";
+import { EventQrDetailView, EventQrView, QrBulkPanel, QrConfirmPanel, QrFlowForm, qrSidebarLive, qrTargetHierarchy } from "./qr-view";
 
-// Admin UX A4 — QR list (hierarchy + stanje + search, Tabela/Kartice, scan
+// Admin UX A4 / ADMIN v2 — QR list (the filters — hierarchy, stanje, search — are
+// in the sidebar of the admin frame; the list keeps Tabela/Kartice, scan
 // columns, „Upravljaj“), „Dodela u većem broju“ and the QR detail (where it
 // leads, change of destination, remove link, test, stats, history) as SSR
 // markup, like the other admin views. Interaction logic is in
@@ -87,20 +94,53 @@ function listHtml(query: AdminQueryState, view: "tabela" | "kartice" = "tabela",
 
 const count = (html: string, text: string) => html.split(text).length - 1;
 
+/** The sidebar of the QR page as the frame renders it: the registry configuration with what the list sends. */
+function sidebarHtml(query: AdminQueryState) {
+  const modelsById = new Map(catalog.models.map((row) => [row.id, row]));
+  const hierarchy = modelHierarchy(catalog.models, modelName);
+  return renderToStaticMarkup(
+    <AdminSidebarView config={resolveAdminSidebar(`${BASE}/qr`)} live={qrSidebarLive(rows, modelsById, hierarchy, query)} state={query as SidebarState} onPatch={() => undefined} />,
+  );
+}
+
+/** A radio row of a sidebar group: the option and the number next to it. */
+const option = (label: string, count: number) => new RegExp(`>${label}</span><span[^>]*>${count}</span>`);
+
 describe("A4 QR list", () => {
-  test("filters: hierarchy, stanje with counts and search; every code has „Upravljaj“, nothing frees a code", () => {
+  test("ADMIN v2: the list has no filter block above it; the counter, „Upravljaj“ on every code, nothing frees a code", () => {
     const html = listHtml({});
-    for (const text of [list.hierarchyLabel, list.searchLabel, list.facetState, adminEventsSr.colExhibitor, `role="combobox"`]) expect(html).toContain(text);
-    expect(html).toContain(`${list.states.slobodan} (1)`);
-    expect(html).toContain(`${list.states.ovaj} (2)`);
-    expect(html).toContain(`${list.states.drugi} (1)`);
-    expect(html).toContain(`${list.states.neaktivan} (1)`);
+    expect(html).not.toContain('data-admin-primitive="filter-bar"');
+    expect(html).not.toContain("<select");
+    expect(html).not.toContain('type="search"');
+    expect(html).not.toContain('role="combobox"');
     expect(html).toContain(fmt(list.count, { shown: 5, total: 5 }));
     expect(count(html, `>${list.manage}<`)).toBe(5);
     expect(html).toContain(`aria-label="${fmt(list.manageAria, { code: "SMQ-TEST-0001" })}"`);
     expect(html).toContain(`href="${BASE}/qr/7KQ2M9XA"`);
     expect(html).not.toMatch(/oslobodi/i);
     expect(html).not.toMatch(/FAIR_[A-Z_]+/);
+  });
+
+  test("ADMIN v2: the list panel does not repeat the page title (the H1 is in the header)", () => {
+    expect(listHtml({})).not.toMatch(new RegExp(`<h2[^>]*>${adminEventsSr.sectionLabels.qr}</h2>`));
+  });
+
+  test("ADMIN v2 sidebar: one search, izlagač and brend with counts, stanje with counts; no control lists the codes", () => {
+    const html = sidebarHtml({});
+    expect(html).toContain(list.searchLabel);
+    expect(html).toContain(`placeholder="${list.searchPlaceholder}"`);
+    expect(html.match(/type="search"/g)).toHaveLength(1);
+    for (const label of [adminUiSr.hierarchy.exhibitor, adminUiSr.hierarchy.brand, list.facetState]) expect(html).toContain(`>${label}</span>`);
+    expect(html).toMatch(option("TEST Izlagač A", 2));
+    expect(html).toMatch(option("TEST Izlagač B", 0));
+    expect(html).toMatch(option("TEST Brend b1", 1));
+    for (const [state, n] of [["slobodan", 1], ["ovaj", 2], ["drugi", 1], ["neaktivan", 1]] as const) expect(html).toMatch(option(list.states[state], n));
+    expect(html).not.toContain(`${list.states.slobodan} (1)`);
+    // Izlagač, brend, model and stanje: four toggles; none is open before a click.
+    // X6 (RX V2) — one more toggle: the section navigation is the folded group „Sekcija“ on a page with filters.
+    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(5);
+    expect(html).not.toContain('aria-expanded="true"');
+    for (const code of ["SMQ-TEST-0001", "7KQ2M9XA"]) expect(html).not.toContain(code);
   });
 
   test("Tabela: SMQ and code, state badge, izlagač · brend · model, scans total/unique and last scan", () => {
@@ -129,10 +169,25 @@ describe("A4 QR list", () => {
     const html = listHtml({ stanje: "ovaj", izlagac: "a" });
     expect(html).toContain(fmt(list.count, { shown: 2, total: 5 }));
     expect(html).toContain(`href="${BASE}/qr/7KQ2M9XA?izlagac=a&amp;stanje=ovaj"`);
-    expect(html).toContain(`${list.facetState}: ${list.states.ovaj}`);
+    const sidebar = sidebarHtml({ stanje: "ovaj", izlagac: "a" });
+    expect(sidebar).toContain(`${list.facetState}: ${list.states.ovaj}`);
+    expect(sidebar).toContain(`${adminUiSr.hierarchy.exhibitor}: TEST Izlagač A`);
+    expect(sidebar).toContain(`aria-label="${adminUiSr.filters.removeChip.replace("{label}", `${list.facetState}: ${list.states.ovaj}`)}"`);
+    expect(sidebar).toContain(`>${adminUiSr.filters.clearAll}</button>`);
+    expect(sidebarHtml({ q: "volta" })).toContain(`${list.searchLabel}: volta`);
+    expect(sidebarHtml({})).not.toContain(`>${adminUiSr.filters.clearAll}</button>`);
     const none = listHtml({ stanje: "slobodan", izlagac: "a" });
     expect(none).toContain(list.noMatchTitle);
     expect(none).toContain(fmt(list.count, { shown: 0, total: 5 }));
+    expect(none).toContain(`>${adminUiSr.filters.clear}</button>`);
+  });
+
+  test("the dependent filters: a brand sets its exhibitor, clearing the exhibitor clears the brand", () => {
+    const modelsById = new Map(catalog.models.map((row) => [row.id, row]));
+    const { intercept } = qrSidebarLive(rows, modelsById, modelHierarchy(catalog.models, modelName), {});
+    expect(intercept?.({ brend: "b3" }, {})).toEqual({ brend: "b3", izlagac: "b", model: null });
+    expect(intercept?.({ izlagac: null }, { izlagac: "b", brend: "b3" })).toEqual({ izlagac: null, brend: null, model: null });
+    expect(intercept?.({ stanje: "ovaj" }, { izlagac: "b" })).toEqual({ stanje: "ovaj" });
   });
 
   test("a whole typed code offers its detail; partial loads say so; an unconfigured inventory is explained", () => {
@@ -353,5 +408,18 @@ describe("sticker labels and the real QR (Izlagači 2026)", () => {
     // A card whose label is its resolver code has no sticker label.
     const plain = detailHtml({ ...assigned, label: "7KQ2M9XA" });
     expect(plain).toMatch(/<h2[^>]*>SMQ-TEST-0001<\/h2>/);
+  });
+});
+
+describe("ADMIN v3 V1 QR", () => {
+  test("the intro and the note are text, the list is rows; the detail sections are cards and the history is rows", () => {
+    const markup = listHtml({});
+    expect(markup).toContain('<p data-admin-reveal="text"');
+    expect(markup).toContain(`<p data-admin-reveal="text" class="text-sm text-[var(--admin-text-muted)]">${adminEventsSr.qrSubtitle}</p>`);
+    expect(markup).toContain(`<p data-admin-reveal="text" class="text-xs text-[var(--admin-text-muted)]">${list.statsNote}</p>`);
+    expect(markup).toContain('<tbody data-admin-reveal="rows"');
+    const page = detailHtml(assigned);
+    expect(page).toContain('data-admin-reveal="card"');
+    expect(page).toMatch(/<ol data-admin-reveal="rows" class="grid gap-3"><li /);
   });
 });

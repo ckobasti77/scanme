@@ -7,6 +7,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
+import { AdminTableScroll } from "@/components/admin/admin-ui/admin-table-scroll";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
 
@@ -15,8 +16,10 @@ export function AdminPanel({
   ...props
 }: ComponentProps<"section">) {
   return (
+    // V3: a panel is a card of the reveal engine (`data-admin-reveal="off"` from the caller keeps it still).
     <section
       data-admin-primitive="panel"
+      data-admin-reveal="card"
       className={cn(
         "rounded-[var(--admin-radius-panel)] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-[var(--admin-shadow-sm)]",
         className,
@@ -37,11 +40,12 @@ export function AdminTable({
   className?: string;
   tableClassName?: string;
 }) {
+  // ADMIN v2: the table scrolls with the screen and keeps its header row on top (AdminTableScroll).
   return (
-    <div
+    <AdminTableScroll
       data-admin-primitive="table"
       className={cn(
-        "max-w-full overflow-hidden rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)]",
+        "max-w-full min-w-0 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)]",
         className,
       )}
     >
@@ -54,7 +58,7 @@ export function AdminTable({
         <caption className="sr-only">{caption}</caption>
         {children}
       </table>
-    </div>
+    </AdminTableScroll>
   );
 }
 
@@ -97,38 +101,70 @@ export function AdminStatus({
   );
 }
 
+/**
+ * Loading: a skeleton of the shape of what is coming. "panel" (a card and
+ * a form), "table" (a list or a table: a header and rows).
+ */
 export function AdminLoadingState({
   label = adminV1Sr.loadingLabel,
   compact = false,
+  shape = "panel",
 }: {
   label?: string;
   compact?: boolean;
+  shape?: "panel" | "table";
 }) {
+  // V3: a shimmer passes over the bars (app/globals.css); it stands still with reduced motion and in the quiet mode.
+  const bar = "admin-shimmer rounded-[var(--admin-radius-inner)] bg-[var(--admin-skeleton)]";
   return (
     <div
       data-admin-primitive="loading"
+      data-shape={shape}
       role="status"
       aria-live="polite"
       className={cn("grid gap-3", compact ? "p-4" : "p-6 sm:p-8")}
     >
       <span className="sr-only">{label}</span>
-      <div className="h-3 w-32 animate-pulse rounded-full bg-[var(--admin-skeleton)]" />
-      <div className="h-10 w-full animate-pulse rounded-xl bg-[var(--admin-skeleton)]" />
-      {!compact ? (
-        <div className="h-10 w-4/5 animate-pulse rounded-xl bg-[var(--admin-skeleton)]" />
-      ) : null}
+      {shape === "table" ? (
+        <>
+          <div className={cn(bar, "h-4 w-full")} />
+          {[0, 1, 2, 3, 4].map((row) => (
+            <div key={row} className="grid grid-cols-[2fr_2fr_1fr_1fr] gap-3">
+              <div className={cn(bar, "h-9")} />
+              <div className={cn(bar, "h-9")} />
+              <div className={cn(bar, "h-9")} />
+              <div className={cn(bar, "h-9")} />
+            </div>
+          ))}
+        </>
+      ) : (
+        <>
+          <div className="admin-shimmer h-3 w-32 rounded-full bg-[var(--admin-skeleton)]" />
+          <div className="admin-shimmer h-10 w-full rounded-xl bg-[var(--admin-skeleton)]" />
+          {!compact ? (
+            <div className="admin-shimmer h-10 w-4/5 rounded-xl bg-[var(--admin-skeleton)]" />
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
 
+/**
+ * One shape of an empty state: what is empty (title), why or what comes next
+ * (body) and, where there is a natural next step, an action (a link or a
+ * button: AdminClearFilters after filtering, a create button, a link).
+ */
 export function AdminEmptyState({
   title = adminV1Sr.emptyStateTitle,
   body = adminV1Sr.emptyStateBody,
   className,
+  action,
 }: {
   title?: string;
   body?: string;
   className?: string;
+  action?: ReactNode;
 }) {
   return (
     <div
@@ -144,6 +180,7 @@ export function AdminEmptyState({
         </span>
         <h2 className="mt-5 text-lg font-semibold tracking-[-0.02em]">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-[var(--admin-text-muted)]">{body}</p>
+        {action ? <div className="mt-5 flex flex-wrap items-center justify-center gap-2">{action}</div> : null}
       </div>
     </div>
   );

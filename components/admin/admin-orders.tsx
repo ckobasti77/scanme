@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminClearFilters } from "@/components/admin/admin-ui/admin-clear-filters";
 import { useDeferredValue, useMemo, useState, Component, type ReactNode } from "react";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
@@ -14,7 +15,6 @@ import {
   MoreHorizontal,
   PackageCheck,
   Printer,
-  Search,
   Send,
   Truck,
 } from "lucide-react";
@@ -22,6 +22,9 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { adminOrdersSr as dict } from "@/lib/i18n/sr/admin-orders";
 import { adminDomainSr } from "@/lib/i18n/sr/admin-domain";
+import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
+import { ordersAreFiltered, ordersListArgs, ordersSidebarLive, ordersSortIgnored, filterPreviewOrders } from "@/lib/admin-v2/lists/orders";
+import { ORDERS_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/operations";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +32,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { useAdminUrlState } from "./admin-ui/use-admin-query-state";
+import { AdminPageHeader } from "./frame/admin-page-header";
+import { useAdminSidebarLive } from "./frame/admin-sidebar-store";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPanel, AdminStatus, AdminTable } from "./admin-primitives";
 
 type ListResult = FunctionReturnType<typeof api.adminOrders.list>;
@@ -37,8 +43,6 @@ type LiveDetail = NonNullable<FunctionReturnType<typeof api.adminOrders.getDetai
 type PaymentState = OrderRow["paymentState"];
 type DesignState = OrderRow["designState"];
 type FulfillmentState = OrderRow["fulfillmentState"];
-type View = OrderRow["view"];
-type Sort = "updated_desc" | "updated_asc";
 type AdminOption = FunctionReturnType<typeof api.adminTasks.listAdmins>[number];
 type DeliveryMethod = LiveDetail["deliveries"][number]["method"];
 
@@ -206,6 +210,19 @@ function Lines({ detail }: { detail: DetailView }) {
   );
 }
 
+/** Columns of the orders table; `wide` ones are shown only in a list of 72 rem or more. */
+const ORDER_COLUMNS: readonly { label: string; wide?: boolean }[] = [
+  { label: dict.colOrder },
+  { label: dict.colClient },
+  { label: dict.colState },
+  { label: dict.colNext },
+  { label: dict.colNoteProblem, wide: true },
+  { label: dict.colAssignee, wide: true },
+  { label: dict.colUpdated, wide: true },
+  { label: dict.openDetail },
+];
+const WIDE_COLUMN = "hidden @6xl:table-cell";
+
 function OrdersList({ rows, details, onSelect, onExpand }: { rows: OrderRow[]; details: Record<string, DetailView | undefined>; onSelect: (id: Id<"orderOperations">) => void; onExpand: (id: Id<"orderOperations">) => void }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggle = (id: string) => setExpanded((current) => {
@@ -213,21 +230,24 @@ function OrdersList({ rows, details, onSelect, onExpand }: { rows: OrderRow[]; d
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
+  // The list sits beside the sidebar, so table or cards is chosen by the width of the list, not of the
+  // window: the table from 56 rem; the note, the assignee and the time join it from 72 rem (below that
+  // the problem and the assignee stand under the next step).
   return (
-    <>
-      <AdminTable caption={dict.tableCaption} className="hidden lg:block">
+    <div className="@container min-w-0">
+      <AdminTable caption={dict.tableCaption} className="hidden @4xl:block">
         <thead className="bg-[var(--admin-surface-muted)] text-xs text-[var(--admin-text-muted)]">
-          <tr>{[dict.colOrder, dict.colClient, dict.colState, dict.colNext, dict.colNoteProblem, dict.colAssignee, dict.colUpdated, dict.openDetail].map((label) => <th key={label} className="px-4 py-3 font-medium last:w-14 last:text-right">{label}</th>)}</tr>
+          <tr>{ORDER_COLUMNS.map((column) => <th key={column.label} className={cn("px-4 py-3 font-medium last:w-14 last:text-right", column.wide && WIDE_COLUMN)}>{column.label === dict.openDetail ? <span className="sr-only">{column.label}</span> : column.label}</th>)}</tr>
         </thead>
-        <tbody className="divide-y divide-[var(--admin-border)]">
+        <tbody data-admin-reveal="rows" className="divide-y divide-[var(--admin-border)]">
           {rows.map((row) => (
             <FragmentRow key={row.id} row={row} expanded={expanded.has(row.id)} detail={details[row.id]} onToggle={() => { toggle(row.id); onExpand(row.id); }} onSelect={() => onSelect(row.id)} />
           ))}
         </tbody>
       </AdminTable>
-      <div className="grid gap-3 lg:hidden">
+      <div data-admin-reveal="rows" className="grid gap-3 @4xl:hidden">
         {rows.map((row) => (
-          <AdminPanel key={row.id} className="overflow-hidden">
+          <AdminPanel key={row.id} data-admin-reveal="off" className="overflow-hidden">
             <button type="button" data-order-detail-trigger={row.id} onClick={() => onSelect(row.id)} className="grid min-h-11 w-full gap-4 p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--admin-focus)]">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0"><strong className="block text-base">{row.smpCode}</strong><span className="mt-1 block truncate text-sm text-[var(--admin-text-muted)]">{row.accountName}</span></div>
@@ -244,7 +264,7 @@ function OrdersList({ rows, details, onSelect, onExpand }: { rows: OrderRow[]; d
           </AdminPanel>
         ))}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -255,36 +275,20 @@ function FragmentRow({ row, expanded, detail, onToggle, onSelect }: { row: Order
         <td className="px-4 py-4 align-top"><button type="button" onClick={onToggle} className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]" aria-expanded={expanded} aria-label={`${expanded ? dict.collapseLines : dict.expandLines}: ${row.smpCode}`}><ChevronRight className={cn("size-4 transition-transform motion-reduce:transition-none", expanded && "rotate-90")} aria-hidden="true" /><span><strong className="block text-sm">{row.smpCode}</strong><span className="mt-1 block font-mono text-[0.68rem] text-[var(--admin-text-muted)]">{row.lineCount} · {row.unitCount} {dict.quantityShort}</span></span></button></td>
         <td className="max-w-[18rem] px-4 py-4 align-top"><strong className="block text-sm">{row.accountName}</strong><span className="mt-1 block text-xs text-[var(--admin-text-muted)]">{row.primaryBusinessName ?? `${row.lineCount} ${dict.multipleLocations}`}</span><span className="mt-1 block font-mono text-[0.68rem] text-[var(--admin-text-muted)]">{row.smkCode}{row.primarySmlCode ? ` · ${row.primarySmlCode}` : ""}</span></td>
         <td className="px-4 py-4 align-top"><AxisStack row={row} /></td>
-        <td className="max-w-[16rem] px-4 py-4 align-top text-sm"><span className={row.problemCount ? "font-semibold text-[var(--admin-danger)]" : "font-medium"}>{nextStep(row)}</span></td>
-        <td className="max-w-[14rem] px-4 py-4 align-top text-xs"><span className={row.problemCount ? "inline-flex items-center gap-1.5 font-semibold text-[var(--admin-danger)]" : "text-[var(--admin-text-muted)]"}>{row.problemCount ? <><AlertTriangle className="size-3.5" aria-hidden="true" />{row.problemCount} {dict.problems}</> : row.notePreview ?? dict.noNote}</span>{row.problemCount && row.notePreview ? <span className="mt-2 block line-clamp-2 text-[var(--admin-text-muted)]">{row.notePreview}</span> : null}</td>
-        <td className="px-4 py-4 align-top text-sm">{row.assigneeName}</td>
-        <td className="px-4 py-4 align-top text-xs text-[var(--admin-text-muted)]"><time dateTime={new Date(row.updatedAt).toISOString()}>{dateTime.format(row.updatedAt)}</time></td>
+        <td className="max-w-[16rem] px-4 py-4 align-top text-sm">
+          <span className={row.problemCount ? "font-semibold text-[var(--admin-danger)]" : "font-medium"}>{nextStep(row)}</span>
+          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--admin-text-muted)] @6xl:hidden">
+            {row.problemCount ? <span className="inline-flex items-center gap-1 font-semibold text-[var(--admin-danger)]"><AlertTriangle className="size-3.5" aria-hidden="true" />{row.problemCount} {dict.problems}</span> : null}
+            <span>{row.assigneeName}</span>
+          </span>
+        </td>
+        <td className={cn("max-w-[14rem] px-4 py-4 align-top text-xs", WIDE_COLUMN)}><span className={row.problemCount ? "inline-flex items-center gap-1.5 font-semibold text-[var(--admin-danger)]" : "text-[var(--admin-text-muted)]"}>{row.problemCount ? <><AlertTriangle className="size-3.5" aria-hidden="true" />{row.problemCount} {dict.problems}</> : row.notePreview ?? dict.noNote}</span>{row.problemCount && row.notePreview ? <span className="mt-2 block line-clamp-2 text-[var(--admin-text-muted)]">{row.notePreview}</span> : null}</td>
+        <td className={cn("px-4 py-4 align-top text-sm", WIDE_COLUMN)}>{row.assigneeName}</td>
+        <td className={cn("px-4 py-4 align-top text-xs text-[var(--admin-text-muted)]", WIDE_COLUMN)}><time dateTime={new Date(row.updatedAt).toISOString()}>{dateTime.format(row.updatedAt)}</time></td>
         <td className="px-2 py-2 text-right"><button type="button" data-order-detail-trigger={row.id} onClick={onSelect} className="inline-grid size-11 place-items-center rounded-full hover:bg-[var(--admin-surface-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)]" aria-label={`${dict.openDetail}: ${row.smpCode}`}><MoreHorizontal className="size-4" aria-hidden="true" /></button></td>
       </tr>
       {expanded ? <tr><td colSpan={8} className="p-0">{detail ? <Lines detail={detail} /> : <AdminLoadingState compact />}</td></tr> : null}
     </>
-  );
-}
-
-function Filters(props: {
-  view: View; search: string; assignee: string; admins: AdminOption[]; payment: PaymentState | "all"; design: DesignState | "all"; fulfillment: FulfillmentState | "all"; sort: Sort; problems: boolean;
-  onView: (value: View) => void; onSearch: (value: string) => void; onAssignee: (value: string) => void; onPayment: (value: PaymentState | "all") => void; onDesign: (value: DesignState | "all") => void; onFulfillment: (value: FulfillmentState | "all") => void; onSort: (value: Sort) => void; onProblems: (value: boolean) => void;
-}) {
-  return (
-    <AdminPanel className="grid gap-4 p-3 sm:p-4">
-      <div className="flex max-w-full gap-1 overflow-hidden rounded-full bg-[var(--admin-surface-muted)] p-1" role="tablist" aria-label={dict.pageTitle}>
-        {([['active', dict.tabActive], ['completed', dict.tabCompleted], ['archived', dict.tabArchived]] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={props.view === value} onClick={() => props.onView(value)} className={cn("min-h-11 min-w-0 flex-1 rounded-full px-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)] sm:flex-none sm:px-4 sm:text-sm", props.view === value ? "bg-[var(--admin-ink)] text-[var(--admin-on-ink)] shadow-sm" : "text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]")}>{label}</button>)}
-      </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-[minmax(15rem,1.5fr)_repeat(5,minmax(9.5rem,1fr))_auto]">
-        <Label className="relative col-span-2 block lg:col-span-3 xl:col-span-2 2xl:col-span-1"><span className="sr-only">{dict.searchLabel}</span><Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]" aria-hidden="true" /><Input value={props.search} onChange={(event) => props.onSearch(event.target.value)} placeholder={dict.searchPlaceholder} className="min-h-11 pl-10" /></Label>
-        <Select value={props.assignee} onValueChange={props.onAssignee}><SelectTrigger className="min-h-11 w-full" aria-label={dict.filterAssignee}><SelectValue placeholder={dict.filterAssignee} /></SelectTrigger><SelectContent><SelectItem value="all">{dict.assigneeAll}</SelectItem>{props.admins.map((admin) => <SelectItem key={admin.id} value={admin.id}>{admin.name}</SelectItem>)}</SelectContent></Select>
-        <Select value={props.payment} onValueChange={(value) => props.onPayment(value as PaymentState | "all")}><SelectTrigger className="min-h-11 w-full"><SelectValue placeholder={dict.filterPayment} /></SelectTrigger><SelectContent><SelectItem value="all">{dict.filterPayment}: {dict.filterAll}</SelectItem>{Object.entries(paymentLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>
-        <Select value={props.design} onValueChange={(value) => props.onDesign(value as DesignState | "all")}><SelectTrigger className="min-h-11 w-full"><SelectValue placeholder={dict.filterDesign} /></SelectTrigger><SelectContent><SelectItem value="all">{dict.filterDesign}: {dict.filterAll}</SelectItem>{Object.entries(designLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>
-        <Select value={props.fulfillment} onValueChange={(value) => props.onFulfillment(value as FulfillmentState | "all")}><SelectTrigger className="min-h-11 w-full"><SelectValue placeholder={dict.filterFulfillment} /></SelectTrigger><SelectContent>{Object.entries(fulfillmentLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}<SelectItem value="all">{dict.filterFulfillment}: {dict.filterAll}</SelectItem></SelectContent></Select>
-        <Select value={props.sort} onValueChange={(value) => props.onSort(value as Sort)} disabled={Boolean(props.search.trim())}><SelectTrigger className="min-h-11 w-full" aria-label={dict.sortLabel} title={props.search.trim() ? dict.sortSearchHint : undefined}><SelectValue placeholder={dict.sortLabel} /></SelectTrigger><SelectContent><SelectItem value="updated_desc">{dict.sortNewest}</SelectItem><SelectItem value="updated_asc">{dict.sortOldest}</SelectItem></SelectContent></Select>
-        <button type="button" onClick={() => props.onProblems(!props.problems)} aria-pressed={props.problems} className={cn("min-h-11 rounded-full border px-2 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus)] sm:px-4 sm:text-sm", props.problems ? "border-[var(--admin-danger-border)] bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]" : "border-[var(--admin-border)]")}>{dict.filterProblems}</button>
-      </div>
-    </AdminPanel>
   );
 }
 
@@ -376,7 +380,7 @@ function DetailPanel({ detail, timeline, actions }: { detail: DetailView; timeli
       <DetailSection title={dict.clientSection} icon={CheckCircle2}><div className="grid gap-2 text-sm sm:grid-cols-2"><p><span className="block text-xs text-[var(--admin-text-muted)]">{dict.clientSection}</span><strong>{row.primaryBusinessName ?? row.accountName}</strong></p><p><span className="block text-xs text-[var(--admin-text-muted)]">{dict.assigneeLabel}</span><strong>{row.assigneeName}</strong></p>{row.createdByName ? <p><span className="block text-xs text-[var(--admin-text-muted)]">{dict.createdByLabel}</span><strong>{row.createdByName}</strong></p> : null}</div></DetailSection>
       <DetailSection title={dict.axesSection} icon={ClipboardCheck}><div className="grid gap-2 sm:grid-cols-3"><AdminStatus label={paymentLabels[row.paymentState]} tone={toneFor(row.paymentState)} /><AdminStatus label={designLabels[row.designState]} tone={toneFor(row.designState)} /><AdminStatus label={fulfillmentLabels[row.fulfillmentState]} tone={toneFor(row.fulfillmentState)} /></div></DetailSection>
       <DetailSection title={dict.paymentSection} icon={CircleDollarSign}><div className="flex items-end justify-between gap-4"><div><p className="text-2xl font-semibold tabular-nums">{money.format(row.settledMinor / 100)}</p><p className="text-xs text-[var(--admin-text-muted)]">{dict.paymentOf} {money.format(row.requiredMinor / 100)}{row.reversedMinor ? ` · ${dict.paymentReversedAmount} ${money.format(row.reversedMinor / 100)}` : ""}</p></div></div></DetailSection>
-      <DetailSection title={dict.designSection} icon={FileCheck2}>{detail.lines.map((line) => <div key={line.id} className="rounded-xl bg-[var(--admin-surface-muted)] p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{line.productLabel} · v{line.designRevision}</strong><AdminStatus label={designLabels[line.designState]} tone={toneFor(line.designState)} /></div><p className="mt-2 text-xs text-[var(--admin-text-muted)]">{line.designKind === "template" ? dict.designTemplateSelected : line.approved ? dict.printSnapshot : dict.nextDesign}</p></div>)}</DetailSection>
+      <DetailSection title={dict.designSection} icon={FileCheck2}>{detail.lines.map((line) => <div key={line.id} className="rounded-xl bg-[var(--admin-surface-muted)] p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{line.productLabel} · verzija {line.designRevision}</strong><AdminStatus label={designLabels[line.designState]} tone={toneFor(line.designState)} /></div><p className="mt-2 text-xs text-[var(--admin-text-muted)]">{line.designKind === "template" ? dict.designTemplateSelected : line.approved ? dict.printSnapshot : dict.nextDesign}</p></div>)}</DetailSection>
       <DetailSection title={dict.productionSection} icon={Printer}><Lines detail={detail} /><p className="text-xs text-[var(--admin-text-muted)]">{row.provisioningReady && detail.lines.some((line) => line.smf < line.quantity) ? dict.smfPendingAdmin12 : detail.lines.every((line) => line.smf === line.quantity) ? dict.smfReady : dict.blockedAction}</p>{detail.printJobs.length ? <div className="grid gap-2">{detail.printJobs.map((job) => <div key={job._id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--admin-border)] p-3 text-sm"><span><strong>{job.printerName}</strong><span className="ml-2 text-[var(--admin-text-muted)]">{printJobLabels[job.state]}</span></span><span className="text-xs text-[var(--admin-text-muted)]">{dict.printerDestination}{job.expectedAt ? ` · ${dict.expectedReturn}: ${dateTime.format(job.expectedAt)}` : ""}</span></div>)}</div> : <p className="text-sm text-[var(--admin-text-muted)]">{dict.noRecords}</p>}</DetailSection>
       <DetailSection title={dict.qcSection} icon={PackageCheck}>{detail.qualityChecks.length ? <div className="grid gap-2">{detail.qualityChecks.map((check) => <div key={check._id} className="rounded-xl border border-[var(--admin-border)] p-3 text-sm"><div className="flex items-center justify-between gap-2"><strong>{check.result === "pass" ? dict.qcPass : dict.qcProblem}</strong><span>{check.quantity} {dict.quantityShort}</span></div>{check.reason ? <p className="mt-2 text-xs text-[var(--admin-danger)]">{check.reason}</p> : null}</div>)}</div> : <p className="text-sm text-[var(--admin-text-muted)]">{dict.noRecords}</p>}{detail.activationSignals.length ? <p className="text-xs text-[var(--admin-text-muted)]"><strong className="text-[var(--admin-success)]">{dict.activationSignal}.</strong> {dict.activationNotPerformed}</p> : null}</DetailSection>
       <DetailSection title={dict.deliverySection} icon={Truck}>{detail.deliveries.length ? <div className="grid gap-2">{detail.deliveries.map((delivery) => <div key={delivery._id} className="rounded-xl border border-[var(--admin-border)] p-3 text-sm"><div className="flex justify-between gap-2"><strong>{delivery.method === "courier" ? dict.deliveryCourier : dict.deliveryPersonal}</strong><span>{deliveryLabels[delivery.state]}</span></div><p className="mt-2 font-medium">{delivery.businessName} · {delivery.recipientName}</p><p className="mt-1 text-xs text-[var(--admin-text-muted)]">{delivery.address}</p>{delivery.method === "courier" && (delivery.courierService || delivery.courierReference) ? <p className="mt-1 text-xs text-[var(--admin-text-muted)]">{[delivery.courierService, delivery.courierReference].filter(Boolean).join(" · ")}</p> : null}<p className="mt-2 text-xs text-[var(--admin-text-muted)]">{delivery.method === "courier" ? dict.courierFeeNote : dict.personalFeeNote}</p></div>)}</div> : <p className="text-sm text-[var(--admin-text-muted)]">{dict.noRecords}</p>}</DetailSection>
@@ -484,10 +488,12 @@ function LiveActions({ raw, normalized }: { raw: LiveDetail; normalized: DetailV
 
 function Header({ preview = false }: { preview?: boolean }) {
   return (
-    <>
-      {preview ? <div className="flex flex-wrap items-center gap-2"><AdminStatus label={dict.previewBadge} tone="waiting" /><p className="text-xs text-[var(--admin-text-muted)]">{dict.previewDescription}</p></div> : null}
-      <header><h1 className="text-[clamp(2.1rem,4vw,3.75rem)] leading-none font-medium tracking-[-0.05em]">{dict.pageTitle}</h1><p className="mt-2 text-sm text-[var(--admin-text-muted)] sm:text-base">{dict.pageSubtitle}</p></header>
-    </>
+    <AdminPageHeader
+      eyebrow={adminV1Sr.navOperations}
+      title={dict.pageTitle}
+      description={dict.pageSubtitle}
+      badge={preview ? <AdminStatus label={dict.previewBadge} tone="waiting" /> : undefined}
+    />
   );
 }
 
@@ -503,28 +509,15 @@ function OrdersSheet({ selected, detail, timeline, onClose, actions }: { selecte
 }
 
 export function AdminOrdersWorkspace({ initialOrderId }: { initialOrderId?: string }) {
-  const [view, setView] = useState<View>("active");
-  const [search, setSearch] = useState("");
-  const deferredSearch = useDeferredValue(search);
-  const [assignee, setAssignee] = useState("all");
-  const [payment, setPayment] = useState<PaymentState | "all">("all");
-  const [design, setDesign] = useState<DesignState | "all">("all");
-  const [fulfillment, setFulfillment] = useState<FulfillmentState | "all">("all");
-  const [sort, setSort] = useState<Sort>("updated_desc");
-  const [problems, setProblems] = useState(false);
+  const [state] = useAdminUrlState(ORDERS_URL_FIELDS);
+  const deferredSearch = useDeferredValue(state.q ?? "");
+  const listState = useMemo(() => ({ ...state, q: deferredSearch }), [state, deferredSearch]);
+  const admins = useQuery(api.adminTasks.listAdmins);
+  const sidebar = useMemo(() => ordersSidebarLive(admins ?? []), [admins]);
+  useAdminSidebarLive(sidebar);
   const [selectedId, setSelectedId] = useState<Id<"orderOperations"> | null | undefined>(undefined);
   const [expandedId, setExpandedId] = useState<Id<"orderOperations"> | null>(null);
-  const orders = usePaginatedQuery(api.adminOrders.list, {
-    view,
-    ...(deferredSearch.trim() ? { search: deferredSearch } : {}),
-    ...(assignee !== "all" ? { assigneeId: assignee as Id<"users"> } : {}),
-    ...(payment !== "all" ? { paymentState: payment } : {}),
-    ...(design !== "all" ? { designState: design } : {}),
-    ...(fulfillment !== "all" ? { fulfillmentState: fulfillment } : {}),
-    ...(!deferredSearch.trim() ? { sort } : {}),
-    ...(problems ? { problemsOnly: true } : {}),
-  }, { initialNumItems: 20 });
-  const admins = useQuery(api.adminTasks.listAdmins) ?? [];
+  const orders = usePaginatedQuery(api.adminOrders.list, ordersListArgs(listState), { initialNumItems: 20 });
   const initialOperationId = useQuery(api.adminOrders.getOperationIdForOrder, initialOrderId ? { orderId: initialOrderId } : "skip");
   const effectiveSelectedId = selectedId === undefined ? initialOperationId ?? null : selectedId;
   const selectedRaw = useQuery(api.adminOrders.getDetail, effectiveSelectedId ? { operationId: effectiveSelectedId } : "skip");
@@ -548,8 +541,8 @@ export function AdminOrdersWorkspace({ initialOrderId }: { initialOrderId?: stri
   return (
     <div className="grid min-w-0 gap-5 sm:gap-6">
       <Header />
-      <Filters view={view} search={search} assignee={assignee} admins={admins} payment={payment} design={design} fulfillment={fulfillment} sort={sort} problems={problems} onView={setView} onSearch={setSearch} onAssignee={setAssignee} onPayment={setPayment} onDesign={setDesign} onFulfillment={setFulfillment} onSort={setSort} onProblems={setProblems} />
-      {orders.status === "LoadingFirstPage" ? <AdminPanel><AdminLoadingState label={dict.loading} /></AdminPanel> : orders.results.length === 0 ? <AdminPanel><AdminEmptyState title={deferredSearch || assignee !== "all" || payment !== "all" || design !== "all" || fulfillment !== "all" || problems ? dict.noResultsTitle : dict.emptyTitle} body={deferredSearch || assignee !== "all" || payment !== "all" || design !== "all" || fulfillment !== "all" || problems ? dict.noResultsBody : dict.emptyBody} /></AdminPanel> : <OrdersList rows={orders.results} details={details} onSelect={setSelectedId} onExpand={setExpandedId} />}
+      {ordersSortIgnored(listState) ? <p data-admin-reveal="text" className="text-xs text-[var(--admin-text-muted)]">{dict.sortSearchHint}</p> : null}
+      {orders.status === "LoadingFirstPage" ? <AdminPanel><AdminLoadingState shape="table" label={dict.loading} /></AdminPanel> : orders.results.length === 0 ? <AdminPanel><AdminEmptyState action={<AdminClearFilters />} title={ordersAreFiltered(listState) ? dict.noResultsTitle : dict.emptyTitle} body={ordersAreFiltered(listState) ? dict.noResultsBody : dict.emptyBody} /></AdminPanel> : <OrdersList rows={orders.results} details={details} onSelect={setSelectedId} onExpand={setExpandedId} />}
       {orders.status === "CanLoadMore" || orders.status === "LoadingMore" ? <Button type="button" variant="outline" className="min-h-11 justify-self-start" disabled={orders.status === "LoadingMore"} onClick={() => orders.loadMore(20)}>{dict.loadMore}</Button> : null}
       <OrdersSheet selected={selectedRow} detail={selectedDetail} timeline={timeline.results} onClose={closeDetail} actions={selectedRaw ? <LiveActions key={selectedRaw.operation._id} raw={selectedRaw} normalized={normalizeDetail(selectedRaw)} /> : undefined} />
     </div>
@@ -571,8 +564,8 @@ function previewRow(index: number, overrides: Partial<OrderRow>): OrderRow {
     fulfillmentState: "ready_for_printer",
     view: "active",
     priority: "normal",
-    assigneeId: `preview-admin-${index % 2 ? "jovan" : "teodora"}` as Id<"users">,
-    assigneeName: index % 2 ? "Jovan" : "Teodora",
+    assigneeId: `preview-admin-${index % 2 ? "b" : "a"}` as Id<"users">,
+    assigneeName: index % 2 ? "TEST Operater B" : "TEST Operater A",
     requiredMinor: 240000,
     settledMinor: 240000,
     lineCount: 1,
@@ -593,9 +586,10 @@ const previewRows: OrderRow[] = [
   previewRow(4, { accountName: "Bistro Most", smkCode: "SMK-MOS-001", fulfillmentState: "delivered", view: "completed" }),
 ];
 const previewAdmins: AdminOption[] = [
-  { id: "preview-admin-teodora" as Id<"users">, name: "Teodora", email: "teodora@example.invalid" },
-  { id: "preview-admin-jovan" as Id<"users">, name: "Jovan", email: "jovan@example.invalid" },
+  { id: "preview-admin-a" as Id<"users">, name: "TEST Operater A", email: "test-operater-a@example.invalid" },
+  { id: "preview-admin-b" as Id<"users">, name: "TEST Operater B", email: "test-operater-b@example.invalid" },
 ];
+const previewSidebar = ordersSidebarLive(previewAdmins);
 
 function previewDetail(row: OrderRow): DetailView {
   const lineId = `preview-line-${row.id}` as Id<"orderLines">;
@@ -622,7 +616,7 @@ function previewDetail(row: OrderRow): DetailView {
     delivered: row.fulfillmentState === "delivered" ? row.unitCount : 0,
   };
   return {
-    operation: { ...row, reversedMinor: 0, createdByName: "Teodora", note: row.problemCount ? dict.previewProblemNote : dict.previewStandardNote },
+    operation: { ...row, reversedMinor: 0, createdByName: "TEST Operater A", note: row.problemCount ? dict.previewProblemNote : dict.previewStandardNote },
     lines: [line],
     provisioningCount: row.provisioningReady ? 1 : 0,
     printJobs: [] as LiveDetail["printJobs"],
@@ -638,29 +632,11 @@ function previewDetail(row: OrderRow): DetailView {
 
 export function AdminOrdersPreview() {
   const [rows, setRows] = useState(previewRows);
-  const [view, setView] = useState<View>("active");
-  const [search, setSearch] = useState("");
-  const [assignee, setAssignee] = useState("all");
-  const [payment, setPayment] = useState<PaymentState | "all">("all");
-  const [design, setDesign] = useState<DesignState | "all">("all");
-  const [fulfillment, setFulfillment] = useState<FulfillmentState | "all">("all");
-  const [sort, setSort] = useState<Sort>("updated_desc");
-  const [problems, setProblems] = useState(false);
+  const [state] = useAdminUrlState(ORDERS_URL_FIELDS);
+  useAdminSidebarLive(previewSidebar);
   const [selectedId, setSelectedId] = useState<Id<"orderOperations"> | null>(null);
   const details = useMemo(() => Object.fromEntries(rows.map((row) => [row.id, previewDetail(row)])), [rows]);
-  const visible = useMemo(() => {
-    const filtered = rows.filter((row) => {
-    if (row.view !== view) return false;
-    if (assignee !== "all" && row.assigneeId !== assignee) return false;
-    if (payment !== "all" && row.paymentState !== payment) return false;
-    if (design !== "all" && row.designState !== design) return false;
-    if (fulfillment !== "all" && row.fulfillmentState !== fulfillment) return false;
-    if (problems && row.problemCount === 0) return false;
-    const needle = search.trim().toLocaleLowerCase("sr-Latn-RS");
-    return !needle || `${row.smpCode} ${row.accountName} ${row.smkCode} ${row.primaryBusinessName} ${row.primarySmlCode}`.toLocaleLowerCase("sr-Latn-RS").includes(needle);
-    });
-    return search.trim() ? filtered : [...filtered].sort((left, right) => sort === "updated_desc" ? right.updatedAt - left.updatedAt : left.updatedAt - right.updatedAt);
-  }, [rows, view, search, assignee, payment, design, fulfillment, sort, problems]);
+  const visible = useMemo(() => filterPreviewOrders(rows, state), [rows, state]);
   const selected = rows.find((row) => row.id === selectedId) ?? null;
   const selectedDetail = selected ? details[selected.id] : undefined;
   const timeline = selected ? [
@@ -690,8 +666,8 @@ export function AdminOrdersPreview() {
   return (
     <div className="grid min-w-0 gap-5 sm:gap-6">
       <Header preview />
-      <Filters view={view} search={search} assignee={assignee} admins={previewAdmins} payment={payment} design={design} fulfillment={fulfillment} sort={sort} problems={problems} onView={setView} onSearch={setSearch} onAssignee={setAssignee} onPayment={setPayment} onDesign={setDesign} onFulfillment={setFulfillment} onSort={setSort} onProblems={setProblems} />
-      {visible.length ? <OrdersList rows={visible} details={details} onSelect={setSelectedId} onExpand={() => undefined} /> : <AdminPanel><AdminEmptyState title={dict.noResultsTitle} body={dict.noResultsBody} /></AdminPanel>}
+      {ordersSortIgnored(state) ? <p data-admin-reveal="text" className="text-xs text-[var(--admin-text-muted)]">{dict.sortSearchHint}</p> : null}
+      {visible.length ? <OrdersList rows={visible} details={details} onSelect={setSelectedId} onExpand={() => undefined} /> : <AdminPanel><AdminEmptyState action={<AdminClearFilters />} title={dict.noResultsTitle} body={dict.noResultsBody} /></AdminPanel>}
       <OrdersSheet selected={selected} detail={selectedDetail} timeline={timeline} onClose={closeDetail} actions={<div className="grid gap-3"><Button type="button" disabled={!canAdvance} onClick={advancePreview} className="min-h-11 justify-self-start" title={dict.previewApplyAction}>{selected ? nextStep(selected) : dict.blockedAction}</Button><Button type="button" variant="outline" disabled className="min-h-11 justify-self-start">{dict.blockedAction}</Button><p className="text-xs text-[var(--admin-text-muted)]">{dict.previewDescription}</p></div>} />
     </div>
   );

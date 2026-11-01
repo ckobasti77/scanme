@@ -83,6 +83,37 @@ describe("A10 Pregled view", () => {
     expect(html).not.toContain(d.todoHelp);
   });
 
+  test("ADMIN v2 X4 missions: the ring and „0 od N misija rešeno“ beside the heading; without a ledger nothing is solved and nothing is celebrated", () => {
+    const sajam = render(previewDashboard("sajam"));
+    // Nine rules fire; the three info lines are not missions.
+    expect(sajam).toContain(`role="img" aria-label="${d.todoTitle}: 0 od 6 misija rešeno"`);
+    expect(sajam).toContain(">0 od 6 misija rešeno<");
+    expect(sajam).toContain('<span role="status" class="sr-only"></span>');
+    expect(sajam).not.toContain("data-mission-confirm");
+    // The old summary by tone stays under the heading.
+    expect(sajam).toContain("Hitno 4 · uskoro 2 · info 3");
+
+    const dan3 = render(previewDashboard("dan3"));
+    expect(dan3).toContain(`aria-label="${d.todoTitle}: 0 od 4 misije rešeno"`);
+
+    // Nothing waits and nothing was solved (the first paint has no ledger): the calm state, never the celebration.
+    const empty = render({ ...previewDashboard("sajam"), actions: [] });
+    expect(empty).toContain('data-mission-clear="empty"');
+    expect(empty).not.toContain('data-mission-clear="celebrate"');
+    expect(empty).not.toContain("data-mission-summary");
+    expect(empty).toContain(d.readyTitle);
+  });
+
+  test("ADMIN v2 X4: the numbers a poll changes are odometers with the same text as before (a partial count keeps its +)", () => {
+    const sajam = render(previewDashboard("sajam"));
+    expect(sajam).toMatch(/data-live-number="scans"[^>]*>.*?<span data-admin-odometer=""[^>]*>412<\/span>/);
+    const base = previewDashboard("sajam");
+    const capped = render({ ...base, kpis: { ...base.kpis, scans: { ...base.kpis.scans, capped: true } } });
+    expect(capped).toMatch(/data-live-number="scans"[^>]*>.*?<span data-admin-odometer=""[^>]*>412\+<\/span>/);
+    // Nothing rolls in the first render.
+    expect(sajam).not.toContain("data-rolling");
+  });
+
   test("three phases: phase badge, countdown to the next deadline, fair days with today marked", () => {
     const pre = render(previewDashboard("pre"));
     for (const text of [d.phase.pre, d.deadline.opening, "1 d 14 h", "9. 10. 2026. 00:00", "9. 10. 2026. – 11. 10. 2026.", "TEST dan 1"]) expect(pre).toContain(text);
@@ -96,6 +127,38 @@ describe("A10 Pregled view", () => {
     for (const text of [d.phase.posle, d.deadline.lead_delivery, "15. 11. 2026. 23:59", d.rules.pii_purge_countdown.title, "26 d", "16. 11. 2026. u 00:00."]) expect(posle).toContain(text);
     // The deletion is the only info item, so it comes last.
     expect(rulesInOrder(posle).at(-1)).toBe("pii_purge_countdown");
+  });
+
+  test("ADMIN v2 X3 live strip: only while a fair day is open; the progress of the day, the key numbers of the day and the open items", () => {
+    const number = (html: string, id: string) => html.match(new RegExp(`data-live-number="${id}"[^>]*>(.*?)</p>`))?.[1].replace(/<[^>]+>/g, "|");
+
+    // 10:40 of the second day: 44 % of the day, 13 h 20 min to its end.
+    const sajam = render(previewDashboard("sajam"));
+    expect(sajam.split("data-live-day").length - 1).toBe(1);
+    for (const text of [`aria-label="${d.live.region}"`, `>${d.live.label}<`, `role="progressbar" aria-label="${d.live.progressLabel}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="44"`, 'aria-valuetext="Prošlo je 44 % dana, do kraja 13 h 20 min"', "Prošlo je 44 % dana"]) {
+      expect(sajam).toContain(text);
+    }
+    expect(number(sajam, "scans")).toBe(`|${d.kpi.scans}||412|`);
+    expect(number(sajam, "leads")).toBe(`|${d.kpi.leads}||9|`);
+    expect(number(sajam, "todo")).toBe(`|${d.live.todo}||6||hitno 4 · uskoro 2|`);
+
+    // The last day at 22:38, with the totals of the fair: 94 %, no lead, one urgent item and three that come soon.
+    const dan3 = render(previewDashboard("dan3"));
+    for (const text of ['aria-valuenow="94"', 'aria-valuetext="Prošlo je 94 % dana, do kraja 1 h 22 min"', "Sajamski dan 3 od 3"]) expect(dan3).toContain(text);
+    expect(number(dan3, "scans")).toBe(`|${d.kpi.scans}||179|`);
+    expect(number(dan3, "leads")).toBe(`|${d.kpi.leads}||0|`);
+    expect(number(dan3, "todo")).toBe(`|${d.live.todo}||4||hitno 1 · uskoro 3|`);
+
+    // Nothing to react to; a partial count keeps its plus; leads no package has are left out, never a zero.
+    const base = previewDashboard("dan3");
+    const quiet = render({ ...base, actions: base.actions.filter((action) => action.tone === "info"), kpis: { ...base.kpis, scans: { ...base.kpis.scans, capped: true }, leads: null } });
+    expect(number(quiet, "todo")).toBe(`|${d.live.todo}||0||${d.live.todoClear}|`);
+    expect(number(quiet, "scans")).toBe(`|${d.kpi.scans}||179+|`);
+    expect(quiet).not.toContain('data-live-number="leads"');
+
+    // Before and after the fair, and between two fair days, there is no live strip.
+    for (const faza of ["pre", "posle"]) expect(render(previewDashboard(faza))).not.toContain("data-live-day");
+    expect(render({ ...base, phase: { ...base.phase, dayOpen: false } })).not.toContain("data-live-day");
   });
 
   test("KPI row: one number per function; a function no package has is left out, never a zero", () => {
@@ -128,6 +191,43 @@ describe("A10 Pregled view", () => {
     const base = previewDashboard("pre");
     const empty = render({ ...base, sections: { ...base.sections, leadovi: null, sponzorisano: null, izvestaji: null } });
     for (const text of [d.cards.leadovi.none, d.cards.sponzorisano.none, d.cards.izvestaji.none]) expect(empty).toContain(text);
+  });
+});
+
+describe("ADMIN v3 V5 Pregled: the hourly challenges do not wait for the hall", () => {
+  const sajam = previewDashboard("sajam");
+  const [yesterday, today] = [sajam.days[0].dateKey, sajam.days[1].dateKey];
+  // TEST hours of the fair: yesterday's forenoon and a busy hour, today's forenoon so far.
+  const hours = [
+    { dateKey: yesterday, hour: 9, scans: 18, uniquePerModel: 10 },
+    { dateKey: yesterday, hour: 14, scans: 45, uniquePerModel: 22 },
+    { dateKey: today, hour: 9, scans: 12, uniquePerModel: 6 },
+  ];
+  const renderWith = (extra: Partial<Parameters<typeof EventDashboardView>[0]>) => renderToStaticMarkup(<EventDashboardView dashboard={sajam} now={sajam.at} base={BASE} {...extra} />);
+
+  test("with the hours and without a hall (an event without a floor plan) the hourly challenges are there, inside the watched wrapper", () => {
+    const html = renderWith({ hours });
+    for (const id of ["prestigni_prepodne", "obori_rekord_sata"]) expect(html).toContain(`data-challenge="${id}"`);
+    expect(html).toContain("data-pregled-live-block");
+    expect(html.indexOf("data-pregled-live-block")).toBeLessThan(html.indexOf('data-challenge="prestigni_prepodne"'));
+    // The wrapper keeps the gap of the column it stands in.
+    expect(html).toMatch(/<div data-pregled-live-block="" class="grid min-w-0 gap-5">/);
+  });
+
+  test("without the hours only the challenges the dashboard alone can count are shown", () => {
+    const html = renderWith({});
+    expect(html).toContain('data-challenge="hitni_na_nuli"');
+    for (const id of ["prestigni_prepodne", "obori_rekord_sata"]) expect(html).not.toContain(`data-challenge="${id}"`);
+  });
+
+  test("the hall stands inside the same wrapper, after the challenges", () => {
+    const html = renderWith({ hours, hall: <p data-test-hall="">TEST hala</p> });
+    expect(html.match(/data-pregled-live-block/g)).toHaveLength(1);
+    expect(html.indexOf('data-challenge="hitni_na_nuli"')).toBeLessThan(html.indexOf("data-test-hall"));
+  });
+
+  test("an event with nothing to watch (before the fair) has no wrapper, so no extra gap", () => {
+    expect(render(previewDashboard("pre"))).not.toContain("data-pregled-live-block");
   });
 });
 
@@ -173,5 +273,13 @@ describe("A10 dashboard logic", () => {
     expect(previewDashboard("pre").phase.kind).toBe("pre");
     expect(previewDashboard("posle").phase.kind).toBe("posle");
     expect(previewDashboard("nepoznato").phase.kind).toBe("sajam");
+  });
+
+  test("ADMIN v3 V1: the items and the section cards are rows, the header and the work list are cards, the numbers are kpi tiles", () => {
+    const html = render(previewDashboard("sajam"));
+    expect(html).toMatch(/<ol data-admin-reveal="rows" class="grid min-w-0 gap-2">\s*<li data-rule=/);
+    expect(html).toMatch(/<div data-admin-reveal="rows" class="grid min-w-0 gap-3 sm:grid-cols-2[^"]*"><article data-card=/);
+    expect(html).toContain('data-admin-reveal="card"');
+    expect(html).toContain('data-admin-reveal="kpi"');
   });
 });

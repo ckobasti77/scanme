@@ -18,6 +18,7 @@ export const getInquiryEmailData = internalQuery({
     if (!business) return null;
     const { contact } = await buildBusinessContactViews(ctx, business._id);
     return {
+      businessId: business._id,
       itemName: item.name,
       businessName: business.name,
       contactEmail: contact?.email ?? null,

@@ -7,8 +7,10 @@ import {
   AdminErrorState,
   AdminLoadingState,
 } from "@/components/admin/admin-primitives";
+import { AdminTableScroll } from "@/components/admin/admin-ui/admin-table-scroll";
+import { useAdminFlip } from "@/components/admin/admin-ui/use-admin-flip";
 import { AdminViewToggle } from "@/components/admin/admin-ui/admin-view-toggle";
-import { useAdminViewMode, useIsWideViewport } from "@/components/admin/admin-ui/use-admin-view-mode";
+import { useAdminViewMode, useIsWideContainer } from "@/components/admin/admin-ui/use-admin-view-mode";
 import { nextSortState, sortRows, type SortState, type SortValue } from "@/lib/admin-v1/table-sort";
 import { resolveViewMode, type AdminViewMode } from "@/lib/admin-v1/view-mode";
 import { fmt } from "@/lib/i18n/format";
@@ -21,6 +23,10 @@ import { cn } from "@/lib/utils";
 // the screen's container. Choice per list is remembered in localStorage
 // (`scanme-admin-view:<listKey>`). Without a choice both views are rendered
 // and CSS shows Tabela from the list's breakpoint and Kartice below it.
+// ADMIN v2: the breakpoints are widths of the list itself (container
+// queries), not of the window, because the sidebar takes part of the screen;
+// the table scrolls with the screen and its header row stays on top
+// (AdminTableScroll).
 
 export type AdminDataViewContext = { view: AdminViewMode };
 
@@ -33,7 +39,7 @@ export type AdminColumn<T> = {
   /** Present ⇒ the column can be sorted by clicking its header. */
   sortValue?: (row: T) => SortValue;
   align?: "start" | "center" | "end";
-  /** Secondary column hidden in a narrow table. */
+  /** Secondary column hidden in a narrow table (widths of the list: md 42, lg 56, xl 72, 2xl 80 rem). */
   hideBelow?: "md" | "lg" | "xl" | "2xl";
   /** `<th scope="row">` — the cell that names the row. */
   rowHeader?: boolean;
@@ -60,7 +66,7 @@ export type AdminDataViewProps<T> = {
   rowClassName?: (row: T) => string | undefined;
   /** Kept from screens that open the detail on double click (row and card). */
   onRowDoubleClick?: (row: T, event: MouseEvent<HTMLElement>) => void;
-  /** Without a saved choice: Tabela from this width (md 768 px, lg 1024 px). */
+  /** Without a saved choice: Tabela from this width of the list (md 42 rem, lg 56 rem). */
   autoBreakpoint?: "md" | "lg";
   /** Left side of the bar above the list (filters, counts). */
   toolbar?: ReactNode;
@@ -97,9 +103,9 @@ export function AdminViewModeOverride({ value, onChange, children }: { value: Ad
   return <ViewOverrideContext.Provider value={context}>{children}</ViewOverrideContext.Provider>;
 }
 
-const HIDE_BELOW = { md: "hidden md:table-cell", lg: "hidden lg:table-cell", xl: "hidden xl:table-cell", "2xl": "hidden 2xl:table-cell" } as const;
-const AUTO_TABLE = { md: "hidden md:block", lg: "hidden lg:block" } as const;
-const AUTO_CARDS = { md: "md:hidden", lg: "lg:hidden" } as const;
+const HIDE_BELOW = { md: "hidden @2xl:table-cell", lg: "hidden @4xl:table-cell", xl: "hidden @6xl:table-cell", "2xl": "hidden @7xl:table-cell" } as const;
+const AUTO_TABLE = { md: "hidden @2xl:block", lg: "hidden @4xl:block" } as const;
+const AUTO_CARDS = { md: "@2xl:hidden", lg: "@4xl:hidden" } as const;
 const ALIGN = { start: "text-left", center: "text-center", end: "text-right" } as const;
 
 function isStateProps(value: unknown): value is { title?: string; body?: string } {
@@ -134,8 +140,11 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
   } = props;
   const override = useContext(ViewOverrideContext);
   const [stored, setStored] = useAdminViewMode(listKey);
-  const wide = useIsWideViewport(autoBreakpoint);
+  const [container, wide] = useIsWideContainer(autoBreakpoint);
   const [sort, setSort] = useState<SortState>(defaultSort);
+  const sortSignature = sort ? `${sort.columnId}:${sort.direction}` : "";
+  // X4: cards glide when the list is filtered or re-sorted (the table rows do the same in AdminTableScroll).
+  useAdminFlip(container, "[data-admin-card]", sortSignature);
   const mode = resolveViewMode(view ?? override.value, stored);
   const effective: AdminViewMode = mode === "auto" ? (wide ? "tabela" : "kartice") : mode;
 
@@ -160,13 +169,13 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
     const showCards = mode === "auto" || mode === "kartice";
     const groups = groupBy ? groupRows(sorted, groupBy) : [{ key: "", label: null, rows: sorted }];
     const cardList = (list: readonly T[], label: string, extra?: string) => (
-      <ul aria-label={label} className={cn("grid gap-3 @xl:grid-cols-2 @5xl:grid-cols-3", extra, cardsClassName)}>
+      <ul aria-label={label} data-admin-reveal="rows" className={cn("grid gap-3 @xl:grid-cols-2 @5xl:grid-cols-3", extra, cardsClassName)}>
         {list.map((row) => {
           const context = { view: "kartice" } as const;
           const actions = rowActions?.(row, context);
           const detail = rowDetail?.(row, context);
           return (
-            <li key={getRowId(row)} onDoubleClick={onRowDoubleClick ? (event) => onRowDoubleClick(row, event) : undefined} className={cn("flex min-w-0 flex-col gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4", rowClassName?.(row))}>
+            <li key={getRowId(row)} data-admin-card="" onDoubleClick={onRowDoubleClick ? (event) => onRowDoubleClick(row, event) : undefined} className={cn("flex min-w-0 flex-col gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4", rowClassName?.(row))}>
               {renderCard(row, context)}
               {actions ? <div className="mt-auto flex min-w-0 flex-wrap items-center gap-2 border-t border-[var(--admin-border)] pt-3">{actions}</div> : null}
               {detail ? <div className="min-w-0">{detail}</div> : null}
@@ -189,6 +198,7 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
             rowClassName={rowClassName}
             onRowDoubleClick={onRowDoubleClick}
             sort={sort}
+            flipSignature={sortSignature}
             onSort={(columnId) => setSort((current) => nextSortState(current, columnId))}
             className={mode === "auto" ? AUTO_TABLE[autoBreakpoint] : undefined}
             tableClassName={tableClassName}
@@ -211,9 +221,9 @@ export function AdminDataView<T>(props: AdminDataViewProps<T>) {
   }
 
   return (
-    <div data-admin-primitive="data-view" data-view-mode={mode} className={cn("@container grid min-w-0 gap-3", className)}>
+    <div ref={container} data-admin-primitive="data-view" data-view-mode={mode} className={cn("@container grid min-w-0 gap-3", className)}>
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0 flex-1">{toolbar}</div>
+        <div data-admin-reveal="text" className="min-w-0 flex-1">{toolbar}</div>
         <AdminViewToggle value={effective} onChange={changeView} />
       </div>
       {body}
@@ -246,6 +256,7 @@ function DataTable<T>({
   rowClassName,
   onRowDoubleClick,
   sort,
+  flipSignature,
   onSort,
   className,
   tableClassName,
@@ -261,6 +272,7 @@ function DataTable<T>({
   rowClassName?: (row: T) => string | undefined;
   onRowDoubleClick?: (row: T, event: MouseEvent<HTMLElement>) => void;
   sort: SortState;
+  flipSignature: string;
   onSort: (columnId: string) => void;
   className?: string;
   tableClassName?: string;
@@ -268,18 +280,19 @@ function DataTable<T>({
   const context = { view: "tabela" } as const;
   const columnCount = columns.length + (rowActions ? 1 : 0);
   return (
-    <div
+    <AdminTableScroll
+      flipSignature={flipSignature}
       role="region"
       aria-label={caption}
       tabIndex={0}
       className={cn(
-        "max-w-full min-w-0 overflow-x-auto rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))] md:max-h-[70vh] md:overflow-y-auto",
+        "max-w-full min-w-0 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))]",
         className,
       )}
     >
       <table className={cn("w-full min-w-[40rem] border-collapse text-left text-sm", tableClassName)}>
         <caption className="sr-only">{caption}</caption>
-        <thead className="sticky top-0 z-[1] bg-[var(--admin-surface-muted)] text-[0.67rem] font-bold tracking-[0.06em] text-[var(--admin-text-muted)] uppercase">
+        <thead className="bg-[var(--admin-surface-muted)] text-[0.67rem] font-bold tracking-[0.06em] text-[var(--admin-text-muted)] uppercase">
           <tr>
             {columns.map((column) => {
               const sorted = sort?.columnId === column.id ? sort.direction : null;
@@ -319,7 +332,7 @@ function DataTable<T>({
           </tr>
         </thead>
         {groups.map((group) => (
-        <tbody key={group.key}>
+        <tbody key={group.key} data-admin-reveal="rows">
           {group.label ? (
             <tr className="border-t border-[var(--admin-border)] bg-[var(--admin-surface-muted)]">
               <th colSpan={columnCount} scope="rowgroup" className="px-3 py-2 text-left text-xs font-semibold text-[var(--admin-text)]">
@@ -364,6 +377,6 @@ function DataTable<T>({
         </tbody>
         ))}
       </table>
-    </div>
+    </AdminTableScroll>
   );
 }

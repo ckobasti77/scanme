@@ -257,7 +257,9 @@ function Surveys({ view, actions, now, query, onQueryChange }: { view: Interacti
         <p className="-mt-2 mb-4 max-w-3xl text-sm text-[var(--admin-text-muted)]">{dict.surveysHelp}</p>
         {anyAdvanced ? (
           <div className="grid min-w-0 gap-4">
-            <AdminHierarchyPicker mode="select" data={pickData} value={{ modelId: model?.id }} onChange={(next) => onQueryChange({ model: next.modelId ?? null })} label={f.modelLabel} required />
+            <div className="max-w-2xl">
+              <AdminHierarchyPicker data={pickData} value={{ modelId: model?.id }} onChange={(next) => onQueryChange({ model: next.modelId ?? null })} label={f.modelLabel} required />
+            </div>
             {model ? (
               <SurveyEditor key={editorKey} model={model} versions={versions} actions={actions} setMessage={setFormMessage} />
             ) : <p className="text-sm text-[var(--admin-text-muted)]">{f.pickPrompt}</p>}
@@ -284,7 +286,7 @@ function Surveys({ view, actions, now, query, onQueryChange }: { view: Interacti
                 </span>
               ),
             }}
-            empty={{ title: dict.surveysTitle, body: dict.surveysEmpty }}
+            empty={{ title: dict.surveysEmptyTitle, body: dict.surveysEmpty }}
             renderCard={(survey) => (
               <AdminDataCard
                 title={fmt(f.versionLabel, { version: survey.version })}

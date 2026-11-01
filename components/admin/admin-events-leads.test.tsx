@@ -4,6 +4,7 @@ import type { CatalogView, ModelView } from "@/components/admin/admin-events";
 import { EventLeadFormsView, type LeadFormsActions } from "@/components/admin/events/sections/interakcije-forme-view";
 import { EventFollowUpView, type FollowUpActions } from "@/components/admin/events/sections/leadovi-follow-up-view";
 import { EventLeadsInboxView, LeadDetailPanel, LeadsInboxUnavailable, type InboxLead, type LeadInboxActions } from "@/components/admin/events/sections/leadovi-view";
+import { eventSectionHeading } from "@/lib/admin-v1/event-sections";
 import type { LeadFormsSource } from "@/lib/admin-v1/lead-forms";
 import { formatBelgradeDate } from "@/lib/belgrade-time";
 import { FAIR_EMAIL_DELIVERY_ERRORS } from "@/lib/fair-contract";
@@ -124,7 +125,7 @@ describe("B4 admin Leadovi", () => {
   test("consent, forms, the inbox, the lead detail and the follow-up text render in Serbian, with no raw codes", () => {
     const html = all(view) + forms();
     for (const text of [
-      adminEventsSr.consentTitle, adminEventsSr.interactionSections.forme, adminEventsSr.sectionLabels["leadovi/follow-up"], adminEventsSr.listTitle, adminEventsSr.consentInactive,
+      adminEventsSr.consentTitle, adminEventsSr.interactionSections.forme, adminEventsSr.sectionLabels["leadovi/follow-up"], adminEventsSr.consentInactive,
       adminEventsSr.leadInbox.formsLink,
       "TEST aktivna saglasnost {izlagac}", "TEST nacrt saglasnosti {izlagac}", adminEventsSr.consentRetire, "Aktiviraj verziju 2",
       adminEventsSr.contactRequirements.both, adminEventsSr.preferredContacts.phone, fmt(adminEventsSr.followUps.editorTitle, { exhibitor: "TEST izlagač A" }), "Aktivna verzija 3",
@@ -132,6 +133,9 @@ describe("B4 admin Leadovi", () => {
       adminEventsSr.retryConfirmation, adminEventsSr.suppress, adminEventsSr.loadMore,
     ]) expect(html).toContain(text.replace(/&/g, "&amp;").replace(/"/g, "&quot;"));
     expect(html).not.toMatch(/FAIR_[A-Z_]+|PROVIDER_[A-Z]+:|CONSENT_NOT_CONFIGURED/);
+    // ADMIN v2: „Primljeni leadovi“ is the H1 of the page header (the event frame), not a second title inside the inbox.
+    expect(eventSectionHeading({ kind: "section", path: "leadovi" })).toBe(adminEventsSr.listTitle);
+    expect(html).not.toContain(`>${adminEventsSr.listTitle}</h2>`);
   });
 
   test("a Starter model offers interest only; an exhibitor without an Advanced model gets no follow-up", () => {
@@ -181,5 +185,13 @@ describe("B4 admin Leadovi", () => {
     expect(html).toContain(`${fmt(adminEventsSr.leadSettings.summaryActive, { version: 1 })} · ${fmt(adminEventsSr.leadSettings.summaryDraft, { version: 2 })}`);
     expect(html).toContain(adminEventsSr.leadSettings.summaryNone);
     expect(html).toContain(adminEventsSr.leadSettings.activitySharingNote);
+  });
+});
+
+describe("ADMIN v3 V1 Leadovi settings", () => {
+  test("the consent kinds are rows inside the settings card", () => {
+    const markup = renderToStaticMarkup(<AdminEventsConsent view={view} actions={actions} />);
+    expect(markup).toContain('data-admin-reveal="card"');
+    expect(markup).toMatch(/<div data-admin-reveal="rows" class="grid gap-3"><details /);
   });
 });

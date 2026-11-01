@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { AdminEmptyState, AdminPanel } from "@/components/admin/admin-primitives";
+import { adminPrimaryButtonClass } from "@/components/admin/admin-ui/admin-controls";
 import type { StoredSurveyQuestion } from "@/lib/admin-v1/survey-form";
 import type {
   FairAudienceQuestionStatus,
@@ -77,7 +78,7 @@ export type InteractionsActions = {
 };
 
 export const field = "min-h-11 w-full min-w-0 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]";
-export const primaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[var(--admin-ink)] px-4 text-sm font-semibold text-[var(--admin-on-ink)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]";
+export const primaryButton = adminPrimaryButtonClass;
 export const secondaryButton = "admin-button-ghost inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-strong)] px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus)]";
 
 export const dateTime = new Intl.DateTimeFormat("sr-Latn-RS", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Belgrade" });
@@ -133,7 +134,7 @@ export function Section({ title, help, children }: { title: string; help: string
 }
 
 export function RowList({ children }: { children: ReactNode }) {
-  return <ul className="mt-4 grid divide-y divide-[var(--admin-border)] overflow-hidden rounded-[var(--admin-radius-control)] border border-[var(--admin-border)]">{children}</ul>;
+  return <ul data-admin-reveal="rows" className="mt-4 grid divide-y divide-[var(--admin-border)] overflow-hidden rounded-[var(--admin-radius-control)] border border-[var(--admin-border)]">{children}</ul>;
 }
 
 export function Row({ children }: { children: ReactNode }) {
@@ -163,5 +164,5 @@ export function ConfirmAction({ label, body, disabled, onConfirm, ariaLabel }: {
 // `interakcije/ankete`, `interakcije/pasos`, `interakcije/forme`).
 
 export function InteractionsUnavailable() {
-  return <AdminPanel><AdminEmptyState title={dict.tabInteractions} body={dict.interactionsUnavailable} /></AdminPanel>;
+  return <AdminPanel><AdminEmptyState title={dict.loading} body={dict.interactionsUnavailable} /></AdminPanel>;
 }

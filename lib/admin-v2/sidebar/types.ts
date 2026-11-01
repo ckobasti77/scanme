@@ -1,0 +1,128 @@
+// ADMIN v2 — the shape of the contextual sidebar (ZADATAK §3). One component
+// renders it on every page; what it shows comes from the registry by route
+// (`SidebarConfig`, static) and from the page (`SidebarLive`, the parts only
+// the page's data knows: options, counts, the event list).
+
+import type { ReactNode } from "react";
+import type { AdminSubnavGroup, AdminUrgencyTone } from "@/lib/admin-v1/subnav";
+import type { HudData } from "@/lib/admin-v2/hud";
+
+export type SidebarOption = { value: string; label: string; count?: number; hint?: string };
+
+export type SidebarGroup = {
+  /** The URL key of the filter (for `custom`: the id of the group). */
+  id: string;
+  label: string;
+  /** `choice` (default): one of `options`. `custom`: the page renders the body (`SidebarLive.custom`). */
+  kind?: "choice" | "custom";
+  /** Static options; without them the page sends the options (`SidebarLive.options`). */
+  options?: readonly SidebarOption[];
+  /** `custom`: the URL keys the group owns (cleared with its chip). */
+  keys?: readonly string[];
+  /** `custom`: which of `keys` hold free text (a name), not an id. */
+  textKeys?: readonly string[];
+  /** A filter that arrives by link and has no control here: only its chip is shown. */
+  chipOnly?: boolean;
+  /**
+   * The group always has a value (a period, a category): there is no "Sve",
+   * this option is chosen while the key is absent and it is never written.
+   */
+  defaultValue?: string;
+  /** Shown instead of the options while there are none (a group that waits for another choice). */
+  emptyText?: string;
+  /**
+   * X6 — the values are ids of records the page sends to a query (`v.id(…)`): a value that is not shaped
+   * like an id reads as absent, so a mistyped or cut link shows the unfiltered list instead of an error.
+   * `true`, or the words the group accepts besides ids (Inbox: „mine“, „unassigned“).
+   */
+  ids?: true | readonly string[];
+};
+
+export type SidebarViews = { key: string; label: string; items: readonly SidebarOption[]; defaultValue: string };
+export type SidebarSort = { key: string; label: string; options: readonly SidebarOption[]; defaultValue: string };
+export type SidebarSearch = {
+  key: string;
+  label: string;
+  placeholder?: string;
+  /** Written on Enter, not while typing: a search that calls an outside service (Pošta → Zoho). */
+  submit?: boolean;
+};
+export type SidebarBlock = "missions" | "jumps";
+export type SidebarJump = { href: string; label: string };
+/** One line of „Misije danas“: what waits, how much of it and where it is solved. */
+export type SidebarMission = {
+  id: string;
+  label: string;
+  count: number;
+  tone: AdminUrgencyTone;
+  href?: string;
+  /** X4 — the read was limited: the count is "at least this many" („4+“). */
+  capped?: boolean;
+};
+
+export type SidebarConfig = {
+  id: string;
+  /**
+   * Context of the area (Događaji: the event). Options and the change come
+   * from the page. `list`: an always open list instead of an accordion group
+   * (Tim: the members).
+   */
+  context?: { id: string; label: string; list?: boolean };
+  /** Sub-pages of the area. The page may replace them with badges (`SidebarLive.nav`). */
+  nav?: readonly AdminSubnavGroup[];
+  /** Label of `nav` for assistive technology. */
+  navLabel?: string;
+  /**
+   * X6 — the sub-pages are drawn as one folded accordion group („Sekcija · Modeli“) instead of an open list:
+   * a page whose search and filters would otherwise start below the fold of the sidebar (the lists of Događaji).
+   */
+  navFold?: { id: string; label: string };
+  /** „Na ovoj strani“: the parts of a long page, as links to their ids on the screen. */
+  anchors?: { label: string; items: readonly { id: string; label: string }[] };
+  views?: SidebarViews;
+  search?: SidebarSearch;
+  groups?: readonly SidebarGroup[];
+  sort?: SidebarSort;
+  blocks?: readonly SidebarBlock[];
+  /**
+   * X4 — the URL key whose value changes what the missions count (Dashboard: the scope „Sve“ / „Moje“).
+   * Each value keeps its own ledger of the day, so switching it is never read as solved work. The page
+   * says which value its numbers are for (`SidebarLive.missionsScope`); until the two agree (the new
+   * numbers are on their way) the ledger is not touched.
+   */
+  missionsBy?: string;
+  /** Quick jumps of this page (admin paths); without them the frame shows its own list. */
+  jumps?: readonly SidebarJump[];
+};
+
+export type SidebarState = Record<string, string>;
+export type SidebarPatch = Record<string, string | null>;
+
+export type SidebarLive = {
+  context?: { value: string; options: readonly SidebarOption[]; onChange: (value: string) => void };
+  nav?: readonly AdminSubnavGroup[];
+  /** A number, or a text when the read was limited („12+“). */
+  viewCounts?: Readonly<Record<string, number | string>>;
+  /** Options (with counts) of the groups, by group id; they replace the static ones. */
+  options?: Readonly<Record<string, readonly SidebarOption[]>>;
+  /**
+   * The value of a group while its key is absent, when only the page knows it
+   * (Pošta: the first mailbox). Like `SidebarGroup.defaultValue`: no "Sve".
+   */
+  defaults?: Readonly<Record<string, string>>;
+  /** Body and header summary of `custom` groups, by group id. */
+  custom?: Readonly<Record<string, { summary?: string; body: ReactNode }>>;
+  /** „Misije danas“ (block `missions`), from data the page already has. */
+  missions?: readonly SidebarMission[];
+  /** X4 — the value of `SidebarConfig.missionsBy` the missions were counted for (Dashboard: "all" or "mine"). */
+  missionsScope?: string;
+  /** X4 — the HUD „Danas“ of the event the page is about (it already reads that event's dashboard). */
+  hud?: HudData;
+  /** X4 — the HUD the frame reads itself while a fair is on; a page's own `hud` goes first. */
+  frameHud?: HudData;
+  /**
+   * Called before a change is written: returns the patch to write (dependent
+   * filters: picking a brand sets its exhibitor) or null to cancel it.
+   */
+  intercept?: (patch: SidebarPatch, state: SidebarState) => SidebarPatch | null;
+};

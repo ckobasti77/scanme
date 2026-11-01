@@ -16,16 +16,15 @@ import { AdminEmptyState, AdminStatus } from "@/components/admin/admin-primitive
 import {
   AdminDataCard,
   AdminDataView,
-  AdminFilterBar,
   AdminHierarchyPicker,
   AdminOptionRows,
   adminFieldClass,
   adminPrimaryButtonClass,
   adminSecondaryButtonClass,
   type AdminColumn,
-  type AdminFilterChip,
-  type AdminFilterFacet,
 } from "@/components/admin/admin-ui";
+import { AdminTableScroll } from "@/components/admin/admin-ui/admin-table-scroll";
+import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import { eventDateTime, Feedback, Meta, Section, type EventMessage } from "@/components/admin/events/event-ui";
 import {
   AUDIENCE_STATUS_PARAMS,
@@ -39,7 +38,6 @@ import {
   audiencePublishBlock,
   audienceQuota,
   audienceStatusCounts,
-  audienceStatusFromParam,
   canSetSponsored,
   defaultAudienceDayId,
   nextAudienceSortOrder,
@@ -52,12 +50,14 @@ import {
 import { buildHierarchy } from "@/lib/admin-v1/hierarchy";
 import { emptyOptionRows, optionRowsFrom, toChoiceOptions, validateOptionRows, type OptionRow } from "@/lib/admin-v1/option-rows";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
+import type { SidebarLive } from "@/lib/admin-v2/sidebar/types";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
 
-// Admin UX A6 — `interakcije/glas-publike`: fast entry of Glas publike
+// Admin UX A6 / ADMIN v2 — `interakcije/glas-publike` (the status filter of the
+// question list is in the sidebar of the admin frame): fast entry of Glas publike
 // questions for dozens of models. The model comes from the hierarchy picker
 // (package and the day's quota next to each model), the day is a select and
 // the options are dynamic rows. The quota is checked before saving with the
@@ -225,7 +225,6 @@ function AudienceForm({ models, days, questions, now, modelId, dayId, onPick, ac
       </div>
       <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <AdminHierarchyPicker
-          mode="select"
           data={pickData}
           value={{ modelId: model?.id }}
           onChange={(next) => onPick({ modelId: next.modelId ?? null })}
@@ -307,10 +306,10 @@ export function AudienceMatrix({ rows, models, days, now, selected, onOpen }: {
         <p className="text-sm font-semibold" role="status">{gaps ? fmt(a.matrixGaps, { count: gaps }) : a.matrixNoGaps}</p>
         <Legend />
       </div>
-      <div className="min-w-0 overflow-x-auto rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] md:max-h-[70vh] md:overflow-y-auto">
+      <AdminTableScroll className="min-w-0 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)]">
         <table className="w-full min-w-[30rem] border-collapse text-left text-sm">
           <caption className="sr-only">{a.matrixTitle}</caption>
-          <thead className="sticky top-0 z-10 bg-[var(--admin-surface-strong)]">
+          <thead className="bg-[var(--admin-surface-strong)]">
             <tr>
               <th scope="col" className="sticky left-0 z-10 bg-[var(--admin-surface-strong)] px-3 py-2 text-xs font-semibold">{a.matrixModel}</th>
               {days.map((day) => {
@@ -324,7 +323,7 @@ export function AudienceMatrix({ rows, models, days, now, selected, onOpen }: {
               })}
             </tr>
           </thead>
-          <tbody>
+          <tbody data-admin-reveal="rows">
             {rows.map((row) => {
               const model = models.get(row.modelId);
               if (!model) return null;
@@ -365,7 +364,7 @@ export function AudienceMatrix({ rows, models, days, now, selected, onOpen }: {
             })}
           </tbody>
         </table>
-      </div>
+      </AdminTableScroll>
     </div>
   );
 }
@@ -383,6 +382,14 @@ export type EventAudienceViewProps = {
   /** Izlagači 2026: on one exhibitor's page (`view` holds only its cars) — no exhibitor filter. */
   scoped?: boolean;
 };
+
+/** What the question list sends to the sidebar: the status options with the number of questions each would show (under the exhibitor filter). */
+export function audienceSidebarLive(questions: readonly InteractionQuestion[], izlagac: string | undefined, exhibitorOf: (modelId: string) => string | undefined): SidebarLive {
+  const counts = audienceStatusCounts(questions, izlagac, exhibitorOf);
+  return {
+    options: { status: AUDIENCE_STATUSES.map((status) => ({ value: AUDIENCE_STATUS_PARAMS[status], label: a.statuses[status], count: counts[status] })) },
+  };
+}
 
 export function EventAudienceView({ view, actions, ...rest }: EventAudienceViewProps) {
   if (!view || !actions) return <InteractionsUnavailable />;
@@ -439,17 +446,8 @@ function Audience({ view, actions, now, query, onQueryChange, scoped = false }: 
 
   // ---- list
   const rows = audienceListRows(view.questions, query, view.days.map((row) => row.id), view.models.map((row) => row.id), exhibitorOf);
-  const counts = audienceStatusCounts(view.questions, query.izlagac, exhibitorOf);
-  const exhibitors = [...new Map(view.models.map((model) => [model.exhibitorId, model.exhibitorName])).entries()].sort((x, y) => x[1].localeCompare(y[1], "sr-Latn-RS"));
-  const facets: AdminFilterFacet[] = [
-    { id: "status", label: a.facetStatus, options: AUDIENCE_STATUSES.map((status) => ({ value: AUDIENCE_STATUS_PARAMS[status], label: a.statuses[status], count: counts[status] })) },
-    ...(scoped ? [] : [{ id: "izlagac", label: a.facetExhibitor, options: exhibitors.map(([id, name]) => ({ value: id, label: name })) }]),
-  ];
-  const chips: AdminFilterChip[] = [];
-  const statusFilter = audienceStatusFromParam(query.status);
-  if (statusFilter) chips.push({ id: "status", label: `${a.facetStatus}: ${a.statuses[statusFilter]}`, onRemove: () => onQueryChange({ status: null }) });
-  const exhibitorName = scoped ? undefined : exhibitors.find(([id]) => id === query.izlagac)?.[1];
-  if (exhibitorName) chips.push({ id: "izlagac", label: `${a.facetExhibitor}: ${exhibitorName}`, onRemove: () => onQueryChange({ izlagac: null }) });
+  const sidebar = useMemo(() => audienceSidebarLive(view.questions, query.izlagac, (id) => models.get(id)?.exhibitorId), [view.questions, query.izlagac, models]);
+  useAdminSidebarLive(view.questions.length ? sidebar : null);
   const clear = () => onQueryChange(scoped ? { status: null } : { status: null, izlagac: null });
   const dayLabel = (id: string) => view.days.find((row) => row.id === id)?.label ?? "—";
 
@@ -529,7 +527,7 @@ function Audience({ view, actions, now, query, onQueryChange, scoped = false }: 
       <Section title={dict.questionsTitle}>
         <p className="-mt-2 mb-4 max-w-3xl text-sm text-[var(--admin-text-muted)]">{dict.questionsHelp}</p>
         {!view.days.length ? <p className="text-sm text-[var(--admin-text-muted)]">{a.noDays}</p>
-          : !eligible ? <AdminEmptyState title={dict.questionsTitle} body={a.noModels} className="min-h-40" />
+          : !eligible ? <AdminEmptyState title={a.noModelsTitle} body={a.noModels} className="min-h-40" />
             : (
               <AudienceForm
                 key={editing?.questionId ?? "new"}
@@ -560,9 +558,6 @@ function Audience({ view, actions, now, query, onQueryChange, scoped = false }: 
       <Section title={a.listTitle}>
         <p className="-mt-2 mb-4 max-w-3xl text-sm text-[var(--admin-text-muted)]">{a.sponsoredHelp}</p>
         <div className="grid min-w-0 gap-3">
-          {view.questions.length ? (
-            <AdminFilterBar label={a.filterLabel} facets={facets} values={query} onFacetChange={(id, next) => onQueryChange({ [id]: next ?? null })} chips={chips} onClear={clear} />
-          ) : null}
           <Feedback message={message} />
           <AdminDataView
             listKey="dogadjaji.glas-publike"
