@@ -211,7 +211,6 @@ function errorMessage(error: unknown, fallback: string) {
   if (error instanceof ConvexError && typeof error.data === "string") {
     return error.data;
   }
-  if (error instanceof Error && error.message.trim()) return error.message;
   return fallback;
 }
 

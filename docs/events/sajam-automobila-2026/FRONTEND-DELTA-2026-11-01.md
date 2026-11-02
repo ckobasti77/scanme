@@ -16,3 +16,10 @@
 - **Uključi/isključi bez deploya:** `npx convex run fairSetup:setSponsoredOverride '{"eventCode":"auto-moto-fest-2026","modelSlug":"ineos-grenadier","enabled":false}' --prod`. Uključivanje bira Glas publike pitanje otvoreno sada kao rezultat na mapi; isključivanje ga briše.
 - **Izveštaji:** Starter projekcija i dalje skriva sponzorisane metrike; brojači `sponsored_open_model` / `sponsored_garage_add` se upisuju i za Grenadier, ali ih izlagač ne vidi.
 - **Slajder:** `canStartSponsoredSwipe` u `lib/fair-client/rotation-slot.ts`; `SponsoredStrip` ne prima novi swipe dok slajd (pušten swipe ili automatski) ne završi `onComplete`.
+
+# FRONTEND-DELTA 2026-11-01 — Menu V1 + admin V2 vraćeni (revert reverta `e0aed1d`, grana `release/menu-admin-v2`)
+
+- **Sajamski frontend se ne menja:** `components/fair/**`, `lib/fair-*`, `app/sajam/**` i `app/api/fair/**` su isti kao na main-u.
+- **Convex (samo dodato):** `fairEventAnalytics.getEventEngagement`, `getModelAnalytics`, `getEventStandHours` (admin query-ji, samo čitaju; loaderi u `convex/lib/fairEventAnalytics.ts`). Sajamske tabele u šemi nepromenjene; nove su samo `menu*` tabele.
+- **Admin Analitika:** admin V2 prikaz (`components/admin/events/analytics/**`); „Garaže sačuvane na email“ (`fairGarageEmail.countGarageEmails`) je sada u nizu „Ostali brojevi“ u `KpiStrip`.
+- **Redosled na PROD-u:** `convex deploy` sa ove grane pre merge-a u main (stari frontend nove funkcije ne zove).

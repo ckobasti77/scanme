@@ -9,6 +9,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { requireServiceEditorAccess } from "./lib/access";
+import { assertLegacyMenuWritable } from "./lib/menuLegacyGuard";
 import { writeAdminAudit } from "./lib/adminAudit";
 import { requireSlug } from "./lib/validation";
 import { menuDesignValidator, menuModelValidator } from "./lib/menuValidators";
@@ -354,6 +355,7 @@ export const saveDraft = mutation({
   },
   handler: async (ctx, args) => {
     const { menu } = await loadMenuForEditor(ctx, args.menuId);
+    await assertLegacyMenuWritable(ctx, menu._id);
     const now = Date.now();
     const draftRevision = (menu.draftRevision ?? 0) + 1;
     const patch: Partial<Doc<"menus">> = {
@@ -693,6 +695,7 @@ export const publishDraft = mutation({
   },
   handler: async (ctx, args) => {
     const { menu, business, access } = await loadMenuForEditor(ctx, args.menuId);
+    await assertLegacyMenuWritable(ctx, menu._id);
     const draftRevision = menu.draftRevision ?? 0;
     if (draftRevision !== args.expectedDraftRevision) {
       throw new ConvexError(dict.draftChanged);
@@ -887,6 +890,7 @@ export const setItemAvailable = mutation({
     const item = await ctx.db.get(args.itemId);
     if (!item) throw new ConvexError(dict.itemNotFound);
     const { menu } = await loadMenuForEditor(ctx, item.menuId);
+    await assertLegacyMenuWritable(ctx, menu._id);
     const now = Date.now();
     await ctx.db.patch(item._id, { available: args.available, updatedAt: now });
 

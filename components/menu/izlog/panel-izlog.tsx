@@ -1,0 +1,240 @@
+// ScanMe Menu V1 — the client panel in the izlog (K08): the real shell, the
+// real section states and the real whole-screen states, with an invented
+// venue and the role and plan from the query string. Links stay inside the
+// izlog (the same route with another `sekcija`, the waiter izlog for staff).
+// K27: Početna, Operativa, Funkcionalnosti and Lokal i QR are the real
+// sections over invented data (`stanje=paznja|mirno`, `ping=poslat`,
+// `zahtev=rq_XX`, `filteri=1`). K28: Tim i pristupi (`modal=pozivnica|pin|link-panela`,
+// `stanje=bez-zona`) and Podešavanja are real too; `poziv=…` shows the invitation page instead
+// of the panel. K30: Analitika is real too (`stanje=malo-podataka|prazno|bez-sesija`), and the
+// Početna card "Poslednjih 7 dana" shows the same invented numbers.
+
+import { fixtureVenue } from "@/components/menu/fixtures";
+import { PodaciLokala } from "@/components/menu/panel/lokal/podaci-lokala";
+import { fmt } from "@/lib/i18n/format";
+import { menuDomenSr } from "@/lib/i18n/sr/menu-domen";
+import { menuPanelSr } from "@/lib/i18n/sr/menu-panel";
+import {
+  izlogHref,
+  PANEL_ULOGA_AKTER,
+  type EditorPreviewParams,
+  type PanelPreviewParams,
+} from "@/lib/menu/izlog-params";
+import {
+  panelNavStavke,
+  panelPristup,
+  sekcijaVidljiva,
+  type PanelNavSekcija,
+} from "@/lib/menu/panel-nav";
+import { SekcijaUPripremi } from "../panel/sekcija";
+import { MenuPanelShell } from "../panel/shell";
+import {
+  PanelBezPristupa,
+  PanelNeaktivan,
+  PanelPrijava,
+  PanelUcitavanje,
+  SekcijaZabranjena,
+} from "../panel/stanja-panela";
+import { AnalitikaIzlog } from "./analitika-izlog";
+import { EditorIzlog } from "./editor-izlog";
+import { FunkcionalnostiIzlog } from "./funkcionalnosti-izlog";
+import { LokalIzlog } from "./lokal-izlog";
+import { OperativaIzlog } from "./operativa-izlog";
+import { PocetnaIzlog } from "./pocetna-izlog";
+import { PodesavanjaIzlog } from "./podesavanja-izlog";
+import { PozivIzlog } from "./poziv-izlog";
+import { TimIzlog } from "./tim-izlog";
+
+const t = menuPanelSr;
+/** The optional K25–K27 izlog fields (/dev/menu-editor-preview mounts the panel without them). */
+type K25K26 =
+  | "rezervacije"
+  | "bezRadnogVremena"
+  | "posta"
+  | "povratak"
+  | "sablon"
+  | "sabloniPrilagodjeni"
+  | "sadrzaj"
+  | "pingPoslat"
+  | "zahtev"
+  | "filteriOtvoreni"
+  | "modal"
+  | "bezZona"
+  | "poziv"
+  | "analitika";
+export const PANEL_IZLOG_PUTANJA = "/dev/menu-panel-preview";
+
+export function PanelIzlog({
+  params,
+  editor,
+}: {
+  /**
+   * `sekcija=primitivi` is the primitives page of the route, not a panel section. The two K25 fields
+   * are optional: /dev/menu-editor-preview mounts the panel without them (no reservations there).
+   */
+  params: Omit<PanelPreviewParams, K25K26> & Partial<Pick<PanelPreviewParams, K25K26>> & { sekcija: PanelNavSekcija };
+  /** /dev/menu-editor-preview passes its own editor states. */
+  editor?: EditorPreviewParams;
+}) {
+  const { tema, plan, uloga, sekcija, stanje } = params;
+  const rezervacije = params.rezervacije ?? null;
+  const bezRadnogVremena = params.bezRadnogVremena ?? false;
+  const actor = PANEL_ULOGA_AKTER[uloga];
+  // The large editor fixture is the hotel; every other screen shows the restaurant.
+  const lokal = fixtureVenue(sekcija === "editor" && editor?.stanje === "veliki" ? "hotel" : "restaurant").name;
+  const href = (cilj: PanelNavSekcija) => izlogHref(PANEL_IZLOG_PUTANJA, { sekcija: cilj, uloga, plan, tema });
+  const pocetnaIzloga = izlogHref(PANEL_IZLOG_PUTANJA, { tema });
+  const konobarIzloga = izlogHref("/dev/menu-konobar-preview", { ekran: "pin", tema });
+  // K25: where "Unesi radno vreme" leads: Podešavanja, which then shows the same (empty) hours.
+  const radnoVremeIzloga = izlogHref(PANEL_IZLOG_PUTANJA, {
+    sekcija: "podesavanja",
+    uloga,
+    plan,
+    "radno-vreme": bezRadnogVremena ? "prazno" : null,
+    tema,
+  });
+
+  // K28: the invitation page lives outside the panel shell (the invited person has no role yet).
+  if (params.poziv) return <PozivIzlog stanje={params.poziv} pocetnaHref={pocetnaIzloga} />;
+  if (stanje === "ucitava") return <PanelUcitavanje />;
+  if (stanje === "prijava") return <PanelPrijava prijavaHref={pocetnaIzloga} konobarHref={konobarIzloga} />;
+  if (stanje === "neaktivno") return <PanelNeaktivan klijentskiPanelHref={pocetnaIzloga} />;
+
+  const pristup = panelPristup(actor);
+  if (stanje === "bez-pristupa" || pristup.vrsta !== "panel") {
+    return (
+      <PanelBezPristupa
+        klijentskiPanelHref={pocetnaIzloga}
+        konobarHref={konobarIzloga}
+      />
+    );
+  }
+
+  const ulogaTekst = menuDomenSr.roles[actor];
+  let sadrzaj;
+  if (!sekcijaVidljiva(actor, sekcija)) {
+    sadrzaj = <SekcijaZabranjena naslov={t.sekcije[sekcija]} uloga={ulogaTekst} pocetnaHref={href("pocetna")} />;
+  } else if (sekcija === "editor") {
+    // K10: the real editor with the invented menu; /dev/menu-editor-preview has its states.
+    sadrzaj = (
+      <EditorIzlog
+        params={
+          editor ?? {
+            tema,
+            empty: false,
+            darkDesign: false,
+            stanje: null,
+            pogled: null,
+            plan,
+            stariEditor: false,
+            fokus: null,
+            tab: null,
+            paleta: null,
+            modal: null,
+          }
+        }
+      />
+    );
+  } else if (sekcija === "pocetna") {
+    // K27: the real Početna over invented data (`stanje=paznja|mirno`); links stay inside the izlog.
+    sadrzaj = (
+      <PocetnaIzlog
+        actor={actor}
+        plan={plan}
+        sadrzaj={params.sadrzaj ?? "paznja"}
+        analitika={params.analitika ?? null}
+        hrefs={{
+          editor: href("editor"),
+          operativa: href("operativa"),
+          lokal: href("lokal"),
+          analitika: href("analitika"),
+          podesavanja: href("podesavanja"),
+          konobar: konobarIzloga,
+        }}
+      />
+    );
+  } else if (sekcija === "operativa") {
+    // K27: the real Operativa (read-only overview) over invented data; the ping succeeds locally.
+    sadrzaj = (
+      <OperativaIzlog
+        sadrzaj={params.sadrzaj ?? "paznja"}
+        pingPoslat={params.pingPoslat ?? false}
+        zahtev={params.zahtev ?? null}
+        filteriOtvoreni={params.filteriOtvoreni ?? false}
+        konobarHref={konobarIzloga}
+      />
+    );
+  } else if (sekcija === "funkcionalnosti") {
+    // K27: the real Funkcionalnosti with the K25 reservation block in it.
+    sadrzaj = (
+      <FunkcionalnostiIzlog
+        plan={plan}
+        actor={actor}
+        rezervacije={rezervacije}
+        bezRadnogVremena={bezRadnogVremena}
+        radnoVremeHref={radnoVremeIzloga}
+      />
+    );
+  } else if (sekcija === "lokal") {
+    // K20: the real "Lokal i QR" over the invented restaurant; /dev/menu-lokal-preview has its states.
+    // K27: with the card "Podaci o lokalu za Menu" under its header.
+    const venue = fixtureVenue("restaurant");
+    sadrzaj = (
+      <LokalIzlog
+        params={{ tema, pogled: "lista", stanje: null, fokusPozicija: false, stampa: false }}
+        podaciLokala={<PodaciLokala naziv={venue.name} javniLink={`https://scanme.rs/${venue.slug}/meni`} />}
+      />
+    );
+  } else if (sekcija === "tim") {
+    // K28: the real Tim i pristupi over the invented team; actions change an in-memory store.
+    sadrzaj = <TimIzlog key={uloga} actor={actor} lokal={lokal} modal={params.modal ?? null} bezZona={params.bezZona ?? false} />;
+  } else if (sekcija === "podesavanja") {
+    // K28: the real Podešavanja; the K25 and K26 blocks keep their parameters.
+    sadrzaj = (
+      <PodesavanjaIzlog
+        plan={plan}
+        lokal={lokal}
+        editorHref={sekcijaVidljiva(actor, "editor") ? izlogHref("/dev/menu-editor-preview", { tab: "izgled", tema }) : null}
+        bezRadnogVremena={bezRadnogVremena}
+        posta={params.posta ?? "nije"}
+        povratak={params.povratak ?? null}
+        sablon={params.sablon ?? null}
+        sabloniPrilagodjeni={params.sabloniPrilagodjeni ?? false}
+      />
+    );
+  } else if (sekcija === "analitika") {
+    // K30: the real Analitika over invented numbers; the period, the trend and the breakdown work.
+    sadrzaj = (
+      <AnalitikaIzlog
+        key={plan}
+        plan={plan}
+        stanje={params.analitika ?? null}
+        paketHref={sekcijaVidljiva(actor, "podesavanja") ? href("podesavanja") : null}
+      />
+    );
+  } else {
+    sadrzaj = (
+      <SekcijaUPripremi
+        sekcija={sekcija}
+        plan={plan}
+        actor={actor}
+        editorHref={sekcijaVidljiva(actor, "editor") ? href("editor") : undefined}
+      />
+    );
+  }
+
+  return (
+    <MenuPanelShell
+      key={uloga}
+      lokal={lokal}
+      rezim={fmt(menuDomenSr.serviceLabel, { mode: menuDomenSr.modes.hospitality })}
+      premium={plan === "premium"}
+      uloga={ulogaTekst}
+      stavke={panelNavStavke(actor, href)}
+      aktivna={sekcija}
+      klijentskiPanelHref={pocetnaIzloga}
+    >
+      {sadrzaj}
+    </MenuPanelShell>
+  );
+}

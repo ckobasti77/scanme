@@ -8,20 +8,17 @@ import { AdminEmptyState, AdminPanel, AdminStatus } from "@/components/admin/adm
 import {
   AdminDataCard,
   AdminDataView,
-  AdminFilterBar,
-  AdminHierarchyPicker,
   adminFieldClass,
   adminPrimaryButtonClass,
   adminSecondaryButtonClass,
   adminTouchFieldClass,
   type AdminColumn,
-  type AdminFilterChip,
-  type AdminFilterFacet,
 } from "@/components/admin/admin-ui";
+import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import { BackLink, checkLabel, eventDateTime, Fact, Feedback, IssueList, Meta, modelName, modelTone, Section, type EventMessage } from "@/components/admin/events/event-ui";
 import { ResolvePanel } from "@/components/admin/events/sections/qr-view";
 import type { EventSectionPath, InteractionPart } from "@/lib/admin-v1/event-sections";
-import type { HierarchyValue } from "@/lib/admin-v1/hierarchy";
+import type { HierarchyData } from "@/lib/admin-v1/hierarchy";
 import {
   adjacentModels,
   applyModelFilters,
@@ -36,13 +33,16 @@ import {
   type ModelFacet,
 } from "@/lib/admin-v1/model-filters";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
+import { hierarchyIntercept, hierarchySidebarOptions } from "@/lib/admin-v2/sidebar/hierarchy";
+import type { SidebarLive } from "@/lib/admin-v2/sidebar/types";
 import { FAIR_PACKAGE_TIERS, type FairPackageTier, type FairPassportConfigStatus, type FairSurveyStatus } from "@/lib/fair-contract";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
 
-// Admin UX A3 — `modeli` (filters Izlagač → Brend → Model + search + facets,
+// Admin UX A3 / ADMIN v2 — `modeli` (the filters are in the sidebar of the
+// admin frame: one search, Izlagač → Brend and the facets with their counts;
 // Tabela/Kartice grouped by izlagač · brend) and `modeli/[modelId]` (every
 // model action, QR, resolve test, linked summaries, prethodni / sledeći in
 // the list's filter). Presentational: the containers pass the catalog, the
@@ -141,7 +141,8 @@ function ModelPhoto({ model }: { model: ModelView }) {
 function listColumns(modelHref: (modelId: string) => string): AdminColumn<ModelView>[] {
   return [
     {
-      id: "model", header: dict.colModel, rowHeader: true, sortValue: modelName,
+      // N12 — the name keeps a minimum width (no three-line wrap at 1280 px; 12 rem would push the table 17 px past a 58 rem list, so 10.5 rem); Brend is shown only from a 72 rem list.
+      id: "model", header: dict.colModel, rowHeader: true, sortValue: modelName, width: "10.5rem", className: "min-w-[10.5rem]",
       cell: (model) => (
         <>
           <Link href={modelHref(model.id)} className="font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))]">{model.displayName}</Link>
@@ -149,14 +150,15 @@ function listColumns(modelHref: (modelId: string) => string): AdminColumn<ModelV
         </>
       ),
     },
-    { id: "brand", header: dict.colBrand, sortValue: (model) => model.brandName, cell: (model) => model.brandName },
+    { id: "brand", header: dict.colBrand, hideBelow: "xl", sortValue: (model) => model.brandName, cell: (model) => model.brandName },
     { id: "exhibitor", header: list.colExhibitor, sortValue: (model) => model.exhibitorName, cell: (model) => model.exhibitorName },
     { id: "stand", header: list.colStand, hideBelow: "2xl", sortValue: (model) => model.standLabel, cell: (model) => <span className="text-xs">{model.standLabel}</span> },
     { id: "package", header: dict.colPackage, sortValue: (model) => FAIR_PACKAGE_TIERS.indexOf(model.tier), cell: (model) => <TierBadge model={model} /> },
     { id: "status", header: dict.colStatus, sortValue: (model) => dict.modelStatus[model.status], cell: (model) => <StatusBadge model={model} /> },
     { id: "qr", header: dict.colQr, sortValue: (model) => model.qrSmq ?? model.qrCode, cell: (model) => <QrCell model={model} /> },
     { id: "problems", header: list.colProblems, sortValue: (model) => { const { errors, warnings } = issueCounts(model); return errors * 1000 + warnings; }, cell: (model) => <ProblemsCell model={model} /> },
-    { id: "photo", header: list.colPhoto, sortValue: (model) => (model.hasPhoto ? 1 : 0), cell: (model) => (model.hasPhoto ? list.photoYes : <span className="text-[var(--admin-text-muted)]">{list.photoNo}</span>) },
+    // ADMIN v2: beside the sidebar the list is narrower; the photo flag (also a sidebar filter with counts) shows from a 72 rem list.
+    { id: "photo", header: list.colPhoto, hideBelow: "xl", sortValue: (model) => (model.hasPhoto ? 1 : 0), cell: (model) => (model.hasPhoto ? list.photoYes : <span className="text-[var(--admin-text-muted)]">{list.photoNo}</span>) },
   ];
 }
 
@@ -170,15 +172,26 @@ export type EventModelsViewProps = {
   importHref: string;
 };
 
+/** What the Modeli list sends to the sidebar: the options of every filter group with the number of models each would show. */
+export function modelsSidebarLive(models: readonly ModelView[], hierarchy: HierarchyData, query: AdminQueryState): SidebarLive {
+  const counts = modelFacetCounts(models, query);
+  return {
+    options: {
+      ...hierarchySidebarOptions(hierarchy, query, hierarchyCountedIds(models, query)),
+      ...Object.fromEntries(MODEL_FACETS.map((facet) => [facet, MODEL_FACET_VALUES[facet].map((option) => ({ value: option, label: facetLabel(facet, option), count: counts[facet][option] }))])),
+    },
+    intercept: hierarchyIntercept(hierarchy),
+  };
+}
+
 export function EventModelsView({ catalog, query, onQueryChange, modelHref, importHref }: EventModelsViewProps) {
   const models = catalog.models;
   const hierarchy = useMemo(() => modelHierarchy(models, modelName), [models]);
   const filtered = applyModelFilters(models, query);
   const groups = modelGroups(filtered);
-  const counted = hierarchyCountedIds(models, query);
-  const counts = modelFacetCounts(models, query);
-  const value: HierarchyValue = { exhibitorId: query.izlagac, brandId: query.brend, modelId: query.model };
   const columns = useMemo(() => listColumns(modelHref), [modelHref]);
+  const sidebar = useMemo(() => modelsSidebarLive(models, hierarchy, query), [models, hierarchy, query]);
+  useAdminSidebarLive(models.length ? sidebar : null);
 
   if (!models.length) {
     return (
@@ -191,88 +204,47 @@ export function EventModelsView({ catalog, query, onQueryChange, modelHref, impo
     );
   }
 
-  const facets: AdminFilterFacet[] = MODEL_FACETS.map((facet) => ({
-    id: facet,
-    label: list.facets[facet],
-    options: MODEL_FACET_VALUES[facet].map((option) => ({ value: option, label: facetLabel(facet, option), count: counts[facet][option] })),
-  }));
-  const chips: AdminFilterChip[] = [];
-  const exhibitor = hierarchy.exhibitors.find((row) => row.id === query.izlagac);
-  const brand = hierarchy.brands.find((row) => row.id === query.brend);
-  const model = hierarchy.models.find((row) => row.id === query.model);
-  if (exhibitor) chips.push({ id: "izlagac", label: `${dict.colExhibitor}: ${exhibitor.label}`, onRemove: () => onQueryChange({ izlagac: null, brend: null, model: null }) });
-  if (brand) chips.push({ id: "brend", label: `${dict.colBrand}: ${brand.label}`, onRemove: () => onQueryChange({ brend: null, model: null }) });
-  if (model) chips.push({ id: "model", label: `${dict.colModel}: ${model.label}`, onRemove: () => onQueryChange({ model: null }) });
-  if (query.q) chips.push({ id: "q", label: fmt(list.searchChip, { q: query.q }), onRemove: () => onQueryChange({ q: null }) });
-  for (const facet of MODEL_FACETS) {
-    const selected = query[facet];
-    if (selected && MODEL_FACET_VALUES[facet].includes(selected)) {
-      chips.push({ id: facet, label: `${list.facets[facet]}: ${facetLabel(facet, selected)}`, onRemove: () => onQueryChange({ [facet]: null }) });
-    }
-  }
   const clear = () => onQueryChange(clearModelFiltersPatch());
 
   return (
-    <div className="grid min-w-0 gap-4">
-      <AdminFilterBar
-        label={list.hierarchyLabel}
-        search={{ value: query.q ?? "", onChange: (q) => onQueryChange({ q: q || null }), label: list.searchLabel, placeholder: list.searchPlaceholder }}
-        hierarchy={
-          <AdminHierarchyPicker
-            data={hierarchy}
-            value={value}
-            counted={counted}
-            label={list.hierarchyLabel}
-            onChange={(next) => onQueryChange({ izlagac: next.exhibitorId ?? null, brend: next.brandId ?? null, model: next.modelId ?? null })}
+    <AdminDataView
+      listKey="dogadjaji.modeli"
+      caption={dict.sectionLabels.modeli}
+      rows={filtered}
+      getRowId={(row) => row.id}
+      columns={columns}
+      tableClassName="min-w-[56rem]"
+      toolbar={<p className="text-sm font-semibold" role="status" aria-live="polite">{fmt(list.count, { shown: filtered.length, total: models.length })}</p>}
+      groupBy={groups ? {
+        key: modelGroupKey,
+        label: (_key, rows) => (
+          <span className="flex flex-wrap items-baseline gap-x-2">
+            <span>{fmt(list.groupLabel, { exhibitor: rows[0].exhibitorName, brand: rows[0].brandName })}</span>
+            <span className="font-normal text-[var(--admin-text-muted)]">{fmt(list.groupCount, { count: rows.length })}</span>
+          </span>
+        ),
+      } : undefined}
+      empty={
+        <div className="grid justify-items-center gap-2 pb-4">
+          <AdminEmptyState title={list.noMatchTitle} body={list.noMatchBody} className="min-h-40" />
+          <button type="button" onClick={clear} className={adminSecondaryButtonClass}>{adminUiSr.filters.clear}</button>
+        </div>
+      }
+      renderCard={(row) => (
+        <>
+          <ModelPhoto model={row} />
+          <AdminDataCard
+            title={<Link href={modelHref(row.id)} className="underline-offset-4 hover:underline">{modelName(row)}</Link>}
+            subtitle={`${row.brandName} · ${row.exhibitorName} · ${row.standLabel}`}
+            badges={<><TierBadge model={row} /><StatusBadge model={row} /><ProblemsCell model={row} /></>}
+            fields={[{ label: dict.colQr, value: <QrCell model={row} /> }]}
           />
-        }
-        facets={facets}
-        values={query}
-        onFacetChange={(id, next) => onQueryChange({ [id]: next ?? null })}
-        chips={chips}
-        onClear={clear}
-      />
-      <Section title={dict.sectionLabels.modeli}>
-        <AdminDataView
-          listKey="dogadjaji.modeli"
-          caption={dict.sectionLabels.modeli}
-          rows={filtered}
-          getRowId={(row) => row.id}
-          columns={columns}
-          tableClassName="min-w-[64rem]"
-          toolbar={<p className="text-sm font-semibold" role="status" aria-live="polite">{fmt(list.count, { shown: filtered.length, total: models.length })}</p>}
-          groupBy={groups ? {
-            key: modelGroupKey,
-            label: (_key, rows) => (
-              <span className="flex flex-wrap items-baseline gap-x-2">
-                <span>{fmt(list.groupLabel, { exhibitor: rows[0].exhibitorName, brand: rows[0].brandName })}</span>
-                <span className="font-normal text-[var(--admin-text-muted)]">{fmt(list.groupCount, { count: rows.length })}</span>
-              </span>
-            ),
-          } : undefined}
-          empty={
-            <div className="grid justify-items-center gap-2 pb-4">
-              <AdminEmptyState title={list.noMatchTitle} body={list.noMatchBody} className="min-h-40" />
-              <button type="button" onClick={clear} className={adminSecondaryButtonClass}>{adminUiSr.filters.clear}</button>
-            </div>
-          }
-          renderCard={(row) => (
-            <>
-              <ModelPhoto model={row} />
-              <AdminDataCard
-                title={<Link href={modelHref(row.id)} className="underline-offset-4 hover:underline">{modelName(row)}</Link>}
-                subtitle={`${row.brandName} · ${row.exhibitorName} · ${row.standLabel}`}
-                badges={<><TierBadge model={row} /><StatusBadge model={row} /><ProblemsCell model={row} /></>}
-                fields={[{ label: dict.colQr, value: <QrCell model={row} /> }]}
-              />
-            </>
-          )}
-          rowActions={(row) => (
-            <Link href={modelHref(row.id)} aria-label={fmt(list.openAria, { model: modelName(row) })} className={cn(adminSecondaryButtonClass, "min-h-9 px-3")}>{list.open}</Link>
-          )}
-        />
-      </Section>
-    </div>
+        </>
+      )}
+      rowActions={(row) => (
+        <Link href={modelHref(row.id)} aria-label={fmt(list.openAria, { model: modelName(row) })} className={cn(adminSecondaryButtonClass, "min-h-9 px-3")}>{list.open}</Link>
+      )}
+    />
   );
 }
 
@@ -344,7 +316,7 @@ export function EventModelDetailView({ catalog, modelId, actions, query, listHre
     return (
       <div className="grid min-w-0 gap-4">
         <BackLink href={listHref} label={dict.backToList} />
-        <AdminPanel><AdminEmptyState title={dict.detailModelTitle} body={dict.modelNotFoundBody} /></AdminPanel>
+        <AdminPanel><AdminEmptyState title={dict.modelNotFoundTitle} body={dict.modelNotFoundBody} /></AdminPanel>
       </div>
     );
   }
@@ -594,7 +566,7 @@ function ModelSummary({ model, summary, sectionHref, interactionHref }: { model:
   ];
   return (
     <Section title={detail.summaryTitle}>
-      <ul className="grid gap-3">
+      <ul data-admin-reveal="rows" className="grid gap-3">
         {rows.map((row) => (
           <li key={row.id} className="grid min-w-0 gap-1.5 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] p-3">
             <div className="flex min-w-0 items-center justify-between gap-2">

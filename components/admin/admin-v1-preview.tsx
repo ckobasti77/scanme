@@ -9,11 +9,12 @@ import {
 } from "./admin-primitives";
 import { AdminShell } from "./admin-shell";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
+import { PREVIEW_GAME } from "@/components/admin/game/game-fixtures";
 
 export function AdminV1Preview() {
   return (
     <AdminShell
-      previewIdentity={adminV1Sr.fixtureIdentity}
+      previewIdentity={adminV1Sr.fixtureIdentity} previewGame={PREVIEW_GAME}
       activePathname="/admin"
     >
       <div className="grid gap-6">

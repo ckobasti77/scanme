@@ -7,7 +7,7 @@ import type { MenuDict } from "../types";
 // this surface; nothing here is editor copy (that is sr/menu-editor.ts).
 export const menuSr = {
   // Route metadata.
-  metaTitle: "{name} · Meni",
+  metaTitle: "{name} — Meni",
   metaDescription: "Pogledajte meni i ponudu lokala {name}.",
   // 404 / empty state.
   notFoundTitle: "Meni nije pronađen",

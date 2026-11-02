@@ -244,13 +244,13 @@ describe("Pošta view — Z2 entry points", () => {
     const status = previewMailStatus("spremno");
     const accounts = mailAccountOptions(status.connections);
     const viewActions: MailViewActions = {
-      connect: noop, disconnect: noop, dismissNotice: noop, selectAccount: noop, selectFolder: noop, setFilter: noop, setSearchDraft: noop,
-      submitSearch: noop, clearSearch: noop, goToStart: noop, retryFolders: noop, retryList: noop, selectMessage: noop, closeMessage: noop,
-      retryMessage: noop, showImages: noop, markRead: noop, download: noop, compose: noop, openSignature: noop, openSentFolder: noop,
+      connect: noop, disconnect: noop, dismissNotice: noop, goToStart: noop, retryFolders: noop, retryList: noop, selectMessage: noop,
+      closeMessage: noop, retryMessage: noop, showImages: noop, markRead: noop, download: noop, compose: noop, openSignature: noop,
+      openSentFolder: noop,
     };
     const model: MailViewModel = {
       mode: "ready", notice: { tone: "success", text: "Pismo je poslato.", action: "openSent" }, connections: status.connections, busyConnect: false,
-      busyConnectionId: null, accounts, accountKey: accounts[0].key, folders: { status: "ready", data: [] }, folderId: null, filter: "all", searchDraft: "",
+      busyConnectionId: null, accounts, accountKey: accounts[0].key, folders: { status: "ready", data: [] }, folderId: null, filter: "all",
       search: "", start: 1, pageSize: MAIL_PAGE_SIZE, list: { status: "ready", data: { messages: [], hasMore: false } },
       selected: { folderId: ORIGINAL.folderId, messageId: ORIGINAL.messageId }, message: { status: "ready", data: ORIGINAL }, readIds: new Set(),
       showImages: false, markingRead: false, downloadingId: null, readerFailure: null, now: Date.parse("2026-10-06T10:00:00+02:00"),

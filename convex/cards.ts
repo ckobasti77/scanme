@@ -18,6 +18,7 @@ import { refreshInventory, syncChannel } from "./lib/accessOperations";
 import { syncAutomaticAction } from "./lib/adminActionEngine";
 import { openableFairModel, recordFairScan, type FairScanRecordStatus } from "./lib/fairScans";
 import { fairAdminLinkShortcut } from "./lib/fairQr";
+import { menuCardOutcomeFields } from "./lib/menuQrResolve";
 
 // =============================================================================
 // TASK-14 — Cards: the printed /r/[cardCode] resolver and its management.
@@ -577,7 +578,10 @@ type ResolveOutcome =
   | { kind: "invalid" }
   | { kind: "rate_limited" }
   | { kind: "venue"; businessSlug: string }
-  | { kind: "menu"; businessSlug: string }
+  // K20: `pagePath` (slug of the linked page) and `hop` + `cardCode` (the
+  // card stands on a position: 302 to /r/[cardCode]/meni) appear only when the
+  // card has an active Menu link (convex/lib/menuQrResolve.ts).
+  | { kind: "menu"; businessSlug: string; pagePath?: string; hop?: true; cardCode?: string }
   | { kind: "event"; businessSlug: string; eventSlug: string }
   | { kind: "service_page"; slug: string }
   | { kind: "url"; url: string }
@@ -851,7 +855,15 @@ export const resolveAndRecord = mutation({
       case "menu": {
         const business = await ctx.db.get(card.businessId);
         if (!business) return { kind: "invalid" };
-        return { kind: "menu", businessSlug: business.slug };
+        // K20 (master §9.1): a Menu QR link may add the page (`pagePath`) and,
+        // for a card standing on a table or room, the hop that opens the guest
+        // session (`hop`). A card with no active link resolves EXACTLY as
+        // before: { kind: "menu", businessSlug }.
+        return {
+          kind: "menu",
+          businessSlug: business.slug,
+          ...(await menuCardOutcomeFields(ctx, card)),
+        };
       }
       case "table_ordering": {
         // TASK-63 (RFC-004 §2.2, §2.14): a direct table_ordering card binds to

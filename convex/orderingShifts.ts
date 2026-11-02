@@ -130,7 +130,7 @@ export async function hashPin(pin: string): Promise<string> {
   return `pbkdf2-sha256$${PBKDF2_ITERATIONS}$${toHex(salt.buffer)}$${hash}`;
 }
 
-async function verifyPin(pin: string, stored: string): Promise<boolean> {
+export async function verifyPin(pin: string, stored: string): Promise<boolean> {
   const parts = stored.split("$");
   if (parts.length !== 4 || parts[0] !== "pbkdf2-sha256") return false;
   const iterations = Number.parseInt(parts[1], 10);

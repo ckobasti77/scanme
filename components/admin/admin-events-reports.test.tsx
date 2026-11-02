@@ -2,11 +2,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import type { Id, TableNames } from "@/convex/_generated/dataModel";
 import type { FairDailyDataset } from "@/convex/lib/fairReportDataset";
+import { AdminSidebarView } from "@/components/admin/frame/admin-sidebar-view";
+import type { AdminQueryState } from "@/lib/admin-v1/query-state";
+import { resolveAdminSidebar } from "@/lib/admin-v2/sidebar/registry";
+import type { SidebarState } from "@/lib/admin-v2/sidebar/types";
 import { adminEventsSr } from "@/lib/i18n/sr/admin-events";
+import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { eventReportSr } from "@/lib/i18n/sr/event-report";
 import { fmt } from "@/lib/i18n/format";
 import { issueText } from "./admin-events";
-import { AdminEventsReports, reportErrorText, type ReportsActions, type ReportsView } from "./admin-events-reports";
+import { AdminEventsReports, reportErrorText, reportsSidebarLive, type ReportsActions, type ReportsView } from "./admin-events-reports";
 import { buildReportQueue, filterReportQueue, reportQueueStatus } from "./events/report-queue";
 
 // Sajam 2026 B6 — the `Izveštaji` section of the admin `Događaji` tab.
@@ -139,10 +144,10 @@ describe("A9 report approval queue (day × exhibitor)", () => {
     expect(reportQueueStatus(undefined)).toBe("ceka-podatke");
   });
 
-  test("the queue shows states, the summary, K4 (no build before the day closes), filters and earlier versions; no PII", () => {
+  test("the queue shows states, the summary, K4 (no build before the day closes) and earlier versions; no PII", () => {
     const markup = renderToStaticMarkup(<AdminEventsReports view={queueView} actions={actions} />);
     for (const text of [
-      q.title, q.statuses["ceka-odobrenje"], q.statuses.poslato, q.statuses["ceka-podatke"], q.filterLabel, q.facetDay, q.facetExhibitor, q.facetStatus,
+      q.title, q.statuses["ceka-odobrenje"], q.statuses.poslato, q.statuses["ceka-podatke"],
       fmt(q.summary, { review: 1, approved: 0, failed: 0 }), fmt(q.older, { count: 1 }), adminEventsSr.reportBuildErrors.BUILD_FAILED,
       adminEventsSr.reportsApprove, adminEventsSr.reportsResend, adminEventsSr.reportsCorrectionBadge, fmt(q.count, { shown: 4, total: 4 }),
     ]) expect(markup).toContain(text.replace(/&/g, "&amp;").replace(/"/g, "&quot;"));
@@ -159,11 +164,72 @@ describe("A9 report approval queue (day × exhibitor)", () => {
     expect(markup).not.toMatch(/visitor|telefon|phone/i);
   });
 
-  test("URL filters narrow the rows and show removable chips", () => {
+  /** The sidebar of the Izveštaji page as the frame renders it: the registry configuration with what the page sends. */
+  function sidebarHtml(query: AdminQueryState) {
+    return renderToStaticMarkup(
+      <AdminSidebarView config={resolveAdminSidebar("/admin/dogadjaji/test-sajam/izvestaji")} live={reportsSidebarLive(queueView)} state={query as SidebarState} onPatch={() => undefined} />,
+    );
+  }
+  /** A radio row of a sidebar group: the option and the number next to it. */
+  const option = (label: string, count: number) => new RegExp(`>${label}</span><span[^>]*>${count}</span>`);
+
+  test("URL filters narrow the rows", () => {
     const markup = renderToStaticMarkup(<AdminEventsReports view={queueView} actions={actions} query={{ status: "poslato" }} />);
     expect(markup).toContain(fmt(q.count, { shown: 1, total: 4 }));
-    expect(markup).toContain(`${q.facetStatus}: ${q.statuses.poslato}`);
     const none = renderToStaticMarkup(<AdminEventsReports view={queueView} actions={actions} query={{ status: "greska" }} />);
     expect(none).toContain(q.noMatchTitle);
+  });
+
+  test("ADMIN v2: the page has no filter block above the queue; the N od M counter stays", () => {
+    for (const query of [{}, { status: "poslato" }]) {
+      const markup = renderToStaticMarkup(<AdminEventsReports view={queueView} actions={actions} query={query} />);
+      expect(markup).not.toContain('data-admin-primitive="filter-bar"');
+      expect(markup).not.toContain("<select");
+      expect(markup).not.toContain(adminUiSr.filters.clearAll);
+      expect(markup).toContain(fmt(q.count, { shown: query.status ? 1 : 4, total: 4 }));
+    }
+  });
+
+  test("ADMIN v2 sidebar: dan, izlagač and stanje with counts, in the old order; nothing is open before a click", () => {
+    const live = reportsSidebarLive(queueView);
+    expect(live.options?.dan).toEqual([
+      { value: "2026-10-09", label: "TEST dan 1", count: 2 },
+      { value: "2026-10-10", label: "TEST dan 2", count: 2 },
+    ]);
+    expect(live.options?.izlagac).toEqual([
+      { value: "p1", label: "TEST izlagač A", count: 2 },
+      { value: "p2", label: "TEST izlagač B", count: 2 },
+      { value: "p3", label: "TEST izlagač C", count: 0 },
+    ]);
+    expect(live.options?.status?.map((entry) => [entry.value, entry.count])).toEqual([
+      ["ceka-podatke", 2], ["u-izradi", 0], ["ceka-odobrenje", 1], ["odobreno", 0], ["poslato", 1], ["greska", 0],
+    ]);
+    const html = sidebarHtml({});
+    for (const label of [q.facetDay, q.facetExhibitor, q.facetStatus]) expect(html).toContain(`>${label}</span>`);
+    // X6 (RX V2) — the three filter groups and one more toggle: the folded section navigation („Sekcija“).
+    expect(html.match(/data-admin-filter-toggle=""/g)).toHaveLength(4);
+    expect(html).toMatch(option("TEST dan 2", 2));
+    expect(html).toMatch(option("TEST izlagač A", 2));
+    expect(html).toMatch(option(q.statuses["ceka-odobrenje"], 1));
+    expect(html).not.toContain('aria-expanded="true"');
+    expect(html).not.toContain(adminUiSr.filters.clearAll);
+  });
+
+  test("ADMIN v2 sidebar: active filters show as chips with Očisti sve and name the choice in the group header", () => {
+    const html = sidebarHtml({ dan: "2026-10-10", izlagac: "p2", status: "poslato" });
+    for (const chip of [`${q.facetDay}: TEST dan 2`, `${q.facetExhibitor}: TEST izlagač B`, `${q.facetStatus}: ${q.statuses.poslato}`]) {
+      expect(html).toContain(`aria-label="${adminUiSr.filters.removeChip.replace("{label}", chip)}"`);
+    }
+    expect(html).toContain(`>${adminUiSr.filters.clearAll}</button>`);
+    expect(html).toContain(`>${q.facetStatus}</span><span class="text-[var(--admin-text-muted)]"> · ${q.statuses.poslato}</span>`);
+  });
+});
+
+describe("ADMIN v3 V1 Izveštaji", () => {
+  test("the subtitle is text, the queue is rows, the sections are cards", () => {
+    const markup = renderToStaticMarkup(<AdminEventsReports view={view} actions={actions} />);
+    expect(markup).toContain('<p data-admin-reveal="text"');
+    expect(markup).toContain('data-admin-reveal="rows"');
+    expect(markup).toContain('data-admin-reveal="card"');
   });
 });

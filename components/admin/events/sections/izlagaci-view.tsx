@@ -2,20 +2,18 @@
 
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { issueText, type EventClientView, type EventsActions, type Paged } from "@/components/admin/admin-events";
 import { AdminEmptyState, AdminPanel, AdminStatus } from "@/components/admin/admin-primitives";
 import {
   AdminDataCard,
   AdminDataView,
-  AdminFilterBar,
   adminPrimaryButtonClass,
   adminSecondaryButtonClass,
   type AdminColumn,
-  type AdminFilterChip,
-  type AdminFilterFacet,
 } from "@/components/admin/admin-ui";
-import { Feedback, LoadMore, Meta, SegmentStatus, Section, type EventMessage } from "@/components/admin/events/event-ui";
+import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
+import { Feedback, LoadMore, Meta, SegmentStatus, type EventMessage } from "@/components/admin/events/event-ui";
 import { ExhibitorLogo, ExhibitorWebsiteLink } from "@/components/admin/events/exhibitor-identity";
 import type { FollowUpTextState } from "@/components/admin/events/leads-logic";
 import {
@@ -26,16 +24,17 @@ import {
   type ExhibitorRow,
 } from "@/lib/admin-v1/exhibitors";
 import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-state";
+import type { SidebarLive } from "@/lib/admin-v2/sidebar/types";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
 
-// Admin UX A5 — `izlagaci` (formerly "Event-only klijenti"): every exhibitor
-// of the event, event_only and standard, with brands, models per package, QR
-// coverage, leads, follow-up (A8: the state of the exhibitor's text) and
-// stands; filter by segment and search (query
-// string). A row opens Modeli filtered to the exhibitor. "Prebaci u redovne
+// Admin UX A5 / ADMIN v2 — `izlagaci` (formerly "Event-only klijenti"): every
+// exhibitor of the event, event_only and standard, with brands, models per
+// package, QR coverage, leads, follow-up (A8: the state of the exhibitor's
+// text) and stands; the search and the segment filter are in the sidebar of
+// the admin frame (query string). A row opens Modeli filtered to the exhibitor. "Prebaci u redovne
 // klijente" stays for event_only exhibitors and, in a collapsed list, for
 // event_only clients without a participation in this event.
 
@@ -94,7 +93,7 @@ function NameCell({ row, href }: { row: ExhibitorRow; href: string }) {
     <span className="flex min-w-0 items-center gap-3">
       <ExhibitorLogo name={row.name} logoUrl={row.logoUrl} size="sm" />
       <span className="grid min-w-0">
-        <Link href={href} className="font-semibold underline-offset-4 [overflow-wrap:anywhere] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))]">{row.name}</Link>
+        <Link href={href} className="font-semibold underline-offset-4 break-words hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-focus,var(--admin-ink))]">{row.name}</Link>
         {row.websiteUrl ? <ExhibitorWebsiteLink url={row.websiteUrl} ariaLabel={fmt(dict.interactionExhibitors.websiteAria, { name: row.name })} className="min-h-6 w-fit max-w-full" /> : null}
       </span>
     </span>
@@ -177,99 +176,86 @@ export type EventExhibitorsViewProps = {
   followUpHref?: (participationId: string) => string;
 };
 
+/** What the Izlagači list sends to the sidebar: the segment options with the number of exhibitors each would show. */
+export function exhibitorsSidebarLive(exhibitors: readonly ExhibitorRow[], query: AdminQueryState): SidebarLive {
+  const counts = exhibitorSegmentCounts(exhibitors, query);
+  return {
+    options: {
+      segment: EXHIBITOR_SEGMENT_VALUES.map((value) => ({ value, label: list.segments[value], count: counts[value] })),
+    },
+  };
+}
+
 export function EventExhibitorsView({ exhibitors, leadsCapped, query, onQueryChange, modelsHref, importHref, clients, actions, followUps, followUpHref }: EventExhibitorsViewProps) {
   const filtered = applyExhibitorFilters(exhibitors, query);
-  const counts = exhibitorSegmentCounts(exhibitors, query);
   const convert = useConvert(actions);
   const columns = exhibitorColumns(modelsHref, (row, compact) => convert.button(row.accountId, row.name, compact), { followUps, followUpHref });
   const participants = new Set(exhibitors.map((row) => row.accountId));
   const otherClients = clients.rows.filter((row) => !participants.has(row.accountId));
-
-  const facets: AdminFilterFacet[] = [{
-    id: "segment",
-    label: list.facetSegment,
-    options: EXHIBITOR_SEGMENT_VALUES.map((value) => ({ value, label: list.segments[value], count: counts[value] })),
-  }];
-  const chips: AdminFilterChip[] = [];
-  if (query.q) chips.push({ id: "q", label: fmt(list.searchChip, { q: query.q }), onRemove: () => onQueryChange({ q: null }) });
-  if (query.segment && (EXHIBITOR_SEGMENT_VALUES as readonly string[]).includes(query.segment)) {
-    chips.push({ id: "segment", label: `${list.facetSegment}: ${list.segments[query.segment as (typeof EXHIBITOR_SEGMENT_VALUES)[number]]}`, onRemove: () => onQueryChange({ segment: null }) });
-  }
+  const sidebar = useMemo(() => exhibitorsSidebarLive(exhibitors, query), [exhibitors, query]);
+  useAdminSidebarLive(exhibitors.length ? sidebar : null);
   const clear = () => onQueryChange(clearExhibitorFiltersPatch());
 
   return (
     <div className="grid min-w-0 gap-4">
+      <p data-admin-reveal="text" className="text-sm text-[var(--admin-text-muted)]">{list.subtitle}</p>
       {exhibitors.length ? (
-        <AdminFilterBar
-          label={list.filterLabel}
-          search={{ value: query.q ?? "", onChange: (q) => onQueryChange({ q: q || null }), label: list.searchLabel, placeholder: list.searchPlaceholder }}
-          facets={facets}
-          values={query}
-          onFacetChange={(id, next) => onQueryChange({ [id]: next ?? null })}
-          chips={chips}
-          onClear={clear}
-        />
-      ) : null}
-      <Section title={dict.sectionLabels.izlagaci}>
-        <p className="mb-4 text-sm text-[var(--admin-text-muted)]">{list.subtitle}</p>
-        {exhibitors.length ? (
-          <AdminDataView
-            listKey="dogadjaji.izlagaci"
-            caption={dict.sectionLabels.izlagaci}
-            rows={filtered}
-            getRowId={(row) => row.id}
-            columns={columns}
-            tableClassName="min-w-[52rem]"
-            toolbar={<p className="text-sm font-semibold" role="status" aria-live="polite">{fmt(list.count, { shown: filtered.length, total: exhibitors.length })}</p>}
-            empty={
-              <div className="grid justify-items-center gap-2 pb-4">
-                <AdminEmptyState title={list.noMatchTitle} body={list.noMatchBody} className="min-h-40" />
-                <button type="button" onClick={clear} className={adminSecondaryButtonClass}>{adminUiSr.filters.clear}</button>
-              </div>
-            }
-            renderCard={(row) => (
-              <AdminDataCard
-                title={
-                  <span className="flex min-w-0 items-center gap-3">
-                    <ExhibitorLogo name={row.name} logoUrl={row.logoUrl} size="md" />
-                    <span className="grid min-w-0">
-                      <Link href={modelsHref(row.id)} className="text-base underline-offset-4 [overflow-wrap:anywhere] hover:underline">{row.name}</Link>
-                      {row.websiteUrl ? <ExhibitorWebsiteLink url={row.websiteUrl} ariaLabel={fmt(dict.interactionExhibitors.websiteAria, { name: row.name })} className="min-h-6 w-fit font-normal" /> : null}
-                    </span>
+        <AdminDataView
+          listKey="dogadjaji.izlagaci"
+          caption={dict.sectionLabels.izlagaci}
+          rows={filtered}
+          getRowId={(row) => row.id}
+          columns={columns}
+          tableClassName="min-w-[52rem]"
+          toolbar={<p className="text-sm font-semibold" role="status" aria-live="polite">{fmt(list.count, { shown: filtered.length, total: exhibitors.length })}</p>}
+          empty={
+            <div className="grid justify-items-center gap-2 pb-4">
+              <AdminEmptyState title={list.noMatchTitle} body={list.noMatchBody} className="min-h-40" />
+              <button type="button" onClick={clear} className={adminSecondaryButtonClass}>{adminUiSr.filters.clear}</button>
+            </div>
+          }
+          renderCard={(row) => (
+            <AdminDataCard
+              title={
+                <span className="flex min-w-0 items-center gap-3">
+                  <ExhibitorLogo name={row.name} logoUrl={row.logoUrl} size="md" />
+                  <span className="grid min-w-0">
+                    <Link href={modelsHref(row.id)} className="text-base underline-offset-4 [overflow-wrap:anywhere] hover:underline">{row.name}</Link>
+                    {row.websiteUrl ? <ExhibitorWebsiteLink url={row.websiteUrl} ariaLabel={fmt(dict.interactionExhibitors.websiteAria, { name: row.name })} className="min-h-6 w-fit font-normal" /> : null}
                   </span>
-                }
-                subtitle={<span className="font-mono">{row.codes}</span>}
-                badges={<><SegmentStatus segment={row.segment} /><QrCell row={row} /></>}
-                fields={[
-                  { label: list.colBrands, value: row.brands.length ? row.brands.join(", ") : list.none },
-                  { label: list.colModels, value: <ModelsCell row={row} /> },
-                  { label: list.colLeads, value: <LeadsCell row={row} /> },
-                  { label: list.colFollowUp, value: <FollowUpCell row={row} followUps={followUps} followUpHref={followUpHref} /> },
-                  { label: list.colStands, value: row.stands.length ? row.stands.join(", ") : list.none },
-                ]}
-              />
-            )}
-            rowActions={(row, context) => (
-              <span className="flex flex-wrap justify-end gap-2">
-                {context.view === "kartice" && row.segment === "event_only" ? convert.button(row.accountId, row.name) : null}
-                <Link href={`/admin/klijenti/${encodeURIComponent(row.accountId)}`} aria-label={fmt(list.openProfileAria, { name: row.name })} className={cn(adminSecondaryButtonClass, "min-h-9 px-3 whitespace-nowrap")}>
-                  {list.openProfile}
-                </Link>
-                <Link href={modelsHref(row.id)} aria-label={fmt(list.openModelsAria, { name: row.name })} className={cn(adminSecondaryButtonClass, "min-h-9 px-3 whitespace-nowrap")}>
-                  {list.openModels}<ChevronRight className="size-4" aria-hidden="true" />
-                </Link>
-              </span>
-            )}
-            rowDetail={(row) => convert.confirm(row.accountId, row.name)}
-          />
-        ) : (
-          <div className="grid justify-items-center gap-2 pb-4">
-            <AdminEmptyState title={list.emptyTitle} body={list.emptyBody} className="min-h-40" />
-            <Link href={importHref} className={adminPrimaryButtonClass}>{list.emptyAction}</Link>
-          </div>
-        )}
-        {leadsCapped ? <p className="mt-3 text-xs text-[var(--admin-text-muted)]">{list.leadsCapped}</p> : null}
-      </Section>
+                </span>
+              }
+              subtitle={<span className="font-mono">{row.codes}</span>}
+              badges={<><SegmentStatus segment={row.segment} /><QrCell row={row} /></>}
+              fields={[
+                { label: list.colBrands, value: row.brands.length ? row.brands.join(", ") : list.none },
+                { label: list.colModels, value: <ModelsCell row={row} /> },
+                { label: list.colLeads, value: <LeadsCell row={row} /> },
+                { label: list.colFollowUp, value: <FollowUpCell row={row} followUps={followUps} followUpHref={followUpHref} /> },
+                { label: list.colStands, value: row.stands.length ? row.stands.join(", ") : list.none },
+              ]}
+            />
+          )}
+          rowActions={(row, context) => (
+            <span className="flex flex-wrap justify-end gap-2">
+              {context.view === "kartice" && row.segment === "event_only" ? convert.button(row.accountId, row.name) : null}
+              <Link href={`/admin/klijenti/${encodeURIComponent(row.accountId)}`} aria-label={fmt(list.openProfileAria, { name: row.name })} className={cn(adminSecondaryButtonClass, "min-h-9 px-3 whitespace-nowrap")}>
+                {list.openProfile}
+              </Link>
+              <Link href={modelsHref(row.id)} aria-label={fmt(list.openModelsAria, { name: row.name })} className={cn(adminSecondaryButtonClass, "min-h-9 px-3 whitespace-nowrap")}>
+                {list.openModels}<ChevronRight className="size-4" aria-hidden="true" />
+              </Link>
+            </span>
+          )}
+          rowDetail={(row) => convert.confirm(row.accountId, row.name)}
+        />
+      ) : (
+        <div className="grid justify-items-center gap-2 pb-4">
+          <AdminEmptyState title={list.emptyTitle} body={list.emptyBody} className="min-h-40" />
+          <Link href={importHref} className={adminPrimaryButtonClass}>{list.emptyAction}</Link>
+        </div>
+      )}
+      {leadsCapped ? <p className="text-xs text-[var(--admin-text-muted)]">{list.leadsCapped}</p> : null}
       <Feedback message={convert.message} />
       <AdminPanel className="min-w-0 p-4 sm:p-5">
         <details>
@@ -282,7 +268,7 @@ export function EventExhibitorsView({ exhibitors, leadsCapped, query, onQueryCha
             caption={list.otherClientsTitle}
             rows={clients.status === "loading" ? undefined : otherClients}
             loadingLabel={dict.loading}
-            empty={{ title: list.otherClientsTitle, body: list.otherClientsEmpty }}
+            empty={{ title: list.otherClientsEmptyTitle, body: list.otherClientsEmpty }}
             getRowId={(row) => row.accountId}
             columns={otherClientColumns}
             renderCard={(row) => <AdminDataCard title={row.name} subtitle={<span className="font-mono">{row.smkCode ?? list.none}</span>} badges={<SegmentStatus segment="event_only" />} />}

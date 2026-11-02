@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminClearFilters } from "@/components/admin/admin-ui/admin-clear-filters";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import {
@@ -11,7 +12,6 @@ import {
   MessageSquareText,
   Phone,
   Plus,
-  Search,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -28,6 +28,8 @@ import {
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { communicationsSr as dict } from "@/lib/i18n/sr/communications";
+import { INBOX_URL_FIELDS } from "@/lib/admin-v2/sidebar/configs/inbox";
+import { filterPreviewInbox, inboxListArgs, inboxSidebarLive, INBOX_PREVIEW_ME } from "@/lib/admin-v2/lists/inbox";
 import { adminV1Sr } from "@/lib/i18n/sr/admin-v1";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -39,7 +41,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -49,6 +50,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useAdminUrlState } from "@/components/admin/admin-ui/use-admin-query-state";
+import { AdminPageHeader } from "@/components/admin/frame/admin-page-header";
+import { useAdminSidebarLive } from "@/components/admin/frame/admin-sidebar-store";
 import {
   AdminEmptyState,
   AdminErrorState,
@@ -64,7 +68,6 @@ type Message = FunctionReturnType<typeof api.adminCommunications.listMessages>["
 type ConversationStatus = InboxItem["status"];
 type Channel = InboxItem["channel"];
 type ManualChannel = "phone" | "in_person" | "copied_message";
-type AssigneeFilter = "all" | "mine" | "unassigned" | Id<"users">;
 
 const statusLabels: Record<ConversationStatus, string> = {
   new: dict.statusNew,
@@ -147,7 +150,7 @@ function ConversationList({
   onSelect: (id: Id<"conversations">) => void;
 }) {
   return (
-    <div aria-label={dict.conversationList} className="divide-y divide-[var(--admin-border)]">
+    <div aria-label={dict.conversationList} data-admin-reveal="rows" className="divide-y divide-[var(--admin-border)]">
       {rows.map((row) => (
         <button
           key={row.id}
@@ -303,7 +306,6 @@ function ConversationDetail({
   onReply,
   onStatus,
   onAssign,
-  onManual,
 }: {
   detail: Detail;
   messages: Message[];
@@ -316,12 +318,11 @@ function ConversationDetail({
   onReply: (content: string) => Promise<void>;
   onStatus: (status: ConversationStatus) => Promise<void>;
   onAssign: (id: Id<"users"> | null) => Promise<void>;
-  onManual: () => void;
 }) {
   const row = detail.conversation;
   return (
     <section aria-label={dict.conversationDetail} className="grid min-w-0 grid-rows-[auto_minmax(12rem,1fr)_auto]">
-      <header className="border-b border-[var(--admin-border)] p-4 sm:p-5">
+      <header className="@container border-b border-[var(--admin-border)] p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="font-mono text-[0.68rem] font-semibold text-[var(--admin-text-muted)]">{row.smkCode}</p>
@@ -332,8 +333,8 @@ function ConversationDetail({
           </div>
           <AdminStatus label={statusLabels[row.status]} tone={statusTone[row.status]} />
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] xl:items-end">
-          <div className="grid gap-1.5">
+        <div className="mt-4 grid gap-3 @md:grid-cols-2 @2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] @2xl:items-end">
+          <div className="grid min-w-0 gap-1.5">
             <Label htmlFor="conversation-status">{dict.statusLabel}</Label>
             <Select value={row.status} onValueChange={(value) => void onStatus(value as ConversationStatus)} disabled={busy}>
               <SelectTrigger id="conversation-status" className="min-h-11 w-full"><SelectValue /></SelectTrigger>
@@ -344,20 +345,19 @@ function ConversationDetail({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-1.5">
             <span className="text-sm font-medium">{dict.assigneeLabel}</span>
             <div className="flex min-h-11 items-center gap-2 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] px-3 text-sm">
               <UserRound className="size-4 text-[var(--admin-text-muted)]" aria-hidden="true" />
               <span className="min-w-0 truncate">{row.assigneeName ?? dict.noAssignee}</span>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-1">
+          <div className="flex flex-wrap gap-2 @md:col-span-2 @2xl:col-span-1">
             {row.assigneeAdminId === me.id ? (
               <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void onAssign(null)} className="min-h-11">{dict.removeAssignee}</Button>
             ) : (
               <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void onAssign(me.id)} className="min-h-11">{dict.assignToMe}</Button>
             )}
-            <Button type="button" variant="outline" size="sm" onClick={onManual} className="min-h-11"><Plus className="size-4" aria-hidden="true" />{dict.manualOpen}</Button>
           </div>
         </div>
         {error ? <p role="alert" className="mt-3 text-sm text-[var(--admin-danger)]">{error}</p> : null}
@@ -447,30 +447,25 @@ type WorkspaceScope = {
   contactName?: string;
   embedded?: boolean;
   initialConversationId?: Id<"conversations">;
-  initialAssigneeId?: Id<"users">;
 };
 
+const NO_FILTERS: Record<string, string> = {};
+
 export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
-  const [search, setSearch] = useState("");
-  const [searchDraft, setSearchDraft] = useState("");
-  const [status, setStatus] = useState<ConversationStatus | "all">("all");
-  const [channel, setChannel] = useState<Channel | "all">("all");
-  const [assignee, setAssigneeFilter] = useState<AssigneeFilter>(scope.initialAssigneeId ?? "all");
+  // The filters live in the URL and are written by the sidebar. The embedded
+  // list (client profile) reads none of them and publishes nothing.
+  const [urlState] = useAdminUrlState(INBOX_URL_FIELDS);
+  const filters = scope.embedded ? NO_FILTERS : urlState;
   const me = useQuery(api.adminCommunications.me);
-  const adminOptions = useQuery(api.adminTasks.listAdmins) ?? [];
+  const adminOptions = useQuery(api.adminTasks.listAdmins, scope.embedded ? "skip" : {});
+  const sidebarLive = useMemo(() => (scope.embedded || !adminOptions ? null : inboxSidebarLive(adminOptions)), [scope.embedded, adminOptions]);
+  useAdminSidebarLive(sidebarLive);
+  // „Moji razgovori“ from the URL needs the admin: until `me` answers the list
+  // is not asked for at all, so no other conversation is shown or marked read.
   const inbox = usePaginatedQuery(
     api.adminCommunications.listInbox,
-    {
-      ...(search ? { search } : {}),
-      ...(status !== "all" ? { status } : {}),
-      ...(channel !== "all" ? { channel } : {}),
-      ...(assignee === "mine" && me
-        ? { assignee: me.id }
-        : assignee === "unassigned"
-          ? { assignee: "unassigned" as const }
-          : assignee !== "all"
-            ? { assignee: assignee as Id<"users"> }
-            : {}),
+    filters.assignee === "mine" && me === undefined ? "skip" : {
+      ...inboxListArgs(filters, me?.id),
       ...(scope.accountId ? { accountId: scope.accountId } : {}),
       ...(scope.contactId ? { contactId: scope.contactId } : {}),
     },
@@ -535,66 +530,40 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
         businessId: null,
       }
     : null);
-  const filtered = Boolean(search || status !== "all" || channel !== "all" || assignee !== "all");
+  const filtered = Object.keys(filters).length > 0;
+  const manualAction = manualContext ? <Button type="button" variant="outline" onClick={openManual} className="min-h-11"><Plus className="size-4" aria-hidden="true" />{dict.manualOpen}</Button> : null;
+  const header = scope.embedded ? (
+    <header data-admin-reveal="text" className="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--admin-text-muted)]">{dict.profileScope}</p>
+        <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em]">{scope.contactName}</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)]">{dict.profileScope}</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline" className="min-h-11"><Link href="/admin/inbox">{dict.profileOpenInbox}</Link></Button>
+        {manualAction}
+      </div>
+    </header>
+  ) : (
+    <AdminPageHeader title={dict.inboxTitle} description={dict.inboxSubtitle} actions={manualAction} />
+  );
 
   if (inbox.status === "LoadingFirstPage" || me === undefined) {
-    return <AdminPanel><AdminLoadingState label={dict.conversationList} /></AdminPanel>;
+    return (
+      <div className="grid min-w-0 gap-4">
+        {header}
+        <AdminPanel><AdminLoadingState label={dict.conversationList} /></AdminPanel>
+      </div>
+    );
   }
 
   return (
     <div className="grid min-w-0 gap-4">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          {scope.embedded ? <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--admin-text-muted)]">{dict.profileScope}</p> : null}
-          <h1 className={cn("font-semibold tracking-[-0.04em]", scope.embedded ? "mt-1 text-2xl" : "text-3xl sm:text-4xl")}>{scope.embedded ? scope.contactName : dict.inboxTitle}</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--admin-text-muted)]">{scope.embedded ? dict.profileScope : dict.inboxSubtitle}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {scope.embedded ? <Button asChild variant="outline" className="min-h-11"><Link href="/admin/inbox">{dict.profileOpenInbox}</Link></Button> : null}
-          {manualContext ? <Button type="button" variant="outline" onClick={openManual} className="min-h-11"><Plus className="size-4" aria-hidden="true" />{dict.manualOpen}</Button> : null}
-        </div>
-      </header>
-
-      {!scope.embedded ? (
-        <AdminPanel className="grid gap-3 p-3 sm:grid-cols-2 sm:items-end sm:p-4 xl:grid-cols-[minmax(16rem,1.4fr)_repeat(3,minmax(10rem,0.7fr))]">
-          <form
-            className="relative sm:col-span-2 xl:col-span-1"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setSearch(searchDraft.trim());
-            }}
-          >
-            <Label htmlFor="inbox-search" className="sr-only">{dict.searchLabel}</Label>
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--admin-text-muted)]" aria-hidden="true" />
-            <Input id="inbox-search" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} placeholder={dict.searchPlaceholder} className="min-h-11 pl-9" />
-          </form>
-          <div className="grid gap-1.5">
-            <Label htmlFor="inbox-status">{dict.statusFilter}</Label>
-            <Select value={status} onValueChange={(value) => setStatus(value as ConversationStatus | "all")}>
-              <SelectTrigger id="inbox-status" className="min-h-11 w-full"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="all">{dict.filterAll}</SelectItem>{(Object.keys(statusLabels) as ConversationStatus[]).map((value) => <SelectItem key={value} value={value}>{statusLabels[value]}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="inbox-channel">{dict.channelFilter}</Label>
-            <Select value={channel} onValueChange={(value) => setChannel(value as Channel | "all")}>
-              <SelectTrigger id="inbox-channel" className="min-h-11 w-full"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="all">{dict.filterAll}</SelectItem>{(Object.keys(channelLabels) as Channel[]).map((value) => <SelectItem key={value} value={value}>{channelLabels[value]}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="inbox-assignee">{dict.assigneeFilter}</Label>
-            <Select value={assignee} onValueChange={(value) => setAssigneeFilter(value as typeof assignee)}>
-              <SelectTrigger id="inbox-assignee" className="min-h-11 w-full"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="all">{dict.filterAll}</SelectItem><SelectItem value="mine">{dict.assigneeMine}</SelectItem><SelectItem value="unassigned">{dict.assigneeUnassigned}</SelectItem>{adminOptions.map((admin) => <SelectItem key={admin.id} value={admin.id}>{admin.name}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-        </AdminPanel>
-      ) : null}
+      {header}
 
       {inbox.results.length === 0 ? (
         <AdminPanel>
-          <AdminEmptyState title={filtered ? dict.noFilteredTitle : dict.noConversationsTitle} body={filtered ? dict.noFilteredBody : dict.noConversationsBody} />
+          <AdminEmptyState action={<AdminClearFilters />} title={filtered ? dict.noFilteredTitle : dict.noConversationsTitle} body={filtered ? dict.noFilteredBody : dict.noConversationsBody} />
         </AdminPanel>
       ) : (
         <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(17rem,0.78fr)_minmax(0,1.45fr)]">
@@ -614,7 +583,6 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
                 onReply={async (content) => run(() => reply({ conversationId: detail.conversation.id, content }))}
                 onStatus={async (nextStatus) => run(() => setConversationStatus({ conversationId: detail.conversation.id, status: nextStatus }))}
                 onAssign={async (id) => run(() => setConversationAssignee({ conversationId: detail.conversation.id, assigneeAdminId: id }))}
-                onManual={openManual}
               />
             )}
           </AdminPanel>
@@ -643,8 +611,8 @@ export function AdminConversationWorkspace(scope: WorkspaceScope = {}) {
   );
 }
 
-export function AdminInboxWorkspace({ initialConversationId, initialAssigneeId }: { initialConversationId?: Id<"conversations">; initialAssigneeId?: Id<"users"> } = {}) {
-  return <AdminConversationWorkspace initialConversationId={initialConversationId} initialAssigneeId={initialAssigneeId} />;
+export function AdminInboxWorkspace({ initialConversationId }: { initialConversationId?: Id<"conversations"> } = {}) {
+  return <AdminConversationWorkspace initialConversationId={initialConversationId} />;
 }
 
 export class AdminInboxErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -695,7 +663,7 @@ const fixtureRows = [
     assigneeName: adminV1Sr.fixtureIdentity,
     latestMessagePreview: "Dogovoreno je da klijent pošalje finalni logo do petka.",
     latestMessageAt: Date.parse("2026-09-11T09:20:00Z"),
-    latestMessageAuthorName: "Demo admin",
+    latestMessageAuthorName: adminV1Sr.fixtureIdentity,
     adminUnreadCount: 0,
   },
 ] satisfies InboxItem[];
@@ -706,8 +674,14 @@ const fixtureMessages = [
   { id: "fixture-message-2" as Id<"conversationMessages">, direction: "client_to_admin" as const, authorKind: "client" as const, authorDisplayName: "Ana Petrović", content: "Možete li da proverite zašto nova stavka još nije vidljiva u meniju?", createdAt: Date.parse("2026-09-11T11:42:00Z"), deliveryState: null },
 ] satisfies Message[];
 
+// The demo preview plays the admin of the fixture rows; the sidebar offers him
+// and nobody else as an assignee.
+const previewSidebarLive = inboxSidebarLive([{ id: INBOX_PREVIEW_ME, name: adminV1Sr.fixtureIdentity }]);
+
 export function AdminInboxPreview() {
-  const [selected, setSelected] = useState<Id<"conversations">>(fixtureRows[0].id);
+  const [urlState] = useAdminUrlState(INBOX_URL_FIELDS);
+  useAdminSidebarLive(previewSidebarLive);
+  const [selectedId, setSelected] = useState<Id<"conversations">>(fixtureRows[0].id);
   const [manualOpen, setManualOpen] = useState(false);
   const manualReturnFocus = useRef<HTMLElement | null>(null);
   function openManual() {
@@ -718,16 +692,29 @@ export function AdminInboxPreview() {
     setManualOpen(open);
     if (!open) requestAnimationFrame(() => manualReturnFocus.current?.focus());
   }
-  const detail = useMemo(() => selected === fixtureRows[0].id ? fixtureDetail : { ...fixtureDetail, conversation: fixtureRows[1] }, [selected]);
-  const messages = useMemo(() => selected === fixtureRows[0].id ? fixtureMessages : [{ ...fixtureMessages[0], id: "fixture-message-3" as Id<"conversationMessages">, direction: "manual" as const, content: fixtureRows[1].latestMessagePreview, deliveryState: null }], [selected]);
+  const rows = useMemo(() => filterPreviewInbox(fixtureRows, urlState), [urlState]);
+  const current = rows.find((row) => row.id === selectedId) ?? rows[0] ?? null;
+  const detail = useMemo(() => current ? { ...fixtureDetail, conversation: current } : null, [current]);
+  const messages = useMemo(() => current?.id === fixtureRows[0].id ? fixtureMessages : [{ ...fixtureMessages[0], id: "fixture-message-3" as Id<"conversationMessages">, direction: "manual" as const, content: fixtureRows[1].latestMessagePreview, deliveryState: null }], [current]);
+  const filtered = Object.keys(urlState).length > 0;
   return (
-    <div className="grid gap-4">
-      <header><span className="rounded-full bg-[var(--admin-accent)] px-2.5 py-1 text-[0.68rem] font-bold text-[var(--admin-accent-ink)]">{dict.previewBadge}</span><h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{dict.inboxTitle}</h1><p className="mt-2 text-sm text-[var(--admin-text-muted)]">{dict.inboxSubtitle}</p></header>
-      <AdminPanel className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-[minmax(16rem,1.4fr)_repeat(3,minmax(10rem,0.7fr))]"><Input aria-label={dict.searchLabel} placeholder={dict.searchPlaceholder} className="min-h-11" /><Button variant="outline" className="min-h-11">{dict.statusFilter}: {dict.filterAll}</Button><Button variant="outline" className="min-h-11">{dict.channelFilter}: {dict.filterAll}</Button><Button variant="outline" className="min-h-11">{dict.assigneeFilter}: {dict.filterAll}</Button></AdminPanel>
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(17rem,0.78fr)_minmax(0,1.45fr)]">
-        <AdminPanel className="min-w-0 overflow-hidden"><ConversationList rows={fixtureRows} selectedId={selected} onSelect={setSelected} /></AdminPanel>
-        <AdminPanel className="min-w-0 overflow-hidden"><ConversationDetail detail={detail} messages={messages} messagesLoading={false} canLoadMoreMessages={false} me={{ id: "fixture-admin" as Id<"users">, name: adminV1Sr.fixtureIdentity }} busy={false} error="" onReply={async () => undefined} onStatus={async () => undefined} onAssign={async () => undefined} onManual={openManual} /></AdminPanel>
-      </div>
+    <div className="grid min-w-0 gap-4">
+      <AdminPageHeader
+        title={dict.inboxTitle}
+        description={dict.inboxSubtitle}
+        badge={<AdminStatus label={dict.previewBadge} tone="waiting" />}
+        actions={detail ? <Button type="button" variant="outline" onClick={openManual} className="min-h-11"><Plus className="size-4" aria-hidden="true" />{dict.manualOpen}</Button> : null}
+      />
+      {detail ? (
+        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(17rem,0.78fr)_minmax(0,1.45fr)]">
+          <AdminPanel className="min-w-0 overflow-hidden"><ConversationList rows={rows} selectedId={current?.id ?? null} onSelect={setSelected} /></AdminPanel>
+          <AdminPanel className="min-w-0 overflow-hidden"><ConversationDetail detail={detail} messages={messages} messagesLoading={false} canLoadMoreMessages={false} me={{ id: INBOX_PREVIEW_ME as Id<"users">, name: adminV1Sr.fixtureIdentity }} busy={false} error="" onReply={async () => undefined} onStatus={async () => undefined} onAssign={async () => undefined} /></AdminPanel>
+        </div>
+      ) : (
+        <AdminPanel>
+          <AdminEmptyState action={<AdminClearFilters />} title={filtered ? dict.noFilteredTitle : dict.noConversationsTitle} body={filtered ? dict.noFilteredBody : dict.noConversationsBody} />
+        </AdminPanel>
+      )}
       <ManualDialog open={manualOpen} busy={false} error="" onOpenChange={changeManualOpen} onSubmit={async () => changeManualOpen(false)} />
     </div>
   );

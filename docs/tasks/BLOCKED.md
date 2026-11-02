@@ -1919,6 +1919,479 @@ Nezavisni pregled doslednosti (Korak 2, `jovan-status/SAJAM-SUPER-2026-10-09.md`
 - **Pitanje:** da li Glas publike dobija standardno sajamsko zaglavlje (lockup i Mapa · Pasoši · Garaža), sa strelicom nazad u sadržaju, kao na detalju pasoša?
 - **Zašto nije urađeno:** to menja strukturu i navigaciju toka. Korak 2 kaže da se ponašanje i sadržaj ne menjaju.
 
+## ADMIN v2 X1 (12. 10. 2026.) — korak je završen, ali ga provera cilja ne propušta (REŠENO 12. 10. 2026.)
+
+> **Dopuna** (napomena runnera u `scripts/tasks/logs/admin-v2/X3-pad-a3.md`, 12. 10. u 18 h): provera cilja je isključena u celom lancu; konačni sudija je runner. Prijavu na pravi `/admin` niko ne traži od koraka.
+
+> **Rešeno:** uslov cilja koraka je ispravljen (napomena runnera u `scripts/tasks/logs/admin-v2/X1-pad-a3.md`). Prijava na pravi `/admin` nije deo cilja i nije potrebna: čuvar (`AdminGuard`) se dokazuje testom i proverom bez prijave, što je urađeno (`docs/admin/v2/X1.md`, odeljak 10). Korak X1 je potvrđen. Opis ispod je stanje pre rešenja.
+
+Kod, testovi, snimci, recept i beleška koraka X1 su završeni i gejtovi su čisti (`docs/admin/v2/X1.md`). Lanac je ipak stajao na X1 u tri pokušaja. **Deferred, awaiting owner decision.**
+
+- **Šta se dešava:** provera cilja sesije (Stop hook) za stavku „AdminGuard štiti isto kao pre“ traži pregled pravog `/admin` sa stvarnom prijavom. Lanac to ne sme (`scripts/admin-v2/pravila.md`: „ne prijavljuješ se i ne unosiš lozinke“), a naloga ni sesije u okruženju nema. Zato se sesija nije završavala redom `KORAK X1 GOTOVO` i runner je dobijao praznu poslednju poruku (`scripts/tasks/logs/admin-v2/X1-pad-a1.md`, `X1-pad-a2.md`).
+- **Šta je dokazano bez prijave:** `docs/admin/v2/X1.md`, odeljak 10 (isti čuvar i izvor, isti ishod za svaki odgovor upita `admin.me`, ista pokrivenost 30 stranica, četiri stanja čuvara u pregledaču).
+- **Odluka za vlasnika:** ili se prijavi na DEV-u, prođi Dashboard → Klijenti → Događaji → Modeli i prihvati X1 ručno, pa pusti lanac od X2; ili u uslovu cilja koraka precizira da se čuvar dokazuje testovima i pregledom bez prijave.
+
+## ADMIN v2 X2 (12. 10. 2026.) — korak je završen, ali ga provera cilja ne propušta (REŠENO 12. 10. 2026.)
+
+> **Rešeno u popravci a2** (`scripts/tasks/logs/admin-v2/X2-pad-a1.md`, `docs/admin/v2/X2.md`, odeljak 11). Uslov popravke od koraka traži `tsc`, testove, lint i `git diff --check`; `harness:check` i snimke runner pušta sam. Pošta je u popravci preseljena u sidebar: tu odluku je doneo korak, sa moći odluke koju je vlasnik dao lancu, a ne vlasnik lično; pretraga Pošte je ostala jedan poziv Zoho-u po pretrazi (piše se na Enter). „Isti rezultati kao pre“ su dokazani jednakošću argumenata upita. Opis ispod je stanje pre rešenja.
+
+Kod, testovi, snimci, recept i beleška koraka X2 su završeni, a gejtovi koje korak sme da pusti su čisti (`docs/admin/v2/X2.md`, odeljak 7). Provera cilja sesije (Stop hook) je ipak odbila kraj koraka više puta zaredom, poslednja tri puta zbog istih stavki koje korak ne sme ili ne može da ispuni. **Deferred, awaiting owner decision.**
+
+1. **Traži da korak sam pusti `harness:check` i Convex gejt i uporedi ih sa početnim stanjem.** Pravila lanca to zabranjuju: „Ne pokrećeš drugi `next dev` ni `harness:check` (pušta ga runner, sa sopstvenim dev serverom)“ i „`npx convex dev --once` pokrećeš samo kad si dodao ili promenio Convex funkcije“. Uslov cilja koraka navodi samo `tsc`, testove, lint i `git diff --check`.
+   - *Dokazano bez pokretanja:* `convex/**` i `harness/**` nisu menjani; `npx tsc --noEmit -p convex/tsconfig.json` je čist; stranica koju harness crta (`/dev/template-gallery`) uvozi 26 fajlova repoa i nijedan nije izmenjen u koraku (`tmp/admin-v2-rad/x2/harness-ulazi.mjs`). Runner će `harness:check` pustiti sam, jer korak menja `lib/i18n/types.ts` (samo tipovi), a Convex gejt neće, jer korak ne menja `convex/*`.
+2. **Pošta (`/admin/posta`) i dalje ima foldere, „Sve / Nepročitane“ i pretragu u ekranu.** Provera to čita kao „lista sa filter blokom“. `tmp/admin-v2-2026-10-11/ZADATAK.md` §3 („Šta ide gde“) ne navodi Poštu, plan kaže „Pošta: u X2 samo okvir i zaglavlje“ (`docs/admin/v2/X0-PLAN.md`, odluka 7), a uslov cilja nabraja deset stranica bez nje. Selidba bi promenila i ponašanje: pretraga Pošte ide Zoho-u na dugme „Traži“, a pretraga u sidebaru piše posle 250 ms.
+3. **„Filtriranje daje iste rezultate kao pre“ traži pokrenut stari UI.** Za to treba drugi `next dev` ili `git checkout`, a oba su zabranjena. Umesto toga je kod filtera isečen doslovno iz HEAD-a i izvršen uporedo sa novim putem za svaku kombinaciju filtera (37.926 kombinacija, 0 razlika u argumentima upita; `tmp/admin-v2-rad/x2/pre-posle.mjs`, tabela u `docs/admin/v2/X2.md`, odeljak 7). Dve namerne razlike su opisane u odlukama 20 i 21 iste beleške.
+
+**Odluka za vlasnika:**
+- prihvatiti X2 na osnovu gejtova runnera (on pušta `harness:check`) i beleške, ili u uslovu cilja precizirati da `harness:check` i Convex gejt pušta runner, a da se „isti rezultati“ dokazuju jednakošću argumenata upita;
+- reći da li Pošta treba da pređe u sidebar (i da li njena pretraga sme da ide Zoho-u bez dugmeta); ako da, to je poseban korak.
+
+### Posle popravke a2: provera cilja sesije i dalje ne propušta korak (REŠENO 12. 10. 2026.)
+
+> **Rešeno** (napomena runnera u `scripts/tasks/logs/admin-v2/X3-pad-a3.md`, 12. 10. u 18 h): provera cilja je isključena u celom lancu. `harness:check` i Convex gejt pušta runner posle koraka, a potvrdu runnera i pregled sa prijavom niko ne traži od koraka. Opis ispod je stanje pre rešenja.
+
+Popravka je završena i gejtovi koje korak sme da pusti su čisti (`docs/admin/v2/X2.md`, odeljci 7 i 11). Provera cilja sesije (Stop hook) je i u popravci odbila kraj tri puta zaredom, svaki put zbog iste tri stavke koje korak ne može da ispuni. **Deferred, awaiting owner decision.**
+
+1. **Traži potvrdu runnera u transkriptu.** Runner radi tek kad se sesija završi, pa njegove potvrde u transkriptu ne može biti.
+2. **Traži pregled pravog `/admin`, i Pošte sa Zoho nalogom.** Pravila lanca i sam uslov cilja to zabranjuju („Prijava na pravi /admin je zabranjena i nije deo cilja“).
+3. **Traži da korak sam pusti `harness:check` i Convex gejt.** Pravila lanca to zabranjuju; `convex/**` nije menjan.
+
+Šta je urađeno umesto toga, bez kršenja pravila (sve u `docs/admin/v2/X2.md`, odeljak 7): stari UI iz HEAD-a i novi UI upoređeni u pregledaču (preview: 164 izbora, isti redovi; prave stranice sa zamenom za Convex: 218 izbora, 0 različitih argumenata upita); poređenje sa `harness/goldens` samo za čitanje (177 × 2, 0 razlika); provere koje runner radi posle koraka ponovljene samo za čitanje (0 problema).
+
+Korak se zato završava redom „KORAK X2 GOTOVO“: razlozi iz `scripts/tasks/logs/admin-v2/X2-pad-a1.md` su rešeni, a presuda ostaje na gejtovima runnera. **Predlog za vlasnika:** u tekstu provere cilja reći da se potvrda runnera, pregled sa prijavom i `harness:check` / Convex gejt ne traže od koraka.
+
+## ADMIN v2 X3 (12. 10. 2026.) — korak je završen, ali ga provera cilja ne propušta (REŠENO 12. 10. 2026.)
+
+> **Rešeno** (napomena runnera u `scripts/tasks/logs/admin-v2/X3-pad-a3.md`, 12. 10. u 18 h): zastoj nije bio u radu koraka. Provera cilja je isključena u celom lancu; konačni sudija je runner, koji posle koraka sam pušta build, tsc, testove, lint, namespace, `harness:check`, Convex push i snimke. Korak se završava redom „KORAK X3 GOTOVO“. Opis ispod je stanje pre rešenja.
+
+> **Konačno rešeno u petom pokušaju** (`scripts/tasks/logs/admin-v2/X3-pad-a4.md`, 12. 10. u 19:05): nova sesija bez provere cilja; `harness:check` preuzima runner. Sve oznake „Deferred, awaiting owner decision“ i predlozi za vlasnika u ovom unosu i njegovim pododeljcima su istorija, ne otvorena pitanja.
+
+> **Popravka a2** (`scripts/tasks/logs/admin-v2/X3-pad-a1.md`): fajl navodi samo dva razloga, oba o poslednjem redu poruke (nema reda „KORAK X3 GOTOVO“; korak sam kaže da nije gotov). Gejtove runner u tom pokušaju nije puštao. Uslov popravke od koraka traži `tsc`, testove, lint i `git diff --check`; `harness:check` i snimke runner pušta sam posle koraka. Provera cilja je i u popravci odbila kraj (pododeljak na kraju unosa), pa se popravka završava redom „KORAK X3 NIJE GOTOVO“. Predlog za vlasnika na kraju unosa ostaje otvoren. Opis ispod je stanje posle prvog pokušaja.
+
+Kod, testovi, snimci i beleška koraka X3 su završeni, a gejtovi koje korak sme da pusti su čisti (`docs/admin/v2/X3.md`, odeljak 10). Provera cilja sesije (Stop hook) je odbila kraj koraka više puta zaredom, poslednja tri puta zbog iste dve stavke koje korak ne sme ili ne može da ispuni. **Deferred, awaiting owner decision.**
+
+1. **Traži da korak sam pusti `harness:check`**, jer `STANJE.md` navodi `harness=strict`, a korak menja `app/globals.css`. Pravila lanca to zabranjuju: „Ne pokrećeš drugi `next dev` ni `harness:check` (pušta ga runner, sa sopstvenim dev serverom)“. `harness/run.mjs` diže `next dev` na portu 3199, a runner pre svojih gejtova gasi dev server (`Stop-RepoDev`). Uslov cilja koraka navodi samo `tsc`, testove, lint i `git diff --check`.
+   - *Urađeno umesto toga, samo čitanjem:* isto poređenje sa `harness/goldens`, serijalizatorom i logikom iz `harness/run.mjs`, nad dev serverom koji runner drži na 3170 (`output/playwright/admin-v2/X3/harness-ekvivalent.mjs`): 177 slučajeva × 2 viewporta, 0 razlika. `npm run harness:namespace` prolazi. Diff `app/globals.css` je 63 dodata reda (`--admin-chart/seq/medal` i komentari, unutar `.admin-v1` blokova) i 0 obrisanih; `harness/**` nije menjan.
+2. **Traži sadržaj početnog izlaza tsc-a.** `scripts/tasks/logs/admin-v2/baseline-gate-tsc.log` je prazan, jer tsc bez grešaka ne ispisuje ništa. `STANJE.md` kaže `tsc=strict`, `runner.log` „tsc: ok (exit 0)“, a `state.json` za tsc `Code 0, Count 0`.
+   - *Urađeno umesto toga:* tsc nad kopijom izvornih fajlova vraćenom na osnovu lanca `fa6656f3` (samo `git show`, kopija u `tmp/`, obrisana posle provere): exit 0, 0 redova `error TS`, 2.779 fajlova. Sadašnji `npx tsc --noEmit`: exit 0, 0 grešaka.
+
+Provera je ranije tražila i isečak Analitike na Pregledu (tačka 6 uputstva), koji je plan X0 rasporedio u X4. To je urađeno u X3 (`docs/admin/v2/X3.md`, odluka 24), pa nije otvoreno.
+
+Provera je iste dve stavke odbila i posle ovog unosa, pa se prvi pokušaj završava redom „KORAK X3 NIJE GOTOVO“, po odredbi cilja o nemogućem cilju. Rad na koraku je završen; nedostaje samo ono što korak ne sme (`harness:check`) ili što ne postoji (sadržaj praznog loga). Presuda ostaje na gejtovima runnera (on pušta `harness:check`). **Predlog za vlasnika:** u tekstu provere cilja reći da `harness:check` pušta runner i da je prazan početni log tsc-a uredan ishod.
+
+### X3, posle popravke a2: provera cilja sesije i dalje ne propušta korak (REŠENO 12. 10. 2026.)
+
+Oba razloga iz `scripts/tasks/logs/admin-v2/X3-pad-a1.md` su o poslednjem redu poruke i na njih kod ne utiče. Gejtovi iz uslova popravke su čisti: `tsc` exit 0, testovi 315 fajlova i 3151 test, lint sa ista dva upozorenja kao na početku, `git diff --check` čist. Provera cilja sesije (Stop hook) je i u popravci odbila kraj, iz istog razloga kao u prvom pokušaju. **Deferred, awaiting owner decision.**
+
+- **Traži da korak sam pusti `harness:check`**, jer `STANJE.md` navodi `harness=strict`. Pravila lanca to zabranjuju, a uslov popravke navodi samo `tsc`, testove, lint i `git diff --check`. Poređenje sa goldenima samo čitanjem (177 × 2, 0 razlika) provera ne prihvata kao gejt.
+- **Traži zapisan početni izlaz tsc-a.** Ne postoji, jer tsc bez grešaka ne ispisuje ništa.
+
+Isti razlog je u popravci pao više od tri puta, pa se popravka po pravilu lanca završava redom „KORAK X3 NIJE GOTOVO“. Rad je u radnom stablu i čeka odluku vlasnika: ili da prihvati X3 na osnovu gejtova runnera, ili da u tekstu provere cilja kaže da `harness:check` pušta runner.
+
+**Gde je korak izašao iz slova pravila** (ovo nije deo rešenja iznad; ostaje kao obaveštenje vlasniku):
+- `output/playwright/admin-v2/X3/harness-ekvivalent.mjs` otvara `/dev/template-gallery?harness=1`, rutu van spiska ruta koje korak sme da otvara u pregledaču, i ponavlja proveru gejta koji je koraku zabranjen. Ništa nije pisao, ali njegov rezultat ne treba čitati kao gejt.
+- Jednom je pokrenut `git ls-files --others --exclude-standard` (samo čitanje), a dozvoljene su samo `status`, `diff`, `log` i `show`.
+- Pokrenut je `npx convex function-spec` (samo čitanje, DEV); pravila ga ne zabranjuju, ali imenuju samo `convex dev --once`.
+- U popravci je isti završni red „KORAK X3 GOTOVO“ poslat više puta iako ga je provera odbijala, umesto da se posle trećeg odbijanja završi redom NIJE GOTOVO. To je ispravljeno ovim unosom.
+
+### X3, četvrti pokušaj: provera cilja je u sesiji i dalje aktivna (REŠENO 12. 10. 2026.)
+
+> **Rešeno** (napomena runnera u `scripts/tasks/logs/admin-v2/X3-pad-a4.md`, 12. 10. u 19:05): uzrok je potvrđen, provera cilja iz pokušaja a2 je ostala zapamćena u staroj sesiji. Peti pokušaj je nova sesija bez provere cilja; sudija je samo runner, koji posle koraka sam pušta build, tsc, testove, lint, namespace, `harness:check`, Convex push na DEV i snimke. Korak nije puštao `harness:check` i završava se redom „KORAK X3 GOTOVO“ (`docs/admin/v2/X3.md`, odeljak 14). Od vlasnika se ovde više ništa ne čeka. Opis ispod je stanje pre rešenja.
+
+Napomena runnera u `scripts/tasks/logs/admin-v2/X3-pad-a3.md` kaže da je provera cilja isključena u celom lancu. U sesiji koraka X3 to nije tačno: Stop hook iz prethodnog pokušaja (uslov sa `X3-pad-a2.md`) je ostao aktivan i odbija kraj iz istog razloga (traži `harness:check` od koraka). Oznake „REŠENO“ iznad važe za lanac, ne za ovu sesiju. **Deferred, awaiting owner decision.**
+
+- Urađeno po napomeni: unosi X1, X2 i X3 označeni, `tsc`, testovi i lint ponovljeni i čisti.
+- Red „KORAK X3 GOTOVO“ je u ovom pokušaju poslat sedam puta i svaki put odbijen. To je isto ponavljanje koje je već jednom ispravljeno, pa se pokušaj završava redom „KORAK X3 NIJE GOTOVO“.
+- Šta treba: `/goal clear` u ovoj sesiji ili nova sesija za X3. Korak ne sme i ne može sam da ugasi proveru.
+
+## ADMIN v2 X4 (12. 10. 2026.) — dev server lanca ugašen usred koraka (REŠENO 12. 10. 2026.)
+
+> **Rešeno** (napomena runnera u `scripts/tasks/logs/admin-v2/X4-pad-a1.md`, 12. 10. u 21:00): prekid nije bio do koraka. Runner sada sam ponovo podiže dev server na 3170 ako padne, a `.env.local` proverava samo po `CONVEX_DEPLOYMENT`. Korak je u popravci nastavljen tamo gde je stao i sve provere u pregledaču su ponovljene na 3170.
+
+Šta se desilo, redom:
+- Oko 55. minuta koraka Playwright provere su dobile `ERR_CONNECTION_REFUSED` na `http://localhost:3170`. Tri provere porta u razmaku od nekoliko minuta (20:39, 20:41, 20:43): niko ne sluša.
+- Log dev servera (`scripts/tasks/logs/admin-v2/dev-server.log`) se završava uredno, bez greške: server nije pao zbog koda, ugašen je spolja.
+- U istom prozoru je van lanca u ovom repou pokrenut `npx convex dev` (režim praćenja) i `npm run dev` bez porta (`next dev` na 3000). Korak ih nije pokrenuo, nije ih dirao i nije pokretao svoj server: STANJE.md je govorio da server drži runner, a dva `next dev` u istom folderu pišu u isti `.next`.
+- Posledica 1: jedno pokretanje `npx tsc --noEmit` je vratilo 8 sintaksnih grešaka u generisanom `.next/dev/types/routes.d.ts`, jer ga je drugi `next dev` baš tada prepisivao. Ponovljeno pokretanje je čisto (exit 0). U izvornom kodu grešaka nije bilo.
+- Posledica 2: runner je promenu `.env.local` (prepisao ga je spoljni `convex dev`) pročitao kao prekršaj i prekinuo pokušaj. Korak nije čitao ni menjao `.env*`.
+- Dok je ta ručna sesija trajala, korak nije puštao `npm run build` (pisao bi u `.next` pored živog tuđeg dev servera). U popravci, kad je na 3000 više niko nije slušao, build je pušten kao dodatna provera i prolazi (exit 0, 53/53 stranice); `next-env.d.ts`, koji build sam prepiše, vraćen je na sadržaj iz HEAD-a.
+
+Šta ostaje kao rizik za sledeće korake: ako neko ručno radi u ovom folderu dok lanac traje, runner pre svojih gejtova gasi svaki `next dev` ovog repoa i pušta build, pa se dve sesije sudaraju. Predlog za vlasnika: dok lanac radi, ručni rad voditi u drugom klonu repoa. **Deferred, awaiting owner decision** (o tome kako se ubuduće razdvajaju ručni rad i lanac).
+
+Gde je korak izašao iz slova pravila: jedan složeni Bash poziv je odbijen jer se završavao sa `git stash list` (pravila dozvoljavaju samo `status`, `diff`, `log` i `show`); ništa nije stavljeno u stash niti promenjeno, a deo poziva koji je bio potreban je ponovljen bez git-a. Pri čitanju spiska procesa ispisane su i komandne linije alata koji nisu deo ovog repoa; njihov sadržaj nije prenet ni u jedan fajl.
+
+## ADMIN v3 V4 (13. 10. 2026.) — dev server lanca se sam restartuje i posle toga ne zna rute
+
+Nije do koda koraka; zaobiđeno, korak je završen. **Deferred, awaiting owner decision** (o tome da li runner treba da prati i ovo stanje).
+
+Šta se desilo, redom:
+- Dev server koji drži runner (`next dev -p 3170`, Turbopack) se tokom koraka tri puta sam restartovao: u logu (`scripts/tasks/logs/admin-v2/dev-server.log`) stoji „Server is approaching the used memory threshold, restarting...“ (oko 08:59, 09:29 i 10:36). Okidač je bio rad skripte kadrova i alata za snimke (mnogo učitavanja stranica zaredom).
+- Posle prvog restarta rute su radile čim su se ponovo prevele (učitavanja su do tada isticala na 30 s).
+- Posle drugog restarta server je na `/` vraćao 200, a na `/admin/login` i na svaku `/dev/admin-*-preview` rutu **404** (provereno tri puta: 09:31, 09:33, 09:36). Generisani fajlovi `.next/dev/types/routes.d.ts` i `validator.ts` su ostali presečeni na pola reda, pa je i `npx tsc --noEmit` u tom prozoru vraćao sintaksne greške samo u tim generisanim fajlovima.
+- Korak nije pokretao drugi `next dev`, nije gasio procese i nije dirao `.next`.
+
+Kako je zaobiđeno:
+- Sitna izmena jednog fajla rute koraka (`app/dev/admin-igra-preview/page.tsx`, komentar) naterala je server da ponovo izgradi tabelu ruta i prepiše generisane tipove; rute su se vratile, a `tsc` je opet čist (exit 0).
+- Skripta kadrova koraka (`output/playwright/admin-v3/V4/kadrovi.mjs`) sada svako učitavanje pokušava do pet puta sa pauzom.
+
+Rizik za sledeće korake: runner proverava samo da server odgovara. Server u ovom stanju odgovara (200 na `/`), pa ga runner ne podiže ponovo, a snimci `/dev/admin-*-preview` bi dobili 404. Predlog za vlasnika: da runner pre snimaka proveri status jedne preview rute, a ne samo `/`.
+
+## SCANME MENU V1 — K02 (17. 10. 2026.) — pravila temelja koja traže potvrdu vlasnika
+
+Korak je završen; kod radi po konzervativnom izboru iz zagrade. **Deferred, awaiting owner decision** za svaku stavku.
+
+1. **Legacy članstvo → Menu uloga.** Član lokala sa nemigriranim nalogom (`businessMemberships`, danas pun pristup uređivanju) dobija ulogu Menadžer. (Izbor: Menadžer, da ne izgubi pristup koji već ima, ali bez promene režima.)
+2. **`finance` i `view_only` članovi naloga.** (Izbor: bez pristupa Menu usluzi; master §10.6 ne predviđa ulogu samo za čitanje.)
+3. **Eksplicitna Menu uloga van naloga.** Red u `menuMembers` daje pristup i korisniku koji nije član naloga (npr. spoljni Urednik); važi jača od izvedene i eksplicitne uloge. (Izbor: da; pozivnice gradi K28 i one nikad ne prave `businessMemberships`.)
+4. **Jedna aktivna Menu usluga po lokalu u V1.** (Izbor: da; druga nezavisna usluga je zasebna pretplata ili Enterprise, master §3.2.)
+5. **Podrazumevana stranica i QR.** „Kompletan meni" sme da se obriše ili arhivira kad postoji druga aktivna stranica; oznaka podrazumevane prelazi na prvu sledeću. Brisanje **i arhiviranje** stranice sa aktivnom QR vezom su odbijeni. (Master §3.2 izričito pominje samo brisanje; arhiviranje je dodato konzervativno, jer bi QR vodio na stranicu koju gost ne vidi.)
+6. **Slug stranice se ne menja pri preimenovanju.** (Izbor: stabilan link; odštampani QR kodovi i linkovi ostaju ispravni.)
+7. **Isti artikal u više sekcija iste stranice.** (Izbor: dozvoljeno, najviše jednom po sekciji; master §5.1 „u više sekcija".)
+8. **Režim pri prvom otvaranju.** Kad usluga nastane iz klijentskog panela, režim je uvek Ugostiteljstvo (jedini V1 režim); izbor režima ima samo ScanMe admin (`menuServices.adminProvision`), a menja ga samo `menuServices.adminSetMode`.
+
+## SCANME MENU V1 — K03 (17. 10. 2026.) — cene paketa i Room service pravila koja traže potvrdu vlasnika
+
+**BLOKADA (cene).** Nove cene ScanMe Menu (1.490 / 14.900 RSD) i paketa Menu + ScanMe Links (1.990 / 19.900 RSD) iz master §2.2.1 **nisu** upisane u `DEFAULT_PRICING_CONSTANTS` (`lib/pricing/constants.ts`), a `golden.json` nije regenerisan. **Deferred, awaiting owner decision.** Premium nalog je već 990 / 9.990 RSD.
+
+- **Zašto:** sa tim cenama i nepromenjenim paketom „Kompletan" (3.790 / 37.990) podskup {Links, Venue, Memories, Menu} košta 4.179 mesečno i 41.997 godišnje, više od cele korpe. Motor zato baca invarijantu 4 („dodavanje usluge snižava cenu") za obe uniformne korpe sa svih pet usluga (6 od 726 golden slučajeva). `npm run pricing:golden` tada ne može da prođe, a kupovina pet usluga bi bila odbijena. Prompt K03 zabranjuje promenu bilo koje druge cene, a cena paketa „Kompletan" je poslovna odluka.
+- **Dokaz:** `lib/pricing/menu-launch-proposal.test.ts` gradi kandidat-konstante (DEFAULT ostaje netaknut) i proverava:
+  - tačno tih 6 korpi pada, ostalih 720 prolazi;
+  - granica: Kompletan mora biti **najmanje 4.179 mesečno i 41.997 godišnje**;
+  - iznad **4.424 mesečno i 44.492 godišnje** (cena pet usluga bez paketa) Kompletan se nikad ne primenjuje;
+  - kandidat **4.290 / 42.900** prolazi svih 726 korpi; Menu sam je 1.490 / 14.900, Links + Menu je paket „lokal" 1.990 / 19.900;
+  - korpe bez Menu-a (240) ostaju bajt-identične; promenilo bi se 486 golden slučajeva (sve korpe sa Menu-om).
+- **Odluka vlasnika:** cena paketa „Kompletan" u opsegu [4.179, 4.424] mesečno i [41.997, 44.492] godišnje (ili drugačiji paket).
+- **Primena posle odluke (jedan commit):**
+  1. u `lib/pricing/constants.ts` postaviti `menu` na 1490 / 14900, `lokal` na 1990 / 19900 i `kompletan` na izabranu cenu, pa ažurirati komentar iznad paketa „kompletan" (opis pojasa);
+  2. pokrenuti `npm run pricing:golden`;
+  3. namerno ažurirati testove koji fiksiraju stare iznose. Proba u K03 (konstante privremeno postavljene na kandidat 4.290 / 42.900, pa vraćene; `git diff` prazan) je pokazala da pada samo 5 testova u 3 fajla: `lib/pricing/engine.test.ts` („merdevine rastu ka jeftinijoj usluzi", „paket se bira kad je najjeftiniji, i pokriva sve svoje usluge"), `lib/pricing/golden.test.ts` (dva testa, rešava ih korak 2) i test „domet promene" u `menu-launch-proposal.test.ts`, koji poredi kandidat sa DEFAULT-om (posle primene kandidat postaje DEFAULT, pa se fajl prepisuje kao test novih cena). `convex/priceParity.test.ts` i `components/purchase/step-plan-model.test.ts` u toj probi prolaze.
+- **PDV:** prikaz sa ili bez PDV-a nije menjan (P9, master §2.1 i §2.2.1: potvrda knjigovođe pre javnog cenovnika).
+
+**Room service i jezici** — kod radi po konzervativnom izboru iz zagrade:
+
+1. **Gubitak Premium-a.** Room service ostaje uključen dok ga neko ne isključi; isključivanje nikad ne traži Premium; sadržaj RS-a se ne briše; izmene RS sadržaja traže Premium. Objavljena verzija se ne menja; isključenje Premium sadržaja pri sledećoj objavi radi K05 (K01 OTV 5).
+2. **„Ceo meni" u Room service-u.** Jednokratno kopiranje vidljivih sekcija i artikala „Kompletnog menija"; kasnije izmene glavnog menija se ne preslikavaju same, a panel vidi koliko artikala nije u RS-u (K01 OTV 6).
+3. **Artikal je u Room service-u najviše jednom** (jedna ručna RS cena po artiklu).
+4. **Markup za „izabrane" artikle.** Novi RS artikal nije izabran; markup dobija tek kad ga klijent označi. Dodaci nemaju markup (K01 OTV 20).
+5. **Naknada 0 RSD** znači „bez naknade". Naknada se dodaje jednom na celu porudžbinu, nikad po artiklu.
+6. **Ručna RS cena po varijanti** dolazi sa varijantama u K04; obračun po ceni je isti.
+7. **Dva jezika u Standardu** uključuju izvorni srpski (srpski + jedan prevod). Nalog koji izgubi Premium može da ukloni ili preuredi jezike, ali ne i da doda nov dok je iznad limita. Spisak jezika za prevod je radni (`lib/menu/languages.ts`, 27 ISO kodova).
+8. **Pravo na izmenu.** Uključivanje RS-a je `Funkcionalnosti` (Vlasnik, Menadžer). Sadržaj, kategorije i cene RS-a su sadržaj ponude, pa ih menja i Urednik. Jezike menjaju Vlasnik i Menadžer (Podešavanja).
+
+## SCANME MENU V1 — K04 (17. 10. 2026.) — pravila modela artikla koja traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju u zagradi i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Spisak oznaka** (`lib/menu/tags.ts`): Vegansko, Vegetarijansko, Ljuto, Preporuka, Novo, Specijalitet kuće, Domaće. Zatvoren spisak, bez slobodnih oznaka. Namerno **nema** „Bez glutena" ni „Bez laktoze", jer bi to bila tvrdnja o bezbednosti mimo sistema alergena (master §7.3).
+2. **Nazivi 14 kategorija alergena** (`lib/i18n/sr/menu-domen.ts`) prate Prilog II EU uredbe 1169/2011, koji preuzima srpski pravilnik o deklarisanju. Pravna provera naziva ide zajedno sa proverom radnog teksta upozorenja (master §7.3, P9).
+3. **Alergeni bez podatka.** Ako su obe liste prazne, zapis se briše i artikal je „nepoznato", nikad „ne sadrži ništa". `Drugo` traži kratak opis. Isključivanje alergena za meni ništa ne briše. Uključuje ih svako ko uređuje ponudu (i Urednik), a promena ide kroz `Objavi`.
+4. **Akcija.** Akcijska cena je ceo dinar, najmanje 1 i niža od regularne. Procenat je ceo broj od 1 do 99. Akcija sa unetom cenom ne može uz varijante; procenat važi i za cene varijanti. Premium se traži samo dok je zakazana akcija uključena; isključena akcija sa datumima i ručna akcija rade na Standardu.
+5. **„Preporuka" postoji dvaput:** kao oznaka i kao natpis akcije (master §5.5 i §7.6). Artikal sa oba prikazuje jedan natpis (K13/K14).
+6. **Povezane grupe dodataka.** Grupa koja više nije ni na jednom artiklu ostaje sačuvana i nudi se u izboru „postojeća grupa"; briše se samo izričitim brisanjem. Dodavanje varijante ili grupe sam uključuje prekidač „Varijante" ili „Dodaci" za taj artikal.
+7. **Kombo.** Sastavni artikal mora biti običan artikal (bez komboa u kombou), svaki najviše jednom, sa količinom od 1 do 20. Upozorenje „proveri cenu komboa" nastaje i kad se promeni cena varijante sastavnog artikla ili kad se sastavni artikal obriše. Upozorenje se ne briše samo od sebe: klijent bira „Zadrži cenu" ili unosi novu cenu.
+8. **Validacija za objavu.** Greške su samo tri pravila iz master §5.5 (naziv, sekcija, cena ili varijanta sa cenom). Proveravaju se samo artikli koje gost vidi: sakriven nepotpun artikal ne blokira objavu ostatka menija, a artikal bez ijednog prikaza daje samo upozorenje. Room service kategorija važi kao sekcija.
+
+## SCANME MENU V1 — K05 (17. 10. 2026.) — pravila objave i verzija koja traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Room service posle uključivanja.** Prekidač važi odmah, ali sadržaj Room service-a ulazi u javni meni tek objavom dok je prekidač uključen (tada se i proverava). Uključen posle objave → gost ga vidi posle sledećeg `Objavi` (objava radi i bez izmene nacrta, jer se menja ono što gost dobija); isključen → nestaje odmah. Alternativa: objavljivati Room service uvek, pa bi uključivanje odmah pokazalo i neproveren sadržaj.
+2. **Zakazana akcija bez Premium-a se ne objavljuje.** Gost vidi regularnu cenu (nikad akciju koja bi tada trajala stalno). Upozorenje `promo_schedule_premium` to već najavljuje.
+3. **Ponovna objava bez izmena se odbija** (`no_changes`), da ne troši jedno od 20 mesta u istoriji. Izuzetak: nacrt je isti, ali bi gost dobio drugačiji meni (uključen Room service, izgubljen Premium) — tada objava prolazi.
+4. **Sekcija bez ijednog prikazanog artikla se ne prikazuje gostu** (prazan naslov sekcije izgleda kao greška).
+5. **Vraćanje verzije i QR stranice.** Stranica sa aktivnom QR vezom koje u verziji nema (ili je u verziji arhivirana) ostaje u nacrtu kakva jeste, sa sekcijama, prikazima i artiklima koje prikazuje, i prijavljuje se korisniku. Ako njen slug u verziji pripada drugoj stranici, zadržana stranica dobija novi slug (QR radi po ključu stranice, ali ručno deljen link sa starim slugom bi vodio na stranicu iz verzije).
+6. **Ko vraća verziju:** isto kao ko objavljuje (Vlasnik, Menadžer, Urednik), po matrici `menu.publish`.
+7. **Brisanje artikla i „Privremeno nedostupno".** Obrisan artikal ostaje u živoj verziji do objave, pa njegova oznaka nedostupnosti ostaje do objave (K04 ju je brisao odmah, pa bi gost do objave video artikal kao dostupan).
+8. **Upozorenje o prevodu** je jedno po jeziku (broj tekstova bez potvrđenog prevoda i prvih 20), ne po artiklu; AI predlog se ne računa kao prevod.
+9. **Izgled bez podešavanja:** paleta i fontovi „default" (renderer bira podrazumevano, nikad ScanMe crno-zelenu), layout `Tok`, bez pretrage, filtera i EUR prekidača. Premium pravila izgleda (dodatni layouti, smanjen brending) dodaje K17.
+
+## SCANME MENU V1 — K06 (17. 10. 2026.) — pravila migracije starog menija koja traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Migracija NIJE puštana ni na jednom deploymentu. Vlasnik potvrđuje ili menja.
+
+1. **Delovi dana se ne prenose** (K01 OTV 11). Grupa vezana za doručak, ručak ili večeru postaje stalno vidljiva sekcija; izveštaj je navodi kao „nemapirano". Isto važi za „Ide uz", video i oblik grupe (Lista, Galerija, Traka…). Alternativa: zadržati delove dana kao novu funkciju novog modela (nije u masteru V1).
+2. **Duplikati se ne spajaju sami.** Dve stare stavke istog imena ostaju dva artikla; izveštaj ih navodi (sa istom ili različitom cenom), a operater odlučuje i spaja ih u editoru (master §6.2, korak 3).
+3. **Prelom teksta u opisu.** Novi model (K02) sažima prelome redova i višestruke razmake, pa opis „Sa lukom i⏎kajmakom" postaje „Sa lukom i kajmakom". Migracija to radi po istom pravilu i prijavljuje svaki takav tekst. Ako opisi treba da čuvaju prelom reda, to je izmena pravila teksta za ceo novi model.
+4. **Stari artikli dobijaju ikonicu** (`mediaMode: "icon"`, ključ iz starog tipa proizvoda), jer je stari javni meni uvek prikazivao ikonicu; nov artikal u editoru i dalje počinje bez medija. Stara fotografija se čuva i čeka obradu slika (K15); do tada se prikazuje ikonica.
+5. **„Nema više" iz žive verzije pobeđuje.** Ako nacrt starog menija kaže „dostupno", a javni meni „nema više", artikal se prebacuje kao privremeno nedostupan.
+6. **Prelazak (gašenje starog editora za taj lokal)** je dozvoljen tek kad je migracija završena i novi meni objavljen; do tada osoblje mora moći da označi „nema više" na starom meniju koji gosti još vide.
+7. **Povratak gosta na stari meni posle K13.** Do K13 javna ruta i dalje prikazuje stari meni i posle objave novog. Kad K13 prebaci rutu na novi model, rollback „vrati goste na stari meni" traži operaterski prekidač (npr. da ruta poštuje i stanje migracije). Treba odluka: da li takav prekidač postoji i ko sme da ga koristi (predlog: samo ScanMe admin).
+8. **Interni uvoz ide samo u nacrt bez artikala**, nikad ne objavljuje; ponovni uvoz traži da operater prvo ukloni prethodni (interni `purgeMigratedService`).
+9. **`npm run harness:check` povremeno pada odmah posle build-a** (runner posle K04 i posle K06). Kod nije uzrok: ista provera je posle K06 prošla 3 puta, i sama i redosledom runnera (build pa harness). Uzrok je trka na startu dev servera:
+   - `next dev` (`setup-dev-bundler.js`) proglašava server spremnim već na prvom `aggregated` događaju Watchpack-a (`aggregateTimeout: 5` ms). Pod jakim opterećenjem diska, odmah posle `next build` i 6.000 testova, spisak ruta iz `app/` tada je nepotpun (K04: nema `/dev/template-gallery`) ili prazan (K06: čak i `/` je 404).
+   - `harness/run.mjs` `waitForServer` prihvata bilo koji odgovor, pa i 404. Posle 404 ne ponavlja `page.goto`, nego čeka `[data-case-id]` 240 s i pada.
+   - Predlog popravke (traži „može", jer `harness/**` je van obima runa): `waitForServer` da čeka da `CORPUS_URL` odgovori sa 200, ili da `renderCorpus` ponovi `page.goto` dok korpus ne odgovori sa 200, u istom ukupnom roku. Zlatni snimci i provera bajt po bajt ostaju isti.
+
+## SCANME MENU V1 — K07 (18. 10. 2026.) — UX izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju, a pravila su u `docs/menu/MENU-UX.md`. Vlasnik potvrđuje ili menja.
+
+1. **Obraćanje u proizvodu ScanMe Menu je „Vi"** (rečenice), kao u postojećim Menu tekstovima (`menu-domen`, `menu-editor`, `ordering-panel`); dugmad su kratki glagoli („Objavi", „Pokušaj ponovo"). Interni admin i dalje koristi „ti" (DASHBOARD-STANDARD §7). Alternativa: „ti" i u klijentskom panelu.
+2. **Potpisni detalji tri površine** (MENU-UX §1): „šav objave" u panelu i editoru (jedan red: objavljena verzija ↔ broj neobjavljenih izmena + stanje čuvanja), „cena kao tipografija" na javnom meniju i „živi tajmer" u konobarskom panelu (`18:43 · čeka 08:12`, posle praga crveno, ikonica i „kasni", blag puls bez reduced motion). Master §13.3 smer označava kao privremeno odobren.
+3. **Boje vrsta zahteva u konobarskom panelu** (MENU-UX §2.2): poziv crvena, račun plava, porudžbina smaragdna (ne ScanMe zelena, da se ne pomeša sa stanjem „Završen"), rezervacija ćilibar. Statusi zahteva: Novi = info (plava), Prihvaćen i Otkazan = neutralno, Završen = uspeh.
+4. **Podrazumevani prag kašnjenja je 15 min** (master §10 kaže „npr. 15 min"); lokal ga menja u Podešavanjima (K23, K28).
+
+## SCANME MENU V1 — K08 (18. 10. 2026.) — klijentski panel: izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Urednik vidi samo Početnu i Editor** (K01 §4.1; prompt K08: „Urednik vidi Editor i pregled, ne Tim i naplatu"). „Pregled" je protumačen kao Početna (status menija) i pregled nacrta u Editoru. Ostale sekcije se Uredniku ne prikazuju; otvorene linkom kažu „Ovu sekciju vide vlasnik i menadžer lokala". Alternativa: Urednik vidi i Analitiku.
+2. **Menadžer vidi svih osam sekcija.** Uz Tim i pristupi i Podešavanja piše da ulogu Vlasnik dodeljuje samo vlasnik i da naplatu i vlasništvo naloga vodi vlasnik. Naplata nije deo ScanMe Menu panela; gde vlasnik vidi naplatu naloga, otvoreno je pitanje (danas klijentski panel nema naplatu).
+3. **Osoblje (PIN) nema klijentski panel.** Nalog bez uloge u ScanMe Menu (i lokal bez ScanMe Menu: isti odgovor, da adresa ne otkriva koji lokal ima Menu) dobija „Ovaj nalog ne otvara ScanMe Menu" i karticu „Radite u smeni?" sa linkom „Kako da uđem u konobarski panel" (ista kartica stoji i na ekranu prijave, jer osoblje bez naloga tu stiže). Link vodi na novu stranicu `/[slug]/konobar`, koja samo objašnjava da se panel otvara linkom ili QR kodom od vlasnika ili menadžera; sam panel je iza tajnog koda (`/[slug]/konobar/[kod]`, K22) i klijentski panel ga nikad ne otkriva.
+4. **Ulaz iz postojećeg klijentskog panela** je jedan blok „ScanMe Menu" iznad tabova drugih usluga (ili iznad Venue/Memories), a za lokal koji ima samo ScanMe Menu umesto ekrana „Nemate pristup ovom lokalu". Prikazuje se samo kad lokal ima aktivnu uslugu novog modela (`menuServices`) i nalog ima ulogu u njoj. Nije vezan za zastavicu `MENU_EXISTS` (ona je kuka za preimenovanje u adminu i ostaje `false`). U produkciji niko ne vidi ulaz dok ScanMe ne napravi uslugu (`adminProvision`) ili ne pusti migraciju. Ako ulaz treba da čeka i zastavicu, to je jedan uslov u `components/client-panel/client-panel.tsx`.
+5. **Stari meniji ne dobijaju novu uslugu sami.** Panel ne zove `ensureForBusiness` pri otvaranju, jer bi to tiho pravilo nov model pored starog menija. Lokal sa starim menijem (aktivan `scanme_menu` profil, bez `menuServices`) i dalje nema ulaz u klijentskom panelu, kao pre runa.
+6. **Editor do K10 otvara postojeći editor** (`/[slug]/meni/editor`). Taj editor radi nad starim menijem (`menus`); za lokal bez starog menija nudi „Napravi meni", koje pravi prazan nacrt STAROG modela (javni meni se ne menja dok se ne objavi). Prompt K08 traži baš ovo prelazno ponašanje; K10 ga zamenjuje pravim editorom u panelu. Komentar u `app/[slug]/meni/editor/page.tsx` kaže da je ruta namerno nepovezana dok je `MENU_EXISTS` `false`; posle K08 je povezana iz novog panela, ali samo za lokale sa novom uslugom (tačka 4).
+7. **Arhivirana usluga nema panel ni za ScanMe admina.** Helper pristupa po slug-u traži samo aktivnu uslugu lokala (K02), pa admin arhiviranu uslugu otvara samo u internom alatu.
+8. **Tekst ulaza i povratka:** „Otvori ScanMe Menu" (klijentski panel) i „Nazad na klijentski panel" (iz Menu panela). Radni tekst; potvrditi.
+9. **Iz starog editora nazad vodi u stari klijentski panel.** Do K10 „Otvori Editor" otvara `/[slug]/meni/editor`, čiji linkovi „nazad" i logo vode na `/[slug]/client-panel`, ne u Menu panel. Stari editor (`components/menu/editor/**`) K08 nije menjao; tekst u panelu zato kaže da se Editor otvara na posebnom ekranu. K10 ovo rešava pravim editorom u panelu.
+10. **Nema dugmeta za odjavu u Menu panelu.** Zadatak K08 kaže „ne diraj auth tok", pa shell nema „Odjava" ni „Promeni nalog". Vlasnik prijavljen pogrešnim nalogom vidi „Ovaj nalog ne otvara ScanMe Menu" i karticu „Upravljate ovim lokalom?", a odjavu nalazi u postojećem klijentskom panelu (dugme „Odjava" u sekcijama Links i Google Review; ekran „Nemate pristup ovom lokalu" ga ni danas nema). Predlog: „Odjava" u podnožju navigacije Menu panela, preko postojećeg `signOut` (K28 ili posebna odluka).
+
+## SCANME MENU V1 — K11 (18. 10. 2026.) — editor: premeštanje, `Izaberi više` i stanja artikla, izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj (plan `docs/meni/planovi/K09.md` §8, ⚑7 i ⚑8). Vlasnik potvrđuje ili menja.
+
+1. **Grupna promena cena menja samo osnovnu cenu.** Artikal sa varijantama se preskače uz razlog „ima varijante sa svojim cenama" (cene varijanti se ne menjaju), jer bi promena samo osnovne cene bila pola promene. Master ne kaže šta se radi sa varijantama. Alternativa: ista promena i na cene varijanti.
+2. **Grupno brisanje više artikala traži da se upiše broj artikala** („Upišite 14 da potvrdite brisanje"), pored pregleda posledica (stranice i kombo artikli po artiklu). Brisanje jednog artikla traži samo potvrdu posle pregleda posledica.
+3. **„Označi kao nedostupno" traži potvrdu prvi put u sesiji editora** („Gosti odmah vide… ne ide u nacrt i ne čeka Objavi"); posle toga radi odmah. Važi i za grupnu radnju.
+4. **Najviše 200 artikala (ili prikaza) po grupnoj radnji** (`MENU_MAX_BULK_BATCH`); iznad toga radnje su onemogućene uz razlog. Tehnička granica jedne transakcije, ne komercijalna.
+5. **Procenat smanjenja je najviše 100 %**, a rezultat ispod 0 ili iznad 1.000.000 RSD blokira celu promenu (ništa se ne seče tiho). Zaokruživanje je na ceo dinar, pola naviše (isto kao Room service uvećanje).
+6. **„Premesti u sekciju" i „Dodaj na drugu stranicu" preskaču** prikaz koji je već u ciljnoj sekciji i artikal koji ciljna sekcija već prikazuje (artikal je u sekciji najviše jednom), i to kažu u najavi; ostali se premeste ili dodaju.
+7. **„Ukloni sa ove stranice" nema „Poništi"** (plan K09 ga je predlagao kao toast). Izmena je u nacrtu, a artikal se vraća kroz `Dodaj stavku → Dodaj postojeći`. Ako „Poništi" treba, to je mala dopuna (ponovno dodavanje na isto mesto).
+
+## SCANME MENU V1 — K13 (18. 10. 2026.) — javni meni: izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj (plan `docs/meni/planovi/K12.md`). Vlasnik potvrđuje ili menja.
+
+1. **Povratak gostiju na stari meni (otvoreno pitanje K06, tačka 7).** Usluga nastala iz starog menija je javna tek posle prelaska (`migration.status === "cutover"`); pre toga gosti vide stari meni i kad je novi već objavljen. „Vrati goste na stari meni" je postojeći interni `revertLegacyCutover` (samo ScanMe, ne klijent). Novog operaterskog prekidača nema. Potvrditi da je to dovoljno.
+2. **Javni meni ostaje `noindex`** (i razdelnik i podlinkovi) dok `MENU_EXISTS` ne postane `true`. Kad se meni pusti, odlučiti da li se javni meni indeksira.
+3. **Nova objava dok gost čita meni** se nudi mirnom trakom „Meni je osvežen · Prikaži novu verziju", a sadržaj se ne menja sam (da se meni ne pomeri pod prstom). „Privremeno nedostupno" stiže odmah, bez trake. Alternativa: tiho osvežavanje.
+4. **Nepostojeća ili arhivirana stranica** postojećeg lokala pokazuje „Ova stranica menija nije dostupna" u identitetu lokala sa `Otvori meni` (status 200, `noindex`), a ne 404. Podlink lokala koji je još na starom meniju preusmerava na `/[slug]/meni`.
+5. **Dugme Nazad na telefonu ne zatvara detalj artikla**; detalj zatvaraju `Zatvori`, Esc i dodir pozadine. Vezivanje za istoriju bi se mešalo sa hešom kategorije (`#k-…`) i Next ruterom; ostavljeno za K33.
+6. **Razdelnik je lista stranica** (jedna kolona na svim širinama, do 36 rem), ne mreža od 3 kolone iz plana K12: lokal obično ima 2–4 stranice, a lista je čitljivija i mirnija.
+7. **Kurirane palete i parovi fontova** (7 + 7, `lib/menu/identity/`) su izbor runa; nazivi (`topla`, `espresso`, `bordo`, `more`, `kamen`, `ponoc`, `ugalj`; `osnovni`, `kafe`, `bistro`, `klasika`, `elegancija`, `knjiga`, `savremeno`) su interni, K17 daje tekst za korisnika.
+8. **Artikal u režimu ikonice bez sopstvene ikonice** dobija ikonicu svoje sekcije, pa podrazumevanu (viljuška i nož). Ikonicu sekcije u editoru dodaje K15/K16.
+
+## SCANME MENU V1 — K14 (18. 10. 2026.) — javni meni: pretraga, alergeni, jezici, valuta
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Izvor kursa EUR i uslovi korišćenja.** Kod čita srednji kurs NBS za EUR kao JSON sa adrese iz `MENU_FX_URL` (oblik javnih servisa koji prenose NBS kursnu listu), samo kad je `MENU_FX_ENABLED=true`. Zvanični NBS veb-servis traži registraciju. Potrebno: izbor izvora (NBS servis uz registraciju ili posrednik), provera uslova korišćenja i postavljanje env-a na Convex deploymentu. Do tada EUR prekidač se nigde ne prikazuje.
+2. **Pravna provera radnog teksta o alergenima** (master §7.3): tekst se prikazuje doslovno u fioci, traci i detalju. Isto važi za rečenicu „Lokal nije uneo alergene za ovaj artikal“ i za kratke nazive alergena u upozorenju na redu (npr. „mleko“, „sulfiti“; puni nazivi su u fioci i detalju).
+3. **Prevod teksta interfejsa javnog menija.** Meni (nazivi, opisi) se prikazuje na izabranom jeziku, a dugmad, poruke i radni tekst o alergenima ostaju na srpskom. Prevod radnog teksta traži i pravnu proveru na tom jeziku.
+4. **Napomena uz EUR**: „Cene u evrima su približne, po srednjem kursu NBS od {datum}. Važeća cena je u dinarima.“ — tekst je izbor runa.
+5. **Svežina kursa: 4 beogradska kalendarska dana** (petkova lista važi do utorka). Kraći ili duži rok je odluka vlasnika (`MENU_KURS_SVEZINA_DANA`, `lib/menu/currency.ts`).
+
+## SCANME MENU V1 — K15 (18. 10. 2026.) — editor: detalj artikla, slike, varijante, alergeni, akcije
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Formati slike: JPG, PNG i WebP do 10 MB.** HEIC (iPhone) se odbija sa porukom da se slika sačuva kao JPG, jer ga gotov `sharp` ne čita na svakoj platformi. Ako HEIC treba podržati, to traži drugu obradu.
+2. **Najviše 60 otpremanja slika na sat po meniju** (zaštita od zloupotrebe). Broj je izbor runa.
+3. **Obrada slika koristi postojeću tajnu `SCANME_PIPELINE_SECRET`** (ista kao Memories cev), da ne bi nastala nova promenljiva okruženja. Za rad u produkciji tajna mora biti postavljena i u Next (Vercel) i na Convex deploymentu; bez nje otpremanje kaže „Otpremanje slika trenutno ne radi”.
+4. **Zamenjena ili uklonjena slika se ne briše** iz skladišta, jer je objavljena verzija možda još prikazuje. Čišćenje slika koje nijedna verzija ne koristi je kasniji posao.
+5. **Otpremljena slika odmah postaje slika artikla u nacrtu** (bez provere da li je neko drugi u međuvremenu promenio prikaz artikla). Izbor slika/ikonica/bez i dalje ide sa proverom konflikta.
+6. **Stare fotografije iz migracije** (`menuArticles.legacyPhotoStorageId`, K06) nisu pretvorene u nove slike; to traži interni posao uz obradu kroz istu rutu.
+7. **`Privremeno nedostupno` u detalju ne traži potvrdu** (meni reda je traži jednom po sesiji): u detalju je kontrola označena „Uživo” sa rečenicom „Važi odmah za goste, bez objave.”, a izbor su dugmad, ne radio polja.
+8. **Uklanjanje poslednjeg mesta artikla** („Gde se prikazuje”) je dozvoljeno uz upozorenje da ga gosti posle toga ne vide; artikal ostaje u meniju i objava ga prijavljuje kao upozorenje.
+
+## SCANME MENU V1 — K16 (18. 10. 2026.) — editor: kombo, prevodi, Room service kontekst
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Provajder i trošak AI predloga prevoda.** Predlog ide na Anthropic Messages API (model `claude-opus-5-5`, menja se sa `MENU_AI_TRANSLATE_MODEL`), samo uz `MENU_AI_TRANSLATE_KEY` na Convex deployment-u. Bez ključa predlog je isključen i editor to kaže. Izbor provajdera, modela, budžeta i ograničenja broja predloga (npr. po satu po lokalu) je odluka vlasnika; run nije uveo ograničenje.
+2. **Predlog se pravi za jednu stavku i jedan jezik** (dugme po stavci). Nema „prevedi sve odjednom”, jer bi to bio veći i nepredvidiv trošak.
+3. **Kad lokal izgubi Premium**, jezici iznad Standard limita (2) se ne objavljuju i ne mogu se uređivati; njihovi prevodi ostaju sačuvani. Na Standardu predlog koji je već čekao i dalje može da se potvrdi ili odbaci (ne pravi se novi).
+4. **Ručna Room service cena po varijanti** se prikazuje (cena i poreklo po varijanti), ali je editor još ne menja; backend je ima od K04.
+5. **Grupna promena cena** (`Izaberi više → Promeni cene`) postavlja upozorenje Room service-a za artikle sa ručnom cenom, ali ne otvara dijalog; odluka je u Room service-u (traka „N cena traži odluku”).
+6. **Prevodi kategorija Room service-a** su u istom pogledu prevoda (⋯ u Room service-u); prevodi naziva stranica važe samo za naslov stranice za goste (`publicTitle`), ne za interni naziv.
+
+## SCANME MENU V1 — K17 (18. 10. 2026.) — editor: Izgled (raspored, palete, pisma, pregled)
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Šta su „dodatne Premium layout i dizajn varijante”.** Run je napravio: po jednu Premium varijantu svakog rasporeda (`Tok · Kartice`, `Kategorije · Lista kategorija`, `Kompaktno · Dve kolone` — samo CSS nad istim sadržajem), 4 Premium palete (Šampanjac, Indigo, Vino, Sumrak) i 3 Premium para pisma (Galerija, Atelje, Grotesk). Na Standardu su vidljive i zaključane uz razlog. Koje varijante, koliko i kojim imenima je odluka vlasnika.
+2. **Izgubljen Premium.** Nacrt zadržava Premium izbore, a sledeća objava objavljuje osnovnu varijantu istog tona (svetla Premium paleta → Topla, tamna → Ponoć; Premium par → Osnovno; varijanta → osnovni raspored; smanjen potpis → standardni). Editor to kaže napomenom. Alternativa (zadržati objavljeni izgled do sledeće ručne izmene) nije izabrana.
+3. **„Zatraži prilagođen dizajn”** otvara program za e-poštu korisnika ka javnoj adresi `office@scanme.rs` (ista adresa kao na stranici ponude) sa pripremljenom porukom; aplikacija ništa ne šalje i ne pamti zahtev, i ne navodi cenu. Ako ScanMe želi zahtev u internom adminu (red u bazi, status, odgovor), to je zaseban posao (K28 ili posle runa), kao i tačan tekst o načinu procene.
+4. **Smanjen potpis (Premium)** u podnožju menija ostaje mala oznaka „ScanMe”; potpuno uklanjanje potpisa nije ponuđeno (master kaže „uklanjanje ili smanjenje”; run je izabrao smanjenje).
+5. **Prikaz medija celog menija** (`Slika / Ikonica / Bez`) je gornja granica izbora artikla: `Ikonica` pretvara fotografije u ikonice, `Bez` sakriva sve medije; pojedinačni artikal i dalje bira u detalju. Podrazumevano je `Slika` (svaki artikal kako je podešen). Alternativa „podrazumevano samo za nove artikle” nije izabrana jer slika traži otpremljenu sliku (K15).
+6. **Boje brenda iz logotipa** se čitaju u pregledaču iz fajla koji korisnik izabere (slika se ne šalje); logotip lokala iz baze se ne koristi automatski.
+7. **Izvođenje brend palete** ne koristi `generateMaterialRoles` (plan K12 §5.5), jer ono stranicu stavlja na komplementarni ton (crveni brend → cijan stranica) i pada kontrast za tamne i žute boje; stranica se izvodi u tonu glavne boje. Ako vlasnik želi i „komplementarnu” šemu kao izbor, to je dodatna opcija.
+
+## SCANME MENU V1 — K18 (18. 10. 2026.) — editor: objava, verzije, prisustvo i konflikti
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **„Uzmi njegovu” je „Uzmi sačuvanu”.** Prompt koraka predlaže dugmad `Zadrži moju` / `Uzmi njegovu`. „Njegovu” pretpostavlja muški rod osobe koja je sačuvala vrednost, a sistem ne zna ni ko je tačno sačuvao (prisustvo kaže ko je artikal otvorio, ne ko je upisao). Dugme je `Uzmi sačuvanu (980 RSD)`, a rečenica iznad imenuje ko još uređuje artikal glagolom u sadašnjem vremenu („Ovaj artikal sada uređuje i Marko Ilić.”). Isto važi za ostale tekstove o drugim ljudima.
+2. **Neuspelo čuvanje ne blokira objavu.** Ako se neka izmena nije sačuvala (mreža), dijalog `Objavi` to kaže („1 izmena nije sačuvana i neće biti objavljena.”) i nudi `Pokušaj ponovo`, ali objava sačuvanog nacrta je dozvoljena. Polje u konfliktu (dve osobe, ista vrednost) objavu ZAKLJUČAVA dok osoba ne izabere vrednost, jer bi se njena vrednost tiho izostavila. Alternativa: zaključati objavu i kod običnog neuspelog čuvanja.
+3. **„Odbaci izmene nacrta”.** U listi verzija živa verzija nudi da se nacrt vrati na ono što gosti vide (isto što i K05 vraćanje žive verzije), uz potvrdu kao opasna radnja. Master to izričito ne traži; ako nije poželjno, dugme se uklanja.
+4. **Imena u editoru.** Prisustvo i lista verzija pokazuju ime člana tima, a kad ime ne postoji — e-poštu naloga (`users.name ?? users.email`, K05). Članovi istog lokala tako mogu da vide tuđu e-poštu. Alternativa: bez imena „Član tima”.
+5. **`Objavi` ostaje vidljivo i kad uloga ne sme da objavi** (onemogućeno, uz razlog), jer master §13.4 kaže da su `Pregled`, status i `Objavi` „stalno dostupni”; plan K09 je predlagao da se sakrije. Osoblje (PIN) editor uopšte ne otvara.
+6. **Vraćanje verzije je i dalje jedna transakcija** (K05: do 8.000 upisa, inače `menu/restore_too_large`); vraćanje u serijama (plan K09, „samo ako stane u korak”) nije rađeno. Za veoma velike menije vraćanje može biti odbijeno uz poruku.
+
+## SCANME MENU V1 — K19/K20 (18–20. 10. 2026.) — Lokal i QR, pozicija iz QR koda
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja. Stavke 1–4 su iz plana K19 (`docs/meni/planovi/K19.md` §10) i tiču se K21; stavke 5–9 su odluke K20.
+
+1. **Soba i standardna porudžbina (K19-5).** Mesto vrste „soba" poručuje samo kroz Room service (markup i naknada); sto i „ostalo" poručuju po cenama standardnih stranica. Pitanje: sme li soba da poruči i po cenama standardne stranice? Izbor runa: ne.
+2. **Zadržavanje zahteva gostiju i napomena (K19-23).** Sesije gosta se brišu dan posle isteka; zahtevi (K21) se u runu ne brišu automatski. Uz K01 OTV 8 traži pravnu proveru roka.
+3. **Stare kartice za poručivanje (RFC-004, `table_ordering`) i stari panel `/panel/[venueCode]`** rade kao pre; prebacivanje na Menu mesta nije u runu (K19-1).
+4. **Otkazivanje prihvaćenog zahteva (K19-6).** Gost otkazuje samo zahtev u statusu „Novi"; prihvaćen otkazuje samo osoblje.
+5. **Kolačići gosta (K20).** Kartica na stolu otvara sesiju gosta: kolačić `smm_g` (3 h, putanja menija lokala) i kolačić uređaja `smm_d` (180 dana, dvaput: putanja menija i `/r`, da ponovno skeniranje zadrži isti uređaj za „Moji zahtevi"). U bazi su samo heševi; heš uređaja je drugačiji za svaki lokal (bez povezivanja lokala). Tretirani su kao funkcionalni (kao K01 OTV 10); trajanje i obaveštenje gostu traže pravnu proveru.
+6. **Fizičke ADMIN-12 kartice** (kojima upravlja ScanMe preko pristupnih kanala) su u „Lokal i QR" samo za čitanje: klijent ih ne vezuje za sto i ne isključuje (K01 OTV 19). Ako treba, to je posao internog admina.
+7. **Granica od 500 kartica po lokalu.** Sekcija čita najviše 500 kartica lokala (svih vrsta, i Memories i Links), pa nove Menu kartice ne mogu da se naprave iznad te granice. Za lokal sa mnogo kartica drugih usluga to treba proširiti (straničenje).
+8. **Kartice za stranicu** („Nova kartica za stranicu", npr. vinska karta za šank) dobijaju isti naziv (naziv stranice ili „Meni") i razlikuju se samo po kodu; klijent ih može vezati za mesto. Numeracija naziva nije uvedena.
+9. **Mesta, zone i QR veze važe odmah**, bez `Objavi` (kao prekidači, K19-12). Arhiviranje mesta na kom stoji aktivna kartica je blokirano dok se kartica ne preveže ili isključi.
+
+## SCANME MENU V1 — K21 (20. 10. 2026.) — zahtevi gosta: izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja. Pitanja K19/K20 (soba i standardna porudžbina, zadržavanje zahteva i napomena, stare `table_ordering` kartice, otkazivanje prihvaćenog zahteva) i dalje važe.
+
+1. **Akcija i Room service.** Room service cena je uvek objavljena Room service cena (osnovna → markup → ručna); akcija sa standardnih stranica se na nju ne primenjuje, ni u prikazu ni u porudžbini. Pitanje: treba li akcija da važi i u Room service-u (i kako, pre ili posle markup-a)? Izbor runa: ne.
+2. **Napomena na porudžbini.** Slobodna napomena postoji samo na liniji, i to kad je artikal ima uključenu (master §5.7). Opšta napomena cele porudžbine („alergija na orahe za ceo sto") nije uvedena, jer za nju ne postoji prekidač lokala. Pitanje: da li lokal treba da može da uključi i napomenu na nivou porudžbine?
+3. **Dva telefona za istim stolom.** Po mestu postoji jedan otvoren poziv i jedan otvoren račun. Drugi telefon dobija „Poziv za Sto 12 je već poslat" sa statusom postojećeg, ali taj zahtev ne vidi u svojim „Moji zahtevi" i ne može da ga otkaže (pripada uređaju koji ga je poslao). Račun koji je još „Novi" menja način plaćanja na poslednji izabran. Porudžbina nema ovo pravilo (svaki telefon šalje svoju).
+4. **Cela porudžbina se odbija** kad je bar jedan artikal upravo nedostupan ili više nije u meniju (gost ga uklanja i šalje ponovo). Alternativa (poslati ostatak) nije uvedena, jer bi konobar dobio drugačiju porudžbinu od one koju je gost video.
+5. **Ograničenja brzine.** Po mestu: 3 nova poziva i 3 nova računa u minuti, 4 porudžbine (pa 6 u minuti); po gostu 10 radnji u minuti; po uređaju 10 otkazivanja; po IP adresi 300 u minuti (cela sala je često iza jedne adrese); po mestu još 30 vrednovanja porudžbine u minuti (i odbijenih). Brojevi su procena; vlasnik može da ih promeni.
+6. **Ključ za čitanje „Moji zahtevi".** Telefon dobija heš svog uređaja za ovaj lokal (ne kolačić), kojim samo čita sopstvene zahteve; slanje i otkazivanje idu preko servera sa HttpOnly kolačićima. Lista prikazuje poslednjih 12 sati. Uz K01 OTV 8 i K19/K20 stavku 5 (kolačići) traži pravnu proveru obaveštenja gostu.
+7. **Šta konobar vidi kao „stavke".** `itemCount` porudžbine je broj linija („3 stavke"), ne broj komada; zbir je informativan („Ukupno"), bez ikakvog stanja „plaćeno".
+8. **QR kartica dokazuje samo da je neko video karticu, ne da sedi za stolom (bezbednosni pregled K21).** Ko ima fotografiju kartice može sa daljine da otvori sesiju i šalje zahteve. Run je dodao: ključ pokušaja (nema duplih porudžbina), najviše 5 porudžbina koje čekaju po mestu i 3 po telefonu, kofe po mestu, gostu, uređaju i IP-u, i dedupe poziva/računa samo 30 min. Ostaje za odluku: pauziranje mesta i blokiranje uređaja iz konobarskog panela (K22/K23), da li kartice treba povremeno menjati, i poruka gostu kad je kartica privremeno preopterećena (sada dobija meni bez radnji).
+9. **Automatsko zatvaranje starih zahteva.** Sistem nikad sam ne menja status (master §8.5, nema automatskog prosleđivanja); zahtev koji niko ne završi ostaje „Novi“/„Prihvaćen“ dok ga osoblje ne zatvori. Novi poziv ili račun posle 30 min više ne „upada“ u stari. Pitanje: da li stari zahtevi treba da se sami zatvore (npr. posle smene) i ko to vidi.
+10. **IP heš kao ključ ograničenja.** Računa ga Next (`resolverIpHash`, prvi `x-forwarded-for`, so `SCANME_GUEST_SECRET`) i šalje Convex-u kao argument, isto kao K20 hop i resolver kartica; direktan poziv Convex-a može da ga izmisli, pa je kofa po IP-u savetodavna, a važe kofe po mestu, gostu i uređaju. Predlog za K33: tajna gateway-a (obrazac `FAIR_GATEWAY_SECRET`) za `mintFromCard` i radnje gosta i zasebna so za IP — traži nove env promenljive, pa nije uvedeno bez odluke.
+11. **Sesija gosta traje 3 h od skeniranja (K20) i radnje je ne produžavaju.** Duga večera ili svadba posle 3 h traži ponovni sken; traka tada nestaje bez objašnjenja. Pitanje: produžavati sesiju pri radnji (do granice) i prikazati „Veza sa mestom je istekla, skenirajte QR“ kad uređaj postoji a sesija ne.
+12. **Prelaz na drugo mesto linkom.** Otvaranje `/r/<druga kartica>/meni` (npr. link iz poruke) završava sesiju na Sto 12 i otvara drugo mesto (traka pokazuje novo mesto). Međukorak „Prelazite sa Sto 12 na Sto 30?“ nije uveden.
+
+## SCANME MENU V1 — K22 (21. 10. 2026.) — konobarski panel: PIN i sesije, izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **`MENU_PIN_PEPPER` je preduslov za PIN.** Bez ove Convex env tajne (≥ 16 znakova, npr. `openssl rand -base64 32`) nijedan PIN ne može da se postavi ni koristi; panel to kaže, a vlasnik i menadžer ulaze nalogom. Promena tajne kasnije poništava SVE PIN-ove (osoblje dobija nove). Pitanje: ko je postavlja i čuva pre puštanja na produkciju (deo redosleda za deploy, K35).
+2. **Brojevi blokada.** Master traži blokadu „posle pet pogrešnih pokušaja"; trajanja ne propisuje. Izbor runa (K01 §4.4): uređaj — 5 promašaja u 15 min → 15 min; lokal — 30 promašaja u 15 min sa uređaja bez prijave u poslednjih 12 h → 15 min samo za nove uređaje; IP — 20 promašaja u 15 min; prijava traje 12 h. Pitanje: potvrditi brojeve.
+3. **Preostali rizik pogađanja PIN-a (bezbednosni pregled K22).** Ko zna link panela (svaki konobar ga ima u pregledaču) može da pogađa tuđe PIN-ove direktnim pozivom Convex-a: brojač uređaja i IP kofa se tada zaobilaze (uređaj i IP heš šalje pozivalac), pa je stvarna granica blokada lokala — oko 30 pokušaja na 15 min, svih 1.000 PIN-ova za najviše ~8 h. Trag postoji (`staff.pin_locked` u auditu), a „Promeni link panela" (`rotatePanelCode`) odmah zaustavlja napad. Za vreme napada nova smena (uređaji bez prijave u 12 h) ne može da uđe ni tačnim PIN-om dok blokada traje; „Otključaj" pomaže samo dok napad ne krene ponovo. Predlog (nije uveden, traži odluku): (a) tajna gateway-a kao `FAIR_GATEWAY_SECRET` — `loginWithPin` prihvata samo poziv Next rute, pa brojač uređaja i IP kofa postaju stvarni (nova env promenljiva na oba mesta); (b) rastuće blokade lokala (15 min → 1 h → 4 h) i obaveštenje vlasniku u panelu.
+4. **ScanMe admin i PIN.** Matrica uloga (K02) daje ScanMe adminu sve dozvole, pa admin može da postavi ili resetuje PIN, otključa prijave, promeni link panela i uđe u panel svojim nalogom (sve se beleži u auditu kao `admin`). Master kaže „vlasnik ili menadžer može resetovati PIN". Pitanje: treba li adminu (podrška) zabraniti PIN radnje i ulaz u panel?
+5. **Token prijave je i u JavaScript-u stranice.** Kolačić `smk_s` je HttpOnly, ali isti token nose žive pretplate panela (kao stari RFC-004 panel), pa bi XSS na stranici panela mogao da ga pročita. Alternativa (zaseban ključ samo za čitanje + pisanja kroz serverske radnje) je veća izmena; ide u K33 kao predlog ojačanja.
+6. **Nalog bez imena osoblju piše „Vlasnik ili menadžer".** Kad vlasnik ili menadžer nalogom preuzme zahtev, a nalog nema upisano ime, konobari vide „Prihvaćen · Vlasnik ili menadžer" (e-pošta se nikad ne prikazuje). Pitanje: da li Tim i pristupi (K28) treba da traži ime pri ulasku u panel?
+7. **Deaktiviran član osoblja se ne vraća.** Deaktivacija briše PIN i odjavljuje sve uređaje; ponovni rad je nov član sa novim PIN-om (istorija zahteva ostaje vezana za starog). Pitanje: treba li „Ponovo aktiviraj"?
+
+
+## SCANME MENU V1 — K23 (21. 10. 2026.) — konobarski panel: sala, sto, vreme, zvuk, zone, zauzetost
+
+Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj. Vlasnik potvrđuje ili menja.
+
+1. **Podrazumevani podsetnik je 5 minuta.** Master §8.5 kaže samo da lokal podešava vreme podsetnika. Izbor runa (plan K19-21): dok lokal ne podesi, zahtev koji je i dalje „Novi" podseća jednom na 5 min od nastanka (prvi put kad mu prođe 5 min, pa na 10, 15…); 0 isključuje podsetnik. Prag kašnjenja ostaje 15 min. Podešavanje (`menuSettings.setPanelTiming`, 1–120 i 0–60 min) postoji; ekran za njega gradi K28. Pitanje: potvrditi 5 min i granice.
+2. **Zvuk je podrazumevano uključen na svakom uređaju.** Prekidač u zaglavlju panela ga potpuno isključuje i pamti se na uređaju (`smk_zvuk`), ne u Funkcionalnostima (master §8.5). Pregledači puštaju zvuk tek posle prvog dodira u panelu. Pitanje: da li zvuk treba da počne isključen (npr. na telefonu konobara, a uključen na tabletu za šankom)?
+3. **Arhiviranje stola briše njegovu oznaku zauzetosti.** Kad vlasnik u „Lokal i QR" arhivira sto, ručna oznaka (slobodan, zauzet…) nestaje zajedno sa stolom, da ograničeno čitanje zauzetosti uvek drži samo postojeća mesta. To nije „automatsko oslobađanje" (sto više nije u sali). Pitanje: u redu?
+4. **Zona vlasnika i menadžera je samo na uređaju.** Konobar (PIN) bira svoju zonu i ona se čuva na serveru (menadžer je vidi i menja u „Raspodela zona"); vlasnik ili menadžer koji uđu nalogom nemaju red osoblja, pa njihov izbor zone važi samo na tom uređaju dok je panel otvoren. Pitanje: treba li i nalogu sačuvana zona?
+5. **Na rasporedu sale samo najstarija vrsta stola sigurno nosi svoje vreme.** Svaka vrsta zahteva je značka iznad stola (ikonica + boja), od najstarije; prva značka uvek ima svoje čekanje („17:00"), a ostale svoje tek kad je sto dovoljno širok. Puni par „18:43 · čeka 08:12" je u tabeli, detalju stola i radnom redu, a ime dugmeta stola izgovara sve. Master §10.4 traži „uniforman format" — format (mm:ss) jeste isti svuda. Pitanje: da li je ovo dovoljno na uskim ekranima?
+6. **Rezervacija na stolu dolazi u K25.** Model sale već zna četvrtu vrstu (`reservation`), ali kolona, značka i stavka legende se pojavljuju tek kad K25 donese rezervacije (bez lažnih podataka u izlogu).
+7. **BLOKADA: nestabilan test internog admina ruši ceo `vitest` u ~1,7 % pokretanja.** `convex/adminMail.test.ts` (red 318–319) „kvari“ šifrat zamenom prvog znaka slovom `A`; kad nasumičan šifrat već počinje sa `A`, ništa se ne promeni i test pada (izmereno 108/6.400). U K23 je pao u 2 od 12 celih pokretanja (poslednjih 6 zaredom prolazi); K23 testovi nikad. Admin je van obima runa, pa ga nisam menjao. Pitanje: dozvoliti popravku od jednog reda (zameniti prvi znak znakom različitim od zatečenog)?
+
+
+## SCANME MENU V1 — K24 (21. 10. 2026.) — plan rezervacija, odgovora gostu i panela: izbori koji traže potvrdu vlasnika
+
+Upisao K25 (K24 je plan i ne menja fajlove). Nijedna stavka ne blokira kod: run je izabrao konzervativnu opciju i kod radi po njoj (K25–K28). Vlasnik potvrđuje ili menja.
+
+1. **ScanMe ne šalje gostu automatsku potvrdu prijema.** Posle slanja forme gost vidi poruku da je zahtev poslat (ne i potvrđen) i, samo tada, link za otkazivanje; rezervacija je i u „Moji zahtevi" na tom telefonu. ScanMe ne šalje mejl sa svoje adrese; odgovor ide iz pošte lokala (K26) ili telefonom. Pitanje: treba li automatska potvrda prijema sa linkom za otkazivanje (izlazni mejl ScanMe-a, tekst i pravni osnov)?
+2. **Gost ne odgovara na predlog izmene u aplikaciji.** Kad lokal predloži drugo vreme, osoblje ga javlja gostu (e-pošta, telefon), a kad gost pristane, osoblje klikne „Gost prihvata predlog". Gost u aplikaciji vidi predlog i može da otkaže. Pitanje: treba li dugme „Prihvatam" za gosta?
+3. **Brojevi forme.** Rezervacija najviše 60 dana unapred, termini na 15 minuta unutar radnog vremena (`početak ≤ termin < kraj`, bez „poslednjeg termina" pred zatvaranje), najviše 50 gostiju, zadržavanje posle termina 5–180 min (podrazumevano 15). Pitanje: potvrditi brojeve i da li treba poslednji termin pre zatvaranja.
+4. **Neradni dani i praznici.** Radno vreme je nedeljni raspored (do tri intervala po danu, preko ponoći do 06:00). Izuzeci po datumu (praznik, privatna proslava) nisu u V1. Pitanje: treba li „Zatvoreno na dan"?
+5. **Granice zaštite forme.** Po IP adresi 5 zahteva na 10 min, po telefonu 3 na sat, po lokalu 60 na sat, najviše 3 otvorene rezervacije po telefonu. Kao kod zahteva gosta (K22/3), IP i uređaj šalje Next server, pa direktan poziv Convex-a zaobilazi te dve kofe (granica lokala ostaje). Pitanje: potvrditi brojeve i tajnu gateway-a za javne Convex pozive.
+6. **Rok čuvanja ličnih podataka rezervacija** (ime, e-pošta, telefon, napomena; K01 OTV 8). Run ništa ne briše automatski; telo poslatog odgovora (K26) se ne čuva. Pitanje za pravnika: rok i način brisanja.
+7. **OAuth aplikacije za odgovor iz pošte lokala (K26).** Google traži verifikaciju aplikacije za opseg `gmail.send`; Microsoft registraciju aplikacije. Run ništa ne registruje i bez env ključeva funkcija je isključena. Pitanje: ko i kada registruje aplikacije pre produkcije.
+8. **Ping iz Operative (K27) ide samo osobi koja je preuzela zahtev.** Zahtev koji niko nije preuzeo i zahtev koji je preuzeo vlasnik ili menadžer nalogom nemaju ping (dugme kaže zašto); najviše jedan ping po zahtevu na 5 min, bez zvuka. Pitanje: u redu?
+9. **Pozivnice u tim (K28) imaju sopstveni tok.** Postojeće pozivnice klijentskog panela daju pun pristup lokalu, pa Menu pozivnica (uloga Vlasnik, Menadžer ili Urednik) ide preko svog linka i nikad ne pravi članstvo klijentskog panela; slanje mejla pozivnice sa ScanMe adrese je iza prekidača (podrazumevano se link kopira). Pitanje: potvrditi i da li se mejl šalje.
+10. **„Zatraži promenu režima"** (K28): klijentski chat ako se može otvoriti linkom, inače `office@scanme.rs`. Pitanje: koji kanal.
+
+
+## SCANME MENU V1 — K25 (21. 10. 2026.) — rezervacije: izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod. Vlasnik potvrđuje ili menja.
+
+1. **Statusi rezervacije za osoblje su u ženskom rodu** („Nova", „Prihvaćena", „Odbijena", „Predložena izmena", „Realizovana", „Otkazana"), jer se odnose na rezervaciju; zahtevi ostaju „Novi / Prihvaćen / Završen / Otkazan". Gost vidi svoje reči („Poslato — čeka odgovor lokala", „Lokal predlaže izmenu", „Lokal nije mogao da prihvati"). Pitanje: u redu?
+2. **Forma se uključuje tek kad je radno vreme uneto.** Bez radnog vremena „ScanMe forma" je zaključana uz razlog i link na Podešavanja, a javni meni ne nudi rezervaciju. Pitanje: u redu?
+3. **Prelaz sa ScanMe forme na „Vaš sistem" ili „Isključeno" ne briše već poslate zahteve**: ostaju u konobarskom panelu dok ih osoblje ne obradi, nove forma odbija. Pitanje: u redu?
+4. **Dolazak gostiju je moguć i bez stola** (kafić bez rasporeda); sto postaje „Zauzet" samo kad je rezervacija vezana za sto i lokal koristi modul zauzetosti. Prihvaćena rezervacija nikad sama ne stavlja „Rezervisan" na sto (to osoblje radi rukom). Pitanje: treba li vezana prihvaćena rezervacija da automatski pokaže „Rezervisan" uz modul?
+5. **Ponovljeno slanje istog pokušaja** (izgubljen odgovor) vraća isti zahtev i novi link za otkazivanje zamenjuje prvi (gost prvi nikad nije video). Pitanje: u redu?
+6. **Preostali rizici iz bezbednosnog pregleda K25 (nisu menjani jer su van dozvoljenih fajlova).** (a) IP heš (`lib/card-resolver-http.ts` `resolverIpHash`, deli ga i resolver kartica) uzima celu IPv6 adresu, pa rotiranje adresa u istoj /64 mreži daje nove kofe; predlog: heširati /64 prefiks. (b) Stranica linka za otkazivanje šalje `referrer: no-referrer` kao meta oznaku i ne kešira se (`force-dynamic`); pravi HTTP zaglavlja `Referrer-Policy: no-referrer` i `Cache-Control: no-store` traže izmenu `next.config.ts` (zabranjeno u runu). (c) Run je dodao gornju granicu od 200 neodgovorenih zahteva po lokalu (sledeći zahtev dobija „Previše zahteva…“ dok osoblje ne odgovori), da poplava ne izgura prave zahteve iz liste konobara; tajna gateway-a (tačka K24/5) bi zatvorila i direktne pozive. Pitanje: potvrditi granicu i redosled radova.
+7. **Kontakt gosta ostaje vidljiv osoblju i posle odluke** (detalj rezervacije), jer odgovor gostu (K26) dolazi posle prihvatanja, odbijanja ili otkazivanja. Rok brisanja kontakta i napomene je pitanje K24/6.
+
+## SCANME MENU V1 — K26 (21. 10. 2026.) — odgovor gostu: izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod. Funkcija je isključena dok se ne postave env ključevi (`.env.example`, `MENU_MAIL_*`); run nije registrovao OAuth aplikacije i ništa nije poslao.
+
+1. **Pre uključivanja (posao za Jovana):** Google Cloud projekat sa OAuth klijentom i opsegom `gmail.send` (osetljiv opseg: Google verifikuje aplikaciju pre javne upotrebe), Microsoft Entra aplikacija (tenant „common", delegirano `Mail.Send` + `offline_access`), redirect URI `https://<sajt>/api/meni/mail/callback` kod oba, pa `MENU_MAIL_ENABLED=true`, `MENU_MAIL_TOKEN_KEY` (32 bajta, poseban ključ) i parovi klijenata na Convex deploymentu.
+2. **Podrazumevani tekstovi šablona** (prihvatanje, odbijanje, predlog izmene, „Druga poruka" i potpis „Srdačno, <lokal>") su predlog runa, sa neutralnim pozdravom „Dobar dan, {ime}" da se rod ne pogađa iz imena. Pitanje: tekstovi u redu?
+3. **Tekst poslate poruke se ne čuva** (samo vrsta, kanal, ishod, ko i kada). Pitanje: u redu, ili lokal treba da vidi šta je poslato (više ličnih podataka, rok čuvanja iz K24/6)?
+4. **Klik na „Otvori u e-pošti" se beleži** kao „Otvoreno u e-pošti" (ne zna se da li je poruka zaista poslata); ishod poziva je opcioni. Pitanje: u redu?
+5. **Promena povezanog mailboxa** opoziva stari Google grant samo kad je to drugi nalog; Microsoft nema opoziv iz aplikacije (lokal uklanja aplikaciju u svom nalogu). Pitanje: treba li tekst u Podešavanjima da to kaže?
+
+## SCANME MENU V1 — K27 (21. 10. 2026.) — Početna, Operativa, Funkcionalnosti: izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod.
+
+1. **„Niko od osoblja nije prijavljen" na Početnoj** (K01 OTV 13) znači: gosti su poslali nove zahteve, a nijedan član osoblja nije prijavljen PIN-om u konobarski panel. Vlasnik ili menadžer koji radi u konobarskom panelu svojim nalogom nema sesiju, pa se ne računa. Pitanje: da li i nalog u konobarskom panelu treba da gasi ovo upozorenje (traži beleženje sesije naloga)?
+2. **„Neobjavljene izmene starije od 24 h"** se meri od poslednje sačuvane izmene nacrta (`lastEditAt`), jer se vreme prve neobjavljene izmene ne čuva. Posledica: ko svaki dan nešto doda, a ne objavljuje, ne dobija upozorenje. Pitanje: u redu, ili treba čuvati vreme prve neobjavljene izmene (novo polje)?
+3. **Operativa ne pokazuje ime gosta sa rezervacije** (samo vreme, broj gostiju i sto), jer je to pregled; ime i kontakt su u konobarskom panelu. Pitanje: treba li menadžeru ime?
+4. **Podsetnik ide samo PIN konobaru koji je preuzeo zahtev** (plan K24-20; pitanje K24/8): nepreuzet zahtev i zahtev preuzet nalogom nemaju dugme, nego razlog rečima. Ponavljamo pitanje uz gotov ekran.
+
+## SCANME MENU V1 — K28 (21. 10. 2026.) — Tim i pristupi, Podešavanja, interni alat: izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod.
+
+1. **Pozivnica u tim se ne šalje mejlom.** Prompt K28 traži „postojeći tok pozivnica", ali `acceptInvitationForUser` daje pun legacy pristup nalogu; run je (po planu K24-21) napravio isti obrazac nad `menuMembers` (token 256 bita, samo heš, rok 7 dana, ista e-adresa). Link se prikazuje jednom i vlasnik ga šalje sam; opcioni `convex/menuTeamEmails.ts` i prekidač `MENU_TEAM_INVITE_EMAILS_ENABLED` nisu uvedeni (nijedan novi izlazni mejl bez odluke). Pitanje: treba li ScanMe da šalje pozivnicu sa svoje adrese (ponavlja K24/9)?
+2. **„Zatraži promenu režima" i Premium** vode na `mailto:office@scanme.rs` sa pripremljenom porukom (kao K17-3); klijentski chat se ne otvara linkom. Pitanje: u redu, ili zahtev treba da stigne u interni admin?
+3. **Aktivnost u Tim i pristupi** prikazuje vlasniku i menadžeru poslednjih 50 osetljivih radnji sa imenom osobe (ime naloga ili ime osoblja), nikad e-adresu. Pitanje: da li i menadžer sme da vidi aktivnost vlasnika?
+4. **Naziv lokala je u Podešavanjima samo prikaz** (vodi se na ScanMe nalogu za sve usluge); logo, boje i fontovi menija vode u Editor › Izgled. Pitanje: treba li klijent da menja naziv iz ScanMe Menu?
+5. **Stranica pozivnice za pogrešan nalog** kaže da se osoba odjavi i prijavi drugim nalogom, bez dugmeta za odjavu i bez prikaza adresa (da ne otkriva na koju je adresu poslata). Pitanje: u redu?
+6. **Članovi „iz naloga"**: Vlasnik i Menadžer izvedeni iz članstva naloga (pun pristup → Vlasnik, upravljanje lokalom → Menadžer; finansije i pregled bez pristupa Menu-u) prikazuju se samo za čitanje; menjaju se u nalogu, ne ovde. Pitanje: u redu?
+
+## SCANME MENU V1 — K29 (21. 10. 2026.) — analitika: izbori koji traže potvrdu vlasnika
+
+Nijedna stavka ne blokira kod. Definicije: `docs/menu/ANALITIKA-DEFINICIJE.md`.
+
+1. **Identifikator sesije i saglasnost (master §14.4, P8).** Tačka saglasnosti postoji u kodu (`lib/menu/analitika/saglasnost.ts`, promenljiva `MENU_ANALYTICS_IDENTIFIERS`: `off` / `on` / `consent`). Run je ostavio `off`: u browseru gosta se ne čuva nikakav identifikator, pa sesije i konverzioni tokovi pokazuju „nije dostupno", a otvaranja, detalji, skenovi, zahtevi i rezervacije rade. Identifikator bi bio slučajan, poseban za svaki lokal, u `localStorage`, zamenjen posle 30 min neaktivnosti, bez fingerprintinga. Pitanja za vlasnika i pravnika: da li je dozvoljen bez pitanja (`on`) ili samo uz pristanak gosta (`consent`, tada treba tekst pitanja i mesto u javnom meniju), i tekst za politiku privatnosti (šta se beleži: stranica, otvoren artikal, jezik, klasa uređaja, sat, QR kartica; šta ne: IP, ime, kontakt, uređaj).
+2. **Interni saobraćaj.** Ne broji se browser sa prijavljenom ScanMe sesijom (vlasnik, menadžer, urednik, admin). Osoblje koje otvara meni bez prijave na nalog (npr. konobar sa svog telefona) broji se kao gost. Skenove štampanih kartica broji postojeći resolver i on prijavljene ne isključuje. Pitanje: u redu?
+3. **Čuvanje.** Sirovi događaji 90 dana, dnevni agregati 24 meseca, otvorene sesije 24 h (master §14.4). Procena prostora za 1.000 lokala: ~6 GB sirovih, ~2 GB agregata (definicije §9). Pitanje: da li troškovna ili pravna provera traži kraće čuvanje sirovih (jedna konstanta)?
+4. **Jedinstveni posetioci se ne mere** (nema ih u §14.2; manje podataka). Pitanje: u redu?
+
+## SCANME MENU V1 — K30 (21. 10. 2026.) — analitika u panelu: tumačenje koje traži potvrdu vlasnika
+
+Ne blokira kod. Definicije: `docs/menu/ANALITIKA-DEFINICIJE.md` §11.
+
+1. **„Procenti tek od 20 relevantnih sesija" (master §14.4).** Run je izabrao strožu varijantu: osnovica celog ekrana su sesije kad se mere, a dok se ne mere (podrazumevano, BLOCKED K29/1) otvaranja menija; ispod 20 panel ne prikazuje **nijedan** procenat i kaže „Još je malo podataka". Iznad toga svaki procenat i dalje traži svoj imenilac od 20 (npr. udeo završenih zahteva tek od 20 poslatih). Pitanje: da li je osnovica dobra dok sesije nisu uključene, ili procente treba vezati samo za svoj imenilac?
+2. **CSV** sadrži zbirne brojke po danu i nazive iz menija (artikli, stranice, QR kartice), bez ijednog podatka o gostu; polja su odvojena sa `;` (Excel sa srpskim podešavanjima). Pitanje: da li ScanMe želi i varijantu sa zarezom za druge programe?
+
+## SCANME MENU V1 — K31 (21. 10. 2026.) — rečnik: izbori koji traže odluku vlasnika
+
+Ne blokira kod. Rečnik: `docs/menu/RECNIK.md`.
+
+1. **Naziv funkcije „Poručivanje".** Stari rečnici (`ordering*.ts`) i nekoliko Menu poruka koriste „poručivanje" kao ime funkcije, a zahtev koji nastaje zove se „Porudžbina". Run je zadržao „poručivanje" samo kao ime radnje gosta. Pitanje: da li funkciju u panelu i naslovima zovemo „Porudžbine" ili ostaje „Poručivanje"?
+2. **Stari modeli zadržavaju „grupa/stavka".** Stari editor i interni admin (`menu-editor`, `menu-admin`) ostaju na starom rečniku do migracije; novi ekrani koriste „sekcija/artikal". Pitanje: u redu je da se stari ekrani ne usklađuju, jer ih migracija zamenjuje?
+
+## SCANME MENU V1 — K33 (21. 10. 2026.) — hardening: stvari koje korak nije smeo ili mogao da reši
+
+Nalazi i dokazi: `docs/menu/HARDENING.md`. Ništa od ovoga ne blokira Menu kod; prvo i drugo traže izmenu fajlova koje Menu koraci ne smeju da diraju.
+
+1. **BLOKADA — QR kartice: uloga se ne proverava (`convex/cards.ts`, HARDENING B4, srednji).** `retargetCard` i `disableCard` (i `createCard`) traže samo `requireBusinessAccess`, pa svaki aktivan član naloga, i `finance` / `view_only`, može da preusmeri karticu stola na drugu adresu ili da je isključi. Menu svoje radnje nad karticama štiti dozvolom `venue.edit`. `convex/cards.ts` i `convex/lib/access.ts` koriste i sajamske kartice u upotrebi, pa ih K33 nije menjao. Predlog: u `retargetCard`/`disableCard` za karticu čiji je cilj `menu` tražiti ulogu sa `venue.edit` (`roleCan`), uz regresione testove svih postojećih vrsta kartica. Pitanje: može li to ući u sledeći korak koji sme da menja resolver, i da li ista provera uloge treba za sve vrste kartica?
+2. **Bezbednosna zaglavlja (HARDENING B14).** Link za otkazivanje rezervacije i konobarski panel imaju `referrer: "no-referrer"` kroz metadata i dinamičke su rute (Next ih ne kešira), ali `Referrer-Policy`, `X-Frame-Options`/`frame-ancestors` i CSP kao HTTP zaglavlja traže `next.config.ts` ili `proxy.ts`, koje run ne menja (P14). Pitanje: da li ih uvodimo za `/[slug]/konobar/**`, `/[slug]/meni/rezervacija/**` i `/[slug]/client-panel/**`, i ko odobrava CSP (utiče na sve proizvode)?
+3. **`MENU_GATEWAY_SECRET` pre produkcije (HARDENING B3).** Nova promenljiva: ista vrednost u Next env-u i na Convex deploymentu. Bez nje Convex veruje hešu IP adrese kao pre K33 (direktan poziv može da izbegne kofe po IP-u); sa njom heš važi samo uz tajnu. Ovo je korak deploy-a, ne odluka; zapisano da se ne zaboravi.
+4. **Zaboravljeni zahtevi i rezervacije zauzimaju prozor (HARDENING C13).** Konobarski panel prikazuje najstarijih 300 `Novi` i 300 `Prihvaćen` zahteva; zaboravljeni prihvaćeni zahtevi tako mogu da izguraju nove sa panela, a 200 neodgovorenih rezervacija blokira nove. Ponašanje je namerno (master: sistem nikad sam ne zatvara zahtev) i zaključano testovima. Pitanje: da li Operativa treba da ponudi „Zatvori stare prihvaćene" ili prag posle kog se stari zahtevi ne broje u prozor?
+5. **Keš javnog menija i deljeni root layout (HARDENING C9, C10).** Svaki prikaz javne stranice je 5–7 Convex poziva bez keša (plan K12-2: bez keša, da promena dostupnosti stigne odmah), a root layout šalje gostu `gsap` i 16 fontova (`app/layout.tsx`, van obima runa). Pitanje: da li uvodimo kratak keš objavljene verzije (dostupnost ostaje živa) i lenje učitavanje `gsap`-a i fontova u root layout-u?
+6. **Ime člana bez imena (HARDENING B6).** Editor i objava drugima sada pokazuju ime člana ili neutralnu oznaku „Vlasnik ili menadžer", nikad e-adresu (i za ScanMe admina). Urednik ili admin bez imena tako dobija tu istu oznaku. Pitanje: da li treba posebna oznaka („Član tima", „ScanMe podrška")?
+
+## SCANME MENU V1 — K34 (21. 10. 2026.) — revizija: BLOKADE i pitanja koja traže vlasnika
+
+Nalazi, ishodi i dokazi: `docs/menu/REVIZIJA.md`. Kritični nalazi revizije (N1 fajlovi u skladištu, N2 naslovi stranica) su ispravljeni u kodu i nisu ovde. Run je za svaku stavku izabrao konzervativnu opciju; vlasnik potvrđuje ili menja.
+
+1. **BLOKADA — pozivnica u tim za osobu bez ScanMe članstva (REVIZIJA N10, srednje).** `menuTeam.acceptInvite` traži prijavljenog korisnika, a `convex/auth.ts` ne pušta registraciju bez pozivnice klijentskog panela niti prijavu naloga bez članstva u nalogu ili lokalu. „Spoljni Urednik" (K02/3) zato ne može da prihvati link koji mu vlasnik pošalje; prolaze samo osobe koje već imaju ScanMe članstvo. Auth tok je van obima Menu koraka. Pitanje: (a) zapisati ograničenje uz „Pozovi člana" („pozvana osoba mora imati ScanMe nalog") ili (b) odobriti izmenu `convex/auth.ts` (propustiti korisnika sa važećom `menuMembers` pozivnicom za njegovu adresu, registracija sa Menu tokenom, povratak na link posle prijave)?
+2. **BLOKADA — podešavanja stranice i sekcije nemaju pisca (REVIZIJA N3, srednje).** Šema i javni renderer znaju navigaciju stranice (`standalone` / `back` / `shared`), vidljivost i ikonicu stranice i opis, ikonicu i vidljivost sekcije, ali ih editor ne nudi i nijedna mutacija ih ne menja. Posledica: klijent ne može da uključi povratak ili zajedničku navigaciju (master §3.3), ni ikonicu i vidljivost kartice stranice (§3.4). K34 je ispravio samo naslov (stranica sada nosi svoje ime). Ovo je nova funkcija editora (meni stranice „Podešavanja stranice", meni sekcije, backend sa CAS-om, izlog), ne revizijska ispravka. Pitanje: ulazi li u V1 pre lansiranja?
+3. **BLOKADA — pun pregled nacrta (REVIZIJA N7, srednje).** Pregled uživo u editoru ne prikazuje slike, cene varijanti, akcije, oznake i alergene (model editora ih nema); K34 je to napisao u napomeni pregleda. Pun pregled traži izvor podataka: npr. jednokratan „Pregled nacrta" kompajliran istim `compilePage` (sa slikama), jer stalna pretplata na ceo nacrt košta. Pitanje: jednokratan pregled na dugme ili prošireni podaci reda?
+4. **Pozivnica posle gubitka prava pozivaoca (REVIZIJA N30, nisko).** Pozivnica važi 7 dana i kad pozivalac u međuvremenu izgubi pravo (npr. Menadžer uklonjen iz naloga); vlasnik je vidi u listi i može da je opozove. Provera uloge pozivaoca pri prihvatanju traži razrešenje uloge po korisniku u `convex/lib/access.ts` (van obima). Pitanje: da li pozivnice propadaju sa pozivaocem?
+5. **QR kartica koju je isključio ScanMe admin (REVIZIJA N26, nisko).** `menuQr.setCardActive` od K34 radi samo nad Menu karticama, ali vlasnik ili menadžer može ponovo da uključi Menu karticu koju je isključio admin (nema zapisa ko je isključio). Pitanje: treba li takva kartica da ostane zaključana za klijenta (marker na kartici, izmena `convex/cardsAdmin.ts`)?
+6. **Isti obrazac fajlova u Memories (REVIZIJA N1, info).** `convex/memoriesPipeline.ts` prima `storageId` iz zahteva na isti način kao Menu pre K34 (Memories je van obima runa). Predlog: ista provera kao `convex/menuMedia.ts` `blobOfUpload` (blob sačuvan posle rezervacije, najavljena veličina).
+7. **Štampa QR kartica i domen (REVIZIJA I14, info).** „Lokal i QR" štampa `${window.location.origin}/r/<kod>`; kartice odštampane sa preview ili localhost adrese zauvek vode tamo. Predlog: kanonski domen iz env-a i upozorenje kad se razlikuje. Do tada štampati samo sa produkcione adrese.
+8. **Redosled postavljanja `MENU_GATEWAY_SECRET` (REVIZIJA N29, nisko).** Ako tajna postoji na Convex-u, a Next je ne šalje (ili šalje drugu), sve kofe po IP-u postaju jedna zajednička kofa svih lokala. K34 dodaje jedno upozorenje u log (`MENU_GATEWAY_MISMATCH`); vrednost postaviti istovremeno u oba okruženja i odmah probati jedan sken stola i jedan PIN.
+9. **Merenja na deploymentu (REVIZIJA N33, N34, §2.4).** Grupno brisanje 200 „teških" artikala (procena ~4.200 čitanja prema granici 4.096) i vreme objave menija od 2.000 artikala × 10 jezika nisu mereni: run ne sme da gađa deployment. Predlog: `convex/menuPerfSeed.ts` obrazac na DEV-u pre lansiranja.
+10. **Globalna granica upisa analitike (REVIZIJA N5, ostatak).** K34 je dodao kofu po Menu usluzi (600 događaja u minuti), pa jedan lokal više ne može sam da zatrpa zajednički zbir (oko 42.000 događaja na sat za sve lokale). Nekoliko lokala zatrpanih istovremeno i dalje može da ga uspori; dok to traje, današnje brojke svih lokala kasne. Pitanje: da li je dovoljna zaštita hostinga (Vercel firewall za `POST /api/meni/analitika`), ili da se uvede globalna kofa, uz rizik da napad na jedan lokal utiša brojanje svima?
+11. **Arapski i hebrejski u javnom meniju (REVIZIJA N24).** K34 postavlja `dir="rtl"` za `ar` i `he`, ali CSS javnog menija koristi fizička svojstva (levo, desno), pa ogledalni raspored nije proveren ni ispravljen. Pitanje: (a) zadržati ova dva jezika i pre lansiranja proći RTL raspored ili (b) skloniti ih sa liste jezika prevoda dok raspored nije proveren.
 ---
 
 ## AMF go-live (30. 10. 2026) — podaci koje nisam pogađao

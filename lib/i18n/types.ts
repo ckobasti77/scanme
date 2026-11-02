@@ -11,6 +11,8 @@
 // interface grows when the screen is built.
 
 import type { ProductType, ServiceType } from "../admin-v1/catalog";
+import type { InsightId } from "../admin-v2/analytics/insight-ids";
+import type { BadgeId, FairChallengeId, FairNodeId, RankId, Rarity, XpActionId } from "../admin-v2/game/ids";
 import type {
   FairAdminIssueCode,
   FairAudienceQuestionStatus,
@@ -50,6 +52,32 @@ import type {
   FairSurveyStatus,
 } from "../fair-contract";
 import type { FairMapKey, FairMapZoneId } from "../fair-map/types";
+import type { MenuErrorCode } from "../menu/errors/core";
+import type { MenuPlanErrorCode } from "../menu/errors/plan";
+import type { RoomServiceErrorCode } from "../menu/errors/room-service";
+import type { ArticleErrorCode } from "../menu/errors/article";
+import type { MenuPublishIssueCode } from "../menu/errors/publish";
+import type { MenuPublishRefusal, MenuVersionErrorCode } from "../menu/errors/versions";
+import type { MenuMediaErrorCode } from "../menu/errors/media";
+import type { TranslationErrorCode } from "../menu/errors/translation";
+import type { PresentationErrorCode } from "../menu/errors/presentation";
+import type { FloorErrorCode } from "../menu/errors/floor";
+import type { RequestErrorCode } from "../menu/errors/requests";
+import type { StaffErrorCode } from "../menu/errors/waiter";
+import type { ReservationErrorCode } from "../menu/errors/reservations";
+import type { OperationsErrorCode } from "../menu/errors/operations";
+import type { TeamErrorCode } from "../menu/errors/team";
+import type { AnalyticsErrorCode } from "../menu/errors/analytics";
+import type { MenuAuditAction } from "../menu/audit";
+import type {
+  MenuMigrationErrorCode,
+  MenuMigrationIssueCode,
+  MenuMigrationManualCheck,
+} from "../menu/errors/migration";
+import type { MenuAllergenCode } from "../menu/allergens";
+import type { MenuTagCode } from "../menu/tags";
+import type { KonobarEkran, LokalPogled, PanelSekcija } from "../menu/izlog-params";
+import type { MenuPermission } from "../menu/permissions";
 
 export type Locale = "sr";
 
@@ -2437,7 +2465,7 @@ export interface AdminLocationDict {
 // the five group shapes' chrome, item detail bottom-sheet, pricing, and inquiry.
 export interface MenuDict {
   // Route metadata (§2.11).
-  metaTitle: string; // "{name} · Meni"
+  metaTitle: string; // "{name} — Meni"
   metaDescription: string; // "Pogledajte meni i ponudu lokala {name}."
   // 404 / empty state.
   notFoundTitle: string; // "Meni nije pronađen"
@@ -2472,6 +2500,106 @@ export interface MenuDict {
 // Concierge onboarding / migration tracking (primljeno → u izradi → na potvrdi → objavljeno),
 // PDF & Excel export actions, manual entitlement grant/deactivation, and
 // unsaved-changes publish warning. `{...}` placeholders go through fmt().
+// ScanMe Menu V1 (MENI run, K02) — shared domain words of the new Menu: the
+// default page name, mode and role labels, and the Serbian text of every core
+// error code (lib/menu/errors/core.ts). Panel, editor and waiter surfaces map
+// a caught code through `errors`.
+export interface MenuDomenDict {
+  /** Internal name of the page every new Menu service gets (master §3.2). */
+  defaultPageName: string;
+  /** Name of a duplicated page; {name}. */
+  pageCopyName: string;
+  modes: { hospitality: string; services: string; retail: string };
+  /** Unobtrusive service label (master §4.1); {mode}. */
+  serviceLabel: string;
+  roles: {
+    owner: string;
+    manager: string;
+    editor: string;
+    staff: string;
+    admin: string;
+  };
+  /** Admin warning before a mode change (master §4.1, §4.2). */
+  modeChangeNotice: string;
+  /** Core (K02), plan gate and Room service (K03), article model (K04) error codes. */
+  errors: Record<
+    | MenuErrorCode
+    | MenuPlanErrorCode
+    | RoomServiceErrorCode
+    | ArticleErrorCode
+    | MenuVersionErrorCode
+    | MenuMigrationErrorCode
+    | MenuMediaErrorCode
+    | TranslationErrorCode
+    | PresentationErrorCode
+    | FloorErrorCode
+    | RequestErrorCode
+    | StaffErrorCode
+    | ReservationErrorCode
+    | OperationsErrorCode
+    | TeamErrorCode
+    | AnalyticsErrorCode,
+    string
+  >;
+  // --- K04: the article model (master §5.4–§5.7, §7.3, §7.6).
+  /** The 14 standard allergen categories and `other` ("Drugo"), master §7.3. */
+  allergens: Record<MenuAllergenCode, string>;
+  /** "Sadrži" and "Može sadržati tragove" are kept apart. */
+  allergenKinds: { contains: string; mayContain: string };
+  /** Working disclaimer of master §7.3 (legal review pending). */
+  allergenDisclaimer: string;
+  /** Tags and dietary characteristics (lib/menu/tags.ts). */
+  tags: Record<MenuTagCode, string>;
+  /** Promotion badges (master §7.6). */
+  promoLabels: { promo: string; recommended: string };
+  /** The live operational state (master §5.6). */
+  unavailable: string;
+  /** Publish-validation issues (lib/menu/errors/publish.ts); errors block, warnings ask. */
+  publishIssues: Record<MenuPublishIssueCode, string>;
+  // --- K05: publishing and versions (master §6.1).
+  /** Why a publish or restore was refused (lib/menu/errors/versions.ts); nothing was written. */
+  publishRefusals: Record<MenuPublishRefusal, string>;
+  // --- K06: legacy migration and internal import (master §6.2, §6.3), for the ScanMe admin tool.
+  /** Report issues (lib/menu/errors/migration.ts): blockers, warnings, post-migration differences. */
+  migrationIssues: Record<MenuMigrationIssueCode, string>;
+  /** What the operator checks by hand before publishing (master §6.3). */
+  migrationManualChecks: Record<MenuMigrationManualCheck, string>;
+  /** Names used when the legacy one is empty. */
+  migrationFallbacks: { sectionName: string; variantName: string };
+  // --- K20: Lokal i QR (master §9.2).
+  /** Printed label of a new QR card that opens no particular page or position. */
+  qrCardDefaultLabel: string;
+  // --- K21: guest requests (master §8.1, §8.4), shared by the guest and the waiter panel.
+  /** Novi, Prihvaćen, Završen, Otkazan — never "Konobar je krenuo". */
+  requestStatuses: { new: string; accepted: string; done: string; cancelled: string };
+  /** Poziv konobara, Račun, Porudžbina. */
+  requestKinds: { call: string; bill: string; order: string };
+  /** How the guest wants to pay the bill (a preference, not a payment). */
+  paymentPreferences: { cash: string; card: string };
+  // --- K25: reservations (master §11), shared by the guest, the waiter panel and the client panel.
+  /** Nova, Prihvaćena, Odbijena, Predložena izmena, Realizovana, Otkazana (staff wording). */
+  reservationStatuses: {
+    new: string;
+    accepted: string;
+    declined: string;
+    change_proposed: string;
+    arrived: string;
+    cancelled: string;
+  };
+  /** Monday first: Pon, Uto, Sre, Čet, Pet, Sub, Ned. */
+  weekdaysShort: readonly string[];
+  /** Monday first, full names (the working-hours form). */
+  weekdays: readonly string[];
+  /** "Danas", "Sutra". */
+  relativeDays: { today: string; tomorrow: string };
+  /** A reservation's date and time: {datum} · {vreme}. */
+  reservationTerm: string;
+  /** {dan} {d}. {m}. — "Sub 25. 10." */
+  shortDate: string;
+  /** "4 osobe" (the number of guests). */
+  guests: MenuStudioMnozina;
+}
+
 export interface MenuAdminDict {
   // Screen chrome & navigation.
   eyebrow: string;
@@ -2588,6 +2716,60 @@ export interface MenuAdminDict {
   deactivateDialogBody: string;
   deactivateConfirm: string;
   deactivateCancel: string;
+
+  // K28 — the internal tool of the new Menu model: the service mode (only
+  // ScanMe changes it, master §4.1) and the import into the draft (K06).
+  rezimNaslov: string;
+  rezimOpis: string;
+  rezimNemaUsluge: string;
+  rezimTrenutni: string;
+  /** {datum} */
+  rezimPostavljen: string;
+  rezimIzbor: string;
+  rezimNedostupno: { services: string; retail: string };
+  rezimPromeni: string;
+  rezimDijalogNaslov: string;
+  rezimUpozorenje: string;
+  rezimGase: string;
+  rezimNistaSeNeGasi: string;
+  rezimUkljucena: string;
+  rezimVecIskljucena: string;
+  rezimIzaberiDrugi: string;
+  /** {naziv} */
+  rezimPotvrdaOznaka: string;
+  rezimPotvrdaPomoc: string;
+  rezimPotvrdi: string;
+  rezimOdustani: string;
+  /** {funkcije} */
+  rezimUspeh: string;
+  rezimUspehBezGasenja: string;
+  rezimBezPromene: string;
+  rezimGreska: string;
+  rezimFunkcije: {
+    callWaiter: string;
+    billRequest: string;
+    ordering: string;
+    roomService: string;
+    occupancy: string;
+    reservations: string;
+  };
+  uvozNaslov: string;
+  uvozOpis: string;
+  uvozPolje: string;
+  uvozPomoc: string;
+  uvozProveri: string;
+  uvozUvezi: string;
+  uvozRadi: string;
+  /** {grupe} {artikli} */
+  uvozIzvestaj: string;
+  /** {upozorenja} {duplikati} */
+  uvozUpozorenja: string;
+  uvozBlokirano: string;
+  uvozSpremno: string;
+  /** {artikli} */
+  uvozUspeh: string;
+  uvozNeispravan: string;
+  uvozGreska: string;
 }
 
 // menu-editor — the Menu editor shell (components/menu/editor/**, TASK-51),
@@ -2605,6 +2787,8 @@ export interface MenuEditorDict {
   menuAlreadyExists: string;
   draftChanged: string;
   itemNotFound: string;
+  /** K06: a legacy writer refused after the cutover to the new Menu model. */
+  legacyMigrated: string;
   // The five group shapes (components/menu/blocks/registry.tsx).
   shapeLabelLista: string;
   shapeLabelGalerija: string;
@@ -2638,6 +2822,7 @@ export interface MenuEditorDict {
   saveStateError: string;
   saveRetryHint: string;
   saveErrorFallback: string;
+  fontSistemsko: string;
   savedToast: string;
   // Publish dialog + revision conflict.
   publishDialogTitle: string;
@@ -3234,6 +3419,26 @@ export interface AdminV1Dict {
   dashboardWidgetErrorBody: string;
   dashboardFixtureBadge: string;
   dashboardFixtureDescription: string;
+  /** ADMIN v2 X2 — quick jumps of the Dashboard sidebar (lists opened with a filter). */
+  dashboardJumpInboxReply: string;
+  dashboardJumpOrdersProblem: string;
+  dashboardJumpQrProblem: string;
+  dashboardJumpVenuesProblem: string;
+  /** ADMIN v2 X2 — „Misije danas“ of the Dashboard sidebar. */
+  dashboardMissionUrgent: string;
+  dashboardMissionToday: string;
+  dashboardMissionTasksOverdue: string;
+  dashboardMissionTasksToday: string;
+  dashboardMissionInboxUnread: string;
+  /** ADMIN v3 V2 — the Constellation, the hero of the Dashboard. */
+  dashboardConstellationHint: string;
+  dashboardConstellationSummary: string;
+  dashboardConstellationSummaryUnavailable: string;
+  dashboardConstellationWaiting: string;
+  dashboardConstellationMore: string;
+  dashboardConstellationMoreMark: string;
+  dashboardConstellationHide: string;
+  dashboardConstellationShow: string;
   moduleUnavailableTitle: string;
   moduleUnavailableBody: string;
   loadingLabel: string;
@@ -3417,6 +3622,12 @@ export interface AdminV1Dict {
   clientProfileLoadMore: string;
   clientProfileProblemTitle: string;
   clientProfileProblemHistory: string;
+  /** Activity of an account: the label of each audit action code (the code stays in the tooltip). */
+  clientProfileActivityActions: Record<string, string>;
+  clientProfileActivityUnknown: string;
+  /** History of an open item: the label of each event kind. */
+  clientProfileProblemEvents: Record<string, string>;
+  clientProfileProblemUnknown: string;
   clientProfileProblemAutomatic: string;
   clientProfileResolutionNote: string;
   clientProfileResolutionNotePlaceholder: string;
@@ -3440,6 +3651,7 @@ export interface AdminV1Dict {
 }
 
 export interface AdminSettingsDict {
+  errorBody: string;
   title: string; subtitle: string; general: string; subscriptions: string; payments: string; communication: string; pricing: string; referral: string;
   timezone: string; currency: string; policyVersion: string; readOnly: string; monthlyWarning: string; annualWarning: string; monthlyGrace: string; annualGrace: string; days: string; lifecycleNote: string;
   bankTransfer: string; supported: string; card: string; unavailable: string; cash: string; notConfigured: string; paymentNote: string;
@@ -3463,6 +3675,8 @@ export interface AdminTasksDict {
   filterClient: string;
   filterVenue: string;
   filterSubject: string;
+  /** ADMIN v2 X2 — shown in the sidebar group „Lokal“ until a client is chosen. */
+  filterVenueNeedsClient: string;
   filterAll: string;
   noVenue: string;
   subjectNone: string;
@@ -3906,6 +4120,7 @@ export interface AdminTeamDict {
   claim: string;
   noTasks: string;
   noConversations: string;
+  noConversationsBody: string;
   loading: string;
   errorTitle: string;
   errorBody: string;
@@ -3996,6 +4211,8 @@ export interface AdminProductsDict {
   channelNfc: string;
   channelState: string;
   channelReason: string;
+  /** Shown when a channel has no recorded reason. */
+  channelReasonNone: string;
   productTypeTwoPiece: string;
   productTypeCompact: string;
   productTypeSticker: string;
@@ -4112,6 +4329,11 @@ export interface AdminSearchDict {
   activitySubtitle: string;
   activityAllCategories: string;
   activityAllActors: string;
+  /** ADMIN v2 X2 — names of the sidebar groups of Pretraga. */
+  groupLabel: string;
+  activityCategoryLabel: string;
+  activityActorLabel: string;
+  scopeLabel: string;
   activityClient: string;
   activityCommunication: string;
   activityTask: string;
@@ -4332,6 +4554,8 @@ export interface AdminEventsDict {
   noEventsTitle: string;
   noEventsBody: string;
   sectionsAria: string;
+  /** ADMIN v2 X6 — header of the folded section navigation in the sidebar („Sekcija · Modeli“). */
+  sectionFold: string;
   /** Admin UX A2 — navigation label of every section route (lib/admin-v1/event-sections.ts). */
   sectionLabels: {
     pregled: string;
@@ -4366,6 +4590,7 @@ export interface AdminEventsDict {
   backToOverview: string;
   backToList: string;
   modelNotFoundBody: string;
+  modelNotFoundTitle: string;
   openDetail: string;
   interactionExhibitors: {
     subtitle: string;
@@ -4806,6 +5031,7 @@ export interface AdminEventsDict {
   cancel: string;
   qrSubtitle: string;
   qrNotConfigured: string;
+  qrNotConfiguredTitle: string;
   qrEmpty: string;
   assignCode: string;
   assignCodePlaceholder: string;
@@ -4870,6 +5096,7 @@ export interface AdminEventsDict {
     otherClientsTitle: string;
     otherClientsHelp: string;
     otherClientsEmpty: string;
+    otherClientsEmptyTitle: string;
   };
   /** Admin UX A5 — the table import guide (lib/fair-import/*): source, column mapping, preview with dry run, commit. */
   importGuide: {
@@ -5177,6 +5404,7 @@ export interface AdminEventsDict {
   surveySave: string;
   surveySaved: string;
   surveysEmpty: string;
+  surveysEmptyTitle: string;
   surveysNoModels: string;
   surveyVersion: string;
   surveyPublish: string;
@@ -5198,6 +5426,7 @@ export interface AdminEventsDict {
     promptEmpty: string;
     noDays: string;
     noModels: string;
+    noModelsTitle: string;
     pickSublabel: string;
     pickNotEntitled: string;
     pickPending: string;
@@ -5485,6 +5714,7 @@ export interface AdminEventsDict {
   sponsoredItemsTitle: string;
   sponsoredItemsHelp: string;
   sponsoredItemsEmpty: string;
+  sponsoredItemsEmptyTitle: string;
   sponsoredItemLine: string;
   sponsoredItemResult: string;
   sponsoredItemNoResult: string;
@@ -5492,6 +5722,7 @@ export interface AdminEventsDict {
   sponsoredResultHelp: string;
   sponsoredResultNone: string;
   sponsoredResultNoModels: string;
+  sponsoredResultNoModelsTitle: string;
   sponsoredResultNoQuestions: string;
   sponsoredResultSaved: string;
   sponsoredHistoryTitle: string;
@@ -5504,6 +5735,7 @@ export interface AdminEventsDict {
   reportsBuildTitle: string;
   reportsBuildHelp: string;
   reportsBuildEmpty: string;
+  reportsBuildEmptyTitle: string;
   reportsDay: string;
   reportsExhibitor: string;
   reportsFormat: string;
@@ -5564,6 +5796,7 @@ export interface AdminEventsDict {
   retentionRunsTitle: string;
   retentionRunsHelp: string;
   retentionRunsEmpty: string;
+  retentionRunsEmptyTitle: string;
   retentionRunLine: string;
   retentionRunFinished: string;
   retentionRunProgress: string;
@@ -5685,6 +5918,318 @@ export interface AdminEventsAnalyticsDict {
   /** {sample} {bots} */
   devicesNote: string;
   tiers: { included: string; starter: string; advanced: string };
+  /** ADMIN v2 X3 — Analitika v2: every chart answers one question. */
+  v2: AdminEventsAnalyticsV2Dict;
+}
+
+export interface AdminEventsAnalyticsV2Dict {
+  onThisPage: string;
+  loadingPart: string;
+  capped: string;
+  /** {count} */
+  modelsCount: string;
+  table: { value: string; share: string; day: string; hour: string; total: string };
+  /** Counted nouns in their three forms (1, 2–4, 5+). */
+  units: {
+    scans: readonly [string, string, string];
+    uniques: readonly [string, string, string];
+    visitors: readonly [string, string, string];
+  };
+  kpi: {
+    question: string;
+    today: string;
+    total: string;
+    /** {total} */
+    totalHint: string;
+    /** {diff} */
+    deltaFullDay: string;
+    /** {diff} {hour} */
+    deltaSameTime: string;
+    deltaNone: string;
+    /** {percent} */
+    deltaPercent: string;
+    trendTitle: string;
+    /** {label} {values} */
+    trendAria: string;
+    /** {day} {value} */
+    trendPoint: string;
+    leadsZero: string;
+    moreTitle: string;
+  };
+  funnel: {
+    title: string;
+    question: string;
+    steps: { scans: string; visitors: string; engaged: string; leads: string };
+    help: { scans: string; visitors: string; engaged: string; leads: string };
+    /** {share} */
+    rate: string;
+    /** {value} */
+    perVisitor: string;
+    columnStep: string;
+    columnRate: string;
+    zeroTitles: { visitors: string; engaged: string; leads: string };
+    /** {visitors} */
+    leadsZeroBody: string;
+    leadsZeroChecks: readonly string[];
+    openLeadSettings: string;
+    openForms: string;
+    engagedZeroBody: string;
+    note: string;
+  };
+  matrix: {
+    title: string;
+    question: string;
+    /** {day} {hour} {scans}: the number with its noun */
+    cell: string;
+    /** {day} {hour} */
+    cellEmpty: string;
+    /** {day} {hour} {scans}: the number with its noun */
+    peak: string;
+    /** {max} */
+    scaleMax: string;
+    dayTotal: string;
+    keyboardHint: string;
+    empty: string;
+  };
+  leaderboard: {
+    title: string;
+    question: string;
+    rank: string;
+    move: string;
+    /** {places} */
+    moveUp: string;
+    /** {places} */
+    moveDown: string;
+    moveSame: string;
+    moveNew: string;
+    moveHelp: string;
+    trend: string;
+    today: string;
+    /** {share} */
+    fairShare: string;
+    /** {model} */
+    open: string;
+    /** {count} */
+    showAll: string;
+    /** {count} */
+    showTop: string;
+    medals: { 1: string; 2: string; 3: string };
+    /** {rank} */
+    place: string;
+  };
+  detail: {
+    title: string;
+    description: string;
+    close: string;
+    loading: string;
+    errorTitle: string;
+    errorBody: string;
+    retry: string;
+    notFound: string;
+    /** {stand} {tier} */
+    meta: string;
+    kpi: { scans: string; unique: string; repeated: string; leads: string; conversion: string; votes: string; rating: string };
+    repeatedHelp: string;
+    conversionHelp: string;
+    compareTitle: string;
+    compareQuestion: string;
+    compareModel: string;
+    /** {stand} {models} */
+    compareStand: string;
+    /** {models} */
+    compareFair: string;
+    compareAlone: string;
+    daysTitle: string;
+    daysQuestion: string;
+    legendUnique: string;
+    legendRepeated: string;
+    /** {day} {unique} {repeated} */
+    dayTip: string;
+    hoursTitle: string;
+    hoursQuestion: string;
+    ratingsTitle: string;
+    ratingsQuestion: string;
+    ratingsEmpty: string;
+    /** {average} {count} */
+    ratingsSummary: string;
+    ratingBuckets: readonly [string, string, string, string, string];
+    /** {label} {count} */
+    ratingTip: string;
+    votesTitle: string;
+    votesEmpty: string;
+    /** {votes} */
+    votesCount: string;
+    leadsTitle: string;
+    /** {interest} {testDrive} */
+    leadsLine: string;
+    leadsEmpty: string;
+    garageNote: string;
+  };
+  stands: {
+    title: string;
+    question: string;
+    legendTitle: string;
+    other: string;
+    /** {exhibitor} {scans} */
+    segment: string;
+    /** {stand} */
+    open: string;
+    today: string;
+    /** ADMIN v2 X4 — what the place, the medal, the arrow and the badge of the day measure. */
+    rankHelp: string;
+  };
+  /** ADMIN v2 X4 — records and badges computed from the data (a tag beside a chart, a toast on a new one). */
+  records: {
+    hour: string;
+    /** {scans}: the number with its noun {day} {hour} */
+    hourValue: string;
+    stand: string;
+    /** {stand} {scans}: the number with its noun */
+    standValue: string;
+    firstLead: string;
+    /** {day} */
+    firstLeadValue: string;
+    /** {value}: the record hour is the one that still runs. */
+    hourRunning: string;
+    /** {scans}: the number with its noun; beside the row of the stand itself. */
+    standToday: string;
+    /** {scans}: the number with its noun {hour} */
+    toastHour: string;
+    /** {stand} */
+    toastStand: string;
+    toastFirstLead: string;
+  };
+  packages: {
+    title: string;
+    question: string;
+    perModel: string;
+    columnModels: string;
+    /** {models} {scans} */
+    row: string;
+    single: string;
+    note: string;
+  };
+  depth: {
+    title: string;
+    question: string;
+    buckets: { one: string; two: string; three: string; fourPlus: string };
+    /** {value} */
+    headline: string;
+    headlineHelp: string;
+    /** {label} {visitors} {share} */
+    bucket: string;
+    columnBucket: string;
+    columnVisitors: string;
+    empty: string;
+  };
+  passport: {
+    title: string;
+    question: string;
+    steps: { stampVisitors: string; stamps: string; completed: string };
+    /** {share} {completed} {visitors} */
+    summary: string;
+    /** {stamps} */
+    stampsLine: string;
+    empty: string;
+    note: string;
+  };
+  heat: {
+    title: string;
+    question: string;
+    viewLabel: string;
+    view2d: string;
+    view3d: string;
+    unavailable3d: string;
+    help3d: string;
+    reset3d: string;
+    /** {max} */
+    heightToday: string;
+    /** {max} */
+    heightHour: string;
+    canvasLabel: string;
+    zones: { hala: string; ispred: string };
+    /** {zones} */
+    zonesEmpty: string;
+    /** {stand} {count}: the number with its noun {share} */
+    standRow: string;
+    standsTitle: string;
+    /** {stand} */
+    standTitle: string;
+    standPick: string;
+    standClose: string;
+    standModels: string;
+    standNoModels: string;
+    /** {stand} {value}: the number with its noun */
+    blockLabel: string;
+    columnHeight: string;
+    /** {exhibitors} */
+    standExhibitors: string;
+    /** ADMIN v3 V3 — a column of the 3D hall is layered by hour. */
+    layers: string;
+    /** {time} {max} */
+    heightMoment: string;
+  };
+  /** ADMIN v3 V3 — the Vremeplov under the hall and the excerpt of the hall on Pregled. */
+  timelapse: {
+    title: string;
+    days: string;
+    live: string;
+    play: string;
+    pause: string;
+    slider: string;
+    rankTitle: string;
+    /** {time} */
+    rankAt: string;
+    /** {stand} */
+    rankRow: string;
+    /** {time} */
+    rankEmpty: string;
+    /** {time} {stand} {count}: the number with its noun */
+    announce: string;
+    /** {time} */
+    announceEmpty: string;
+    loading: string;
+    error: string;
+    retry: string;
+    empty: string;
+    none: string;
+    /** {unread} */
+    capped: string;
+    help: string;
+    /** {day} */
+    tableCaption: string;
+    tableStand: string;
+    /** {hour} */
+    tableHour: string;
+    miniTitle: string;
+    miniQuestion: string;
+    miniOpen: string;
+    miniEmpty: string;
+    miniLabel: string;
+    /** {stand} {count}: the number with its noun */
+    miniSummary: string;
+  };
+  devices: {
+    title: string;
+    /** {kind} {share} {count} {total} */
+    top: string;
+    /** {kind} {count} */
+    rest: string;
+    /** {bots} */
+    bots: string;
+    note: string;
+    empty: string;
+  };
+  insights: {
+    title: string;
+    question: string;
+    empty: string;
+    note: string;
+    and: string;
+    otherDays: string;
+    problemLabel: string;
+    items: Record<InsightId, string>;
+  };
 }
 
 /**
@@ -5693,6 +6238,13 @@ export interface AdminEventsAnalyticsDict {
  * backend (fairDashboard.getEventDashboard) returns rules and numbers only.
  */
 export interface AdminEventsDashboardDict {
+  /** ADMIN v2 X3 — the link from the KPI row to Analitika. */
+  openAnalytics: string;
+  /**
+   * ADMIN v2 X3 — the live strip of the open fair day: {share} = "94 %" of the
+   * day passed, {left} = time to its end; {hitno} / {uskoro} = open items.
+   */
+  live: { label: string; region: string; progressLabel: string; progress: string; progressText: string; todo: string; todoHint: string; todoClear: string };
   title: string;
   /** sajam: {day} of {count}. */
   phase: Record<FairDashboardPhase, string>;
@@ -6140,9 +6692,54 @@ export interface AdminUiDict {
     activeLabel: string;
     /** {label} = chip text. */
     removeChip: string;
-    /** `<select>` option that turns a facet off. */
+    /** The option that turns a filter off. */
     any: string;
+    /** ADMIN v2 — the contextual sidebar (views, search, accordion, chips, sort). */
+    clearAll: string;
+    /** Action of an empty state after filtering. */
+    clearFilters: string;
+    views: string;
+    groups: string;
+    sort: string;
+    /** Group header with the current choice: {group}, {value}. */
+    groupWithValue: string;
+    /** Search field of a long group: {group}. */
+    searchIn: string;
+    noMatches: string;
+    /** {shown}, {total}. */
+    moreMatches: string;
+    /** {count} matching options (screen reader). */
+    matchesAnnounce: string;
+    period: string;
+    /** ADMIN v2 X2 — the name of a status group in the sidebar. */
+    status: string;
+    /** ADMIN v2 X2 — labels of the views block: sections of a page (Podešavanja, profil) and its view (Tim, Finansije, Pretraga). */
+    sections: string;
+    view: string;
+    /** ADMIN v2 X2 — under a sidebar search that is written on Enter (Pošta). */
+    searchOnEnter: string;
   };
+  /** ADMIN v2 — the frame: sidebar, navbar, screen and the phone drawer. */
+  frame: {
+    home: string;
+    sidebarAria: string;
+    mainNavTitle: string;
+    openMenu: string;
+    drawerTitle: string;
+    drawerDescription: string;
+    search: string;
+    searchShortcut: string;
+    /** ADMIN v2 X6 — the theme switch in the profile menu (between lg and xl its button has no room in the navbar). */
+    darkTheme: string;
+    jumpsTitle: string;
+    /** ADMIN v2 X2 — label of the sub-page navigation of an area (Operativa, Usluge) for assistive technology. */
+    areaNav: string;
+    /** ADMIN v2 X2 — „Misije danas“ in the Dashboard sidebar. */
+    missionsTitle: string;
+    missionsClear: string;
+  };
+  /** ADMIN v2 X6 — a page of the admin that failed, shown inside the frame (app/admin/error.tsx). */
+  routeError: { title: string; body: string; bodyWithFilters: string; clearFilters: string };
   /** A3 — AdminHierarchyPicker (Izlagač → Brend → Model). */
   hierarchy: {
     exhibitor: string;
@@ -6181,6 +6778,248 @@ export interface AdminUiDict {
     duplicateRow: string;
     emptyRow: string;
   };
+  /** ADMIN v2 X4 — missions with progress (the Dashboard sidebar, Zadaci, Pregled of an event). */
+  missions: {
+    /** {done} {total} {noun}: missions solved today; {noun} is `units` in the form of {total}. */
+    progress: string;
+    /** {title} {done} {total} {noun} */
+    progressAria: string;
+    /** „misija“ after „od N“, in its three forms (1, 2–4, 5+). */
+    units: readonly [string, string, string];
+    /** {done} {total}: items solved inside one mission, beside its row. */
+    rowProgress: string;
+    /** The same for a screen reader: {done} {total}. */
+    rowProgressAria: string;
+    /** {label}: a mission with nothing left in it. */
+    resolved: string;
+    /** {label} {done} {total}: a mission that lost items and still has some. */
+    resolvedPart: string;
+    /** {count}: a number the read could only give as "at least". */
+    capped: string;
+    clearTitle: string;
+    clearBody: string;
+    /** The all-clear after it was already shown today. */
+    clearQuiet: string;
+  };
+  /** ADMIN v2 X4 — the HUD „Danas“ at the bottom of the sidebar. */
+  hud: {
+    title: string;
+    live: string;
+    /** {day} {count} */
+    day: string;
+    /** {left} */
+    left: string;
+    /** {day} {count} {left} */
+    nextDay: string;
+    /** {share} {left} */
+    progressText: string;
+    progressLabel: string;
+    scansToday: string;
+    /** {event} */
+    open: string;
+    /** {time}: instead of „Uživo“ when the last read is old. */
+    stale: string;
+  };
+  /** ADMIN v2 X4 — keyboard shortcuts and their list (`?`). */
+  shortcuts: {
+    title: string;
+    description: string;
+    /** Between the two keys of a sequence (G then D). */
+    then: string;
+    /** Tooltip of a control: {label} {keys}. */
+    hint: string;
+    groups: { global: string; go: string; page: string };
+    items: {
+      palette: string;
+      help: string;
+      pageSearch: string;
+      goDashboard: string;
+      goClients: string;
+      goInbox: string;
+      goTasks: string;
+      goEvents: string;
+      goFinance: string;
+      /** ADMIN v3 V4 — G V opens the Vitrina (the badges of the operator). */
+      goVitrina: string;
+      escape: string;
+    };
+    inputNote: string;
+    /** ADMIN v3 V1 — the chip of the navbar while the letter after G is awaited, and what it says to assistive technology. */
+    goPending: string;
+    goPendingAria: string;
+  };
+  /** ADMIN v2 X4 — the quiet mode switch of the profile menu. */
+  quiet: { label: string; hint: string };
+  /** ADMIN v3 V1 — the Pulse of the navbar: what the line shows, for assistive technology. */
+  pulse: { description: string };
+  /** ADMIN v2 X4 — the toast region of the frame. */
+  toast: { region: string; dismiss: string };
+  /** ADMIN v3 V4 — the game: operator, combo, streak, boss of the day, badges, team, fair missions, ceremonies. */
+  game: AdminGameDict;
+}
+
+/** ADMIN v3 V4 — the texts of the game (lib/i18n/sr/admin-game.ts). */
+export interface AdminGameDict {
+  ranks: Record<RankId, string>;
+  rarity: Record<Rarity, string>;
+  operator: {
+    title: string;
+    /** {level} */
+    level: string;
+    /** {level}: the short form in the chip of the navbar. */
+    levelShort: string;
+    /** {rank} {level}: what the chip says to assistive technology. */
+    chip: string;
+    /** {into} {span} {next} */
+    progress: string;
+    progressLabel: string;
+    /** {xp} */
+    xp: string;
+    /** {xp} */
+    today: string;
+    /** {xp}: what an action has just carried, beside the chip. */
+    gain: string;
+    /** {date}: the history is longer than what was read. */
+    since: string;
+    loading: string;
+  };
+  xpActions: Record<XpActionId, string>;
+  combo: {
+    label: string;
+    /** {n} */
+    multiplier: string;
+    /** {count} {n} */
+    toNext: string;
+    top: string;
+    /** {n} {chain} */
+    aria: string;
+    help: string;
+  };
+  streak: {
+    label: string;
+    /** „dan“ after a number, in its three forms (1, 2–4, 5+). */
+    days: readonly [string, string, string];
+    /** {count} {noun} */
+    value: string;
+    none: string;
+    todayOpen: string;
+    todayDone: string;
+    /** {day} {best} {noun} */
+    broken: string;
+    /** {date} */
+    since: string;
+    rule: string;
+  };
+  boss: {
+    title: string;
+    /** {hp} {max} */
+    value: string;
+    /** {time} */
+    down: string;
+    none: string;
+    unavailable: string;
+    returned: string;
+    /** {damage} */
+    hitMine: string;
+    /** {damage} */
+    hitTeam: string;
+    snoozed: string;
+    /** {amount} */
+    grew: string;
+    help: string;
+  };
+  badges: Record<BadgeId, { name: string; condition: string }>;
+  vitrina: {
+    title: string;
+    description: string;
+    open: string;
+    /** {date} */
+    earned: string;
+    /** {count} {date} */
+    earnedCount: string;
+    locked: string;
+    /** {condition} */
+    condition: string;
+    /** {value} {goal} */
+    progress: string;
+    groupPersonal: string;
+    groupFair: string;
+    fairNote: string;
+    localNote: string;
+    /** {earned} {total} */
+    count: string;
+    /** {name} {rarity} {state}: one badge of the grid, for assistive technology. */
+    badgeAria: string;
+    sceneHint: string;
+    close: string;
+  };
+  team: {
+    title: string;
+    stripTitle: string;
+    /** {date} */
+    week: string;
+    columns: { place: string; member: string; xp: string; actions: string; combo: string; move: string };
+    me: string;
+    /** {xp} */
+    atLeast: string;
+    capped: string;
+    empty: string;
+    loading: string;
+    medals: readonly [string, string, string];
+    /** {rank} */
+    place: string;
+    /** {n} */
+    moveUp: string;
+    /** {n} */
+    moveDown: string;
+    moveSame: string;
+    openTeam: string;
+    note: string;
+  };
+  fair: {
+    chainTitle: string;
+    chainHint: string;
+    nodes: Record<FairNodeId, { name: string; hint: string }>;
+    state: { locked: string; open: string; lit: string };
+    /** {done} {total} */
+    progress: string;
+    challengesTitle: string;
+    challengesHint: string;
+    /** {goal} where the challenge has one. */
+    challenges: Record<FairChallengeId, string>;
+    done: string;
+    missed: string;
+    /** {value} {goal} */
+    value: string;
+  };
+  ceremony: {
+    /** {level} */
+    level: string;
+    /** {rank} */
+    rankUp: string;
+    /** {rank} {level}: the second line of a level or a rank. */
+    levelBody: string;
+    boss: string;
+    bossBody: string;
+    /** {name} */
+    badge: string;
+    record: string;
+    /** {count} */
+    more: string;
+    moreBody: string;
+    skipHint: string;
+    region: string;
+  };
+  /** The dev page that shows the states of the game with TEST data. */
+  demo: {
+    title: string;
+    description: string;
+    badge: string;
+    statesTitle: string;
+    actionsTitle: string;
+    buttons: { resolve: string; combo: string; level: string; badge: string; epicBadge: string; boss: string; record: string; many: string; newBacklog: string; reset: string; vitrina: string };
+    fairTitle: string;
+  };
 }
 
 /** Admin UX Z1 — Pošta: each admin's own Zoho mailbox, read live (ADMIN-UX-ZAHTEVI §10). */
@@ -6218,6 +7057,8 @@ export interface PostaDict {
   searchClear: string;
   /** {query}. */
   searchScope: string;
+  /** ADMIN v2 X2 — shown with the search results while the view is „Nepročitane“. */
+  searchIgnoresUnread: string;
   unread: string;
   hasAttachment: string;
   noSubject: string;
@@ -6402,6 +7243,3303 @@ export interface FairDemoDict {
   dates: string;
 }
 
+// ScanMe Menu V1 — shared panel primitives (components/menu/zajednicko) and the
+// izlog dev routes (K07).
+export interface MenuZajednickoDict {
+  stanja: {
+    ucitavanje: string;
+    greskaNaslov: string;
+    greskaOpis: string;
+    pokusajPonovo: string;
+    offlineNaslov: string;
+    /** {vreme} */
+    offlineOpis: string;
+    offlineBezVremena: string;
+  };
+  dugme: { radiSe: string };
+  fioka: { zatvori: string };
+  cuvanje: { sacuvano: string; cuvaSe: string; nijeSacuvano: string };
+  objava: {
+    oznaka: string;
+    /** {broj} */
+    objavljeno: string;
+    /** {kada}: "danas u 14:32", "12. 10. u 9:05" */
+    objavljenoKada: string;
+    nikadObjavljeno: string;
+    gostiNeVide: string;
+    bezIzmena: string;
+    /** When only the existence of changes is known (the editor header, K10). */
+    imaIzmena: string;
+    /** {n}, Serbian plural categories (srPluralCategory). */
+    izmeneOne: string;
+    izmeneFew: string;
+    izmeneMany: string;
+  };
+  izlog: {
+    naslovi: Record<"panel" | "konobar" | "lokal" | "editor" | "javni", string>;
+    oznaka: string;
+    /** {korak} */
+    korakNaslov: string;
+    /** {korak} */
+    korakOpis: string;
+    /** {korak} */
+    offlineKorak: string;
+    /** {korak} */
+    panelOkvirKorak: string;
+    ostaliEkrani: string;
+    sveRute: string;
+    rute: Record<"panel" | "editor" | "javni" | "lokal" | "konobar", string>;
+    panelSekcije: Record<PanelSekcija, string>;
+    konobarEkrani: Record<KonobarEkran, string>;
+    lokalPogledi: Record<LokalPogled, string>;
+    primitivi: {
+      naslov: string;
+      opis: string;
+      sekcije: Record<
+        | "dugmad"
+        | "dugmadOpis"
+        | "ikoniceDugmad"
+        | "ikoniceDugmadOpis"
+        | "statusi"
+        | "statusiOpis"
+        | "zaglavlja"
+        | "zaglavljaOpis"
+        | "kartice"
+        | "karticeOpis"
+        | "stanja"
+        | "stanjaOpis"
+        | "kontrole"
+        | "kontroleOpis"
+        | "fioka"
+        | "fiokaOpis"
+        | "trakaRadnji"
+        | "trakaRadnjiOpis",
+        string
+      >;
+      primeri: Record<
+        | "objavi"
+        | "pregled"
+        | "sacuvaj"
+        | "dodajArtikal"
+        | "otkazi"
+        | "obrisi"
+        | "preuzmi"
+        | "zavrsi"
+        | "onemoguceno"
+        | "objavljujeSe"
+        | "cuvaSe"
+        | "dodajeSe"
+        | "briseSe"
+        | "objavljenoKada"
+        | "izmeni"
+        | "jos"
+        | "premesti"
+        | "zvuk"
+        | "statusObjavljeno"
+        | "statusNacrt"
+        | "statusNovi"
+        | "statusPrihvacen"
+        | "statusZavrsen"
+        | "statusOtkazan"
+        | "statusGreska"
+        | "statusZakljucano"
+        | "naslovStranice"
+        | "kontekst"
+        | "karticaNaslov"
+        | "karticaTekst"
+        | "karticaUtisana"
+        | "karticaIstaknuta"
+        | "karticaIstaknutaTekst"
+        | "praznoNaslov"
+        | "praznoOpis"
+        | "greskaNaslov"
+        | "prekidacNaziv"
+        | "prekidacOpis"
+        | "prekidacIskljucenNaziv"
+        | "prekidacIskljucenOpis"
+        | "potvrdaNaziv"
+        | "potvrdaOpis"
+        | "potvrdaGreska"
+        | "fiokaOtvori"
+        | "fiokaNaslov"
+        | "fiokaOpis"
+        | "trakaOznaka"
+        | "offlineVreme",
+        string
+      > & { fiokaStavke: readonly string[] };
+    };
+  };
+}
+
+// ScanMe Menu V1 — the client panel shell and its sections (K08). The eight
+// sections of master §13.1, in order; `lib/menu/panel-nav.ts` owns the list.
+export type MenuPanelSekcija =
+  | "pocetna"
+  | "editor"
+  | "operativa"
+  | "lokal"
+  | "funkcionalnosti"
+  | "tim"
+  | "analitika"
+  | "podesavanja";
+/** Sections whose screen is not built yet show an honest "coming here" state. Editor opens the editor. */
+export type MenuPanelSekcijaUPripremi = Exclude<MenuPanelSekcija, "editor">;
+/**
+ * One line of "what will be here"; `premium` marks what the Premium account
+ * unlocks; `dozvola` hides a line from a role that will not see it (an Urednik
+ * is not promised the Operativa summary).
+ */
+export type MenuPanelStavka = { readonly tekst: string; readonly premium?: true; readonly dozvola?: MenuPermission };
+
+export interface MenuPanelDict {
+  meta: {
+    /** {naziv} */
+    naslov: string;
+    naslovPanela: string;
+  };
+  sekcije: Record<MenuPanelSekcija, string>;
+  shell: {
+    preskoci: string;
+    navigacija: string;
+    otvoriNavigaciju: string;
+    skupiNavigaciju: string;
+    prosiriNavigaciju: string;
+    /** {uloga} */
+    uloga: string;
+    /** Under the role line when the role sees fewer than eight sections. */
+    ostaleSekcije: string;
+    nazadNaKlijentskiPanel: string;
+    premium: string;
+  };
+  sekcija: {
+    opisi: Record<MenuPanelSekcija, string>;
+    uPripremi: string;
+    praznoNaslov: string;
+    praznoOpis: Record<MenuPanelSekcijaUPripremi, string>;
+    staDolazi: string;
+    stavke: Record<MenuPanelSekcijaUPripremi, readonly MenuPanelStavka[]>;
+    premiumOznaka: string;
+    premiumUkljucen: string;
+    premiumZakljucan: string;
+    premiumNapomena: string;
+    napomenaMenadzer: Partial<Record<MenuPanelSekcijaUPripremi, string>>;
+    otvoriEditor: string;
+    zaSadaEditor: string;
+  };
+  stanja: {
+    ucitavanje: string;
+    prijavaNaslov: string;
+    prijavaOpis: string;
+    prijavaDugme: string;
+    bezPristupaNaslov: string;
+    bezPristupaOpis: string;
+    nazadNaKlijentskiPanel: string;
+    vlasnikNaslov: string;
+    vlasnikOpis: string;
+    osobljeNaslov: string;
+    osobljeOpis: string;
+    osobljeDugme: string;
+    neaktivnoNaslov: string;
+    neaktivnoOpis: string;
+    zabranjenoNaslov: string;
+    /** {uloga} */
+    zabranjenoOpis: string;
+    idiNaPocetnu: string;
+    greskaNaslov: string;
+  };
+  ulaz: {
+    naziv: string;
+    opis: string;
+    dugme: string;
+  };
+  konobar: {
+    naslov: string;
+    opis: string;
+    koraci: readonly string[];
+    bezLinka: string;
+    vlasnik: string;
+  };
+  // K25 — Funkcionalnosti > Rezervacije (master §11.1, §11.2, §11.6, §13.7).
+  rezervacije: {
+    naslov: string;
+    opis: string;
+    izbor: string;
+    rezimi: { off: string; form: string; external: string };
+    rezimiOpis: { off: string; form: string; external: string };
+    kontakt: string;
+    kontakti: { email: string; phone: string; both: string };
+    gostPopunjava: string;
+    gostPopunjavaKontakt: { email: string; phone: string; both: string };
+    link: string;
+    linkPrimer: string;
+    linkOpis: string;
+    bezRadnogVremena: string;
+    unesiRadnoVreme: string;
+    radnoVremeNapomena: string;
+    sacuvaj: string;
+    cuva: string;
+    sacuvano: string;
+    vaziOdmah: string;
+    postojece: string;
+    greska: string;
+  };
+  // K25 — Podešavanja > Radno vreme (master §11.6, §13.9).
+  radnoVreme: {
+    naslov: string;
+    opis: string;
+    zatvoreno: string;
+    otvoreno: string;
+    od: string;
+    do: string;
+    intervalCitac: string;
+    dodaj: string;
+    ukloni: string;
+    ukloniCitac: string;
+    poslePonoci: string;
+    kopiraj: string;
+    greske: { neispravno: string; preklapanje: string; previse: string };
+    sacuvaj: string;
+    cuva: string;
+    sacuvano: string;
+    prazno: string;
+    greska: string;
+  };
+  // K25 — Podešavanja > Zadržavanje rezervacije (master §11.5).
+  zadrzavanje: {
+    naslov: string;
+    opis: string;
+    oznaka: string;
+    jedinica: string;
+    opseg: string;
+    sacuvaj: string;
+    cuva: string;
+    sacuvano: string;
+    greska: string;
+  };
+  // K27 — Početna (master §13.2). Plurals by srPluralCategory; {n}, {prag}, {kada}, {vreme}, {gosti}, {sto}.
+  pocetna: {
+    opis: string;
+    ucitavanje: string;
+    greskaNaslov: string;
+    paznja: {
+      naslov: string;
+      mirno: string;
+      mirnoOpis: string;
+      mirnoUrednik: string;
+      ima: MenuStudioMnozina;
+      zahteviKasne: MenuStudioMnozina;
+      bezOsoblja: string;
+      rezervacijeKasne: MenuStudioMnozina;
+      rezervacijeCekaju: MenuStudioMnozina;
+      posta: string;
+      roomService: MenuStudioMnozina;
+      neobjavljeno: string;
+      radnje: { operativa: string; konobar: string; podesavanja: string; editor: string };
+    };
+    sada: {
+      naslov: string;
+      aktivni: string;
+      ostali: string;
+      ostaliOpis: string;
+      skraceno: string;
+      rezervacije: string;
+      jos: MenuStudioMnozina;
+      sledeca: string;
+      sto: string;
+      bezStola: string;
+      nemaRezervacija: string;
+      osoblje: string;
+      osobljeBroj: MenuStudioMnozina;
+      osobljeNiko: string;
+      nemaZahteva: string;
+    };
+    meni: { naslov: string; opis: string; nikad: string };
+    analitika: { naslov: string };
+    brziUlazi: {
+      naslov: string;
+      editor: { naziv: string; opis: string };
+      operativa: { naziv: string; opis: string };
+      lokal: { naziv: string; opis: string };
+      analitika: { naziv: string; opis: string };
+      konobar: { naziv: string; opis: string };
+    };
+  };
+  // K27 — Operativa (master §13.5).
+  operativa: {
+    opis: string;
+    konobarskiPanel: string;
+    ucitavanje: string;
+    greskaNaslov: string;
+    filteri: {
+      naslov: string;
+      dugme: string;
+      dugmeBroj: string;
+      vrsta: string;
+      konobar: string;
+      zona: string;
+      sve: string;
+      svi: string;
+      nepreuzeti: string;
+      sveZone: string;
+      ocisti: string;
+      prikazi: string;
+    };
+    zahtevi: {
+      naslov: string;
+      broj: string;
+      kasni: MenuStudioMnozina;
+      cekajuPreuzimanje: MenuStudioMnozina;
+      kodOsoblja: MenuStudioMnozina;
+      prazno: string;
+      praznoOpis: string;
+      praznoFilter: string;
+      praznoFilterOpis: string;
+      skraceno: string;
+    };
+    red: {
+      preuzeto: string;
+      preuzetoNalogom: string;
+      nepreuzet: string;
+      bezImena: string;
+      vreme: string;
+      trajanje: { manje: string; min: string; sati: string };
+      kasni: string;
+      detalj: string;
+      detaljCitac: string;
+      bezZone: string;
+    };
+    ping: {
+      dugme: string;
+      dugmeCitac: string;
+      salje: string;
+      poslat: string;
+      vidjen: string;
+      razlozi: { nepreuzet: string; nalog: string; poslat: string };
+      objasnjenje: string;
+      greska: string;
+    };
+    detalj: {
+      samoPregled: string;
+      stanje: string;
+      poslato: string;
+      preuzeto: string;
+      ko: string;
+      zona: string;
+      kartica: string;
+      placanje: string;
+      stavke: string;
+      napomena: string;
+      medjuzbir: string;
+      dostava: string;
+      ukupno: string;
+      roomService: string;
+      ucitava: string;
+      nijeAktivan: string;
+      zatvori: string;
+    };
+    smena: { naslov: string; prazno: string; od: string; bezZone: string };
+    rezervacije: { naslov: string; prazno: string; gosti: string; bezStola: string; kasni: string; skraceno: string };
+  };
+  // K27 — Funkcionalnosti (master §13.7).
+  funkcionalnosti: {
+    opis: string;
+    vaziOdmah: string;
+    ucitavanje: string;
+    greskaNaslov: string;
+    grupe: { gost: string; osoblje: string; posebne: string };
+    stavke: Record<
+      "callWaiter" | "billRequest" | "ordering" | "occupancy" | "roomService",
+      { naziv: string; opis: string }
+    >;
+    premium: { oznaka: string; zakljucano: string; samoIskljucivanje: string };
+    nemaPrava: string;
+    cuva: string;
+    sacuvano: string;
+    greska: string;
+  };
+  // K27 — Lokal i QR: the venue data that matter for Menu.
+  lokalPodaci: {
+    naslov: string;
+    naziv: string;
+    link: string;
+    kopiraj: string;
+    kopirano: string;
+    kopiranjeNeuspelo: string;
+  };
+  // K28 — Tim i pristupi (master §10.6; plan docs/meni/planovi/K24.md §4.6).
+  tim: {
+    opis: string;
+    ucitavanje: string;
+    greskaNaslov: string;
+    vaziOdmah: string;
+    uloge: Record<"owner" | "manager" | "editor" | "staff", { naziv: string; opis: string }>;
+    pravaNaslov: string;
+    pravaOpis: string;
+    /** One line per right of lib/menu/team-view.ts PRAVA (+ `vlasnistvo`). */
+    prava: Record<
+      | "meni"
+      | "funkcionalnosti"
+      | "lokal"
+      | "operativa"
+      | "konobar"
+      | "zone"
+      | "osoblje"
+      | "tim"
+      | "podesavanja"
+      | "analitika"
+      | "vlasnistvo",
+      string
+    >;
+    sme: string;
+    nesme: string;
+    samoVlasnik: string;
+    clanovi: {
+      naslov: string;
+      opis: string;
+      izNaloga: string;
+      izNalogaPomoc: string;
+      pozvaniNaslov: string;
+      vi: string;
+      bezImena: string;
+      statusAktivan: string;
+      statusPozvan: string;
+      statusIstekao: string;
+      /** {datum} */
+      istice: string;
+      /** {datum} */
+      isteklo: string;
+      prazno: string;
+      pozovi: string;
+      promeniUlogu: string;
+      ukloni: string;
+      opozovi: string;
+      ponoviPoziv: string;
+      /** {ime} */
+      radnje: string;
+      ukloniNaslov: string;
+      /** {ime} */
+      ukloniOpis: string;
+      ukloniPotvrdi: string;
+      opozoviNaslov: string;
+      /** {ime} */
+      opozoviOpis: string;
+      opozoviPotvrdi: string;
+      odustani: string;
+      ulogaNaslov: string;
+      /** {ime} */
+      ulogaOpis: string;
+      sacuvaj: string;
+      cuva: string;
+      sacuvano: string;
+      greska: string;
+      samoVlasnik: string;
+      svojRed: string;
+    };
+    pozivnica: {
+      naslov: string;
+      opis: string;
+      email: string;
+      emailPomoc: string;
+      emailNeispravan: string;
+      uloga: string;
+      posalji: string;
+      salje: string;
+      linkNaslov: string;
+      linkOpis: string;
+      /** {datum} — the date already ends with a period. */
+      linkIstice: string;
+      kopiraj: string;
+      kopirano: string;
+      kopiranjeNeuspelo: string;
+      zatvori: string;
+      bezMejla: string;
+      greska: string;
+    };
+    osoblje: {
+      naslov: string;
+      opis: string;
+      prazno: string;
+      dodaj: string;
+      ime: string;
+      imePomoc: string;
+      imeNeispravno: string;
+      sacuvaj: string;
+      odustani: string;
+      ulogaUPanelu: string;
+      panelUloge: { staff: string; manager: string };
+      panelUlogeOpis: { staff: string; manager: string };
+      neaktivni: string;
+      neaktivan: string;
+      pinPostavljen: string;
+      pinNije: string;
+      postaviPin: string;
+      promeniPin: string;
+      resetujPin: string;
+      pinNaslov: string;
+      /** {ime} */
+      pinOpis: string;
+      pinIzaberi: string;
+      pinSistem: string;
+      pinSvoj: string;
+      pinPolje: string;
+      pinPomoc: string;
+      pinPotvrdi: string;
+      pinJednomNaslov: string;
+      /** {ime} */
+      pinJednomOpis: string;
+      pinZapamtio: string;
+      pinOdjava: string;
+      pinNikadVidljiv: string;
+      resetNaslov: string;
+      /** {ime} */
+      resetOpis: string;
+      resetPotvrdi: string;
+      resetSamoVlasnik: string;
+      preimenuj: string;
+      deaktiviraj: string;
+      deaktivirajNaslov: string;
+      /** {ime} */
+      deaktivirajOpis: string;
+      deaktivirajPotvrdi: string;
+      /** {ime} */
+      radnje: string;
+      zona: string;
+      sveZone: string;
+      zonaPomoc: string;
+      bezZona: string;
+      otkljucaj: string;
+      otkljucajOpis: string;
+      /** {broj} */
+      otkljucano: string;
+      greska: string;
+    };
+    linkPanela: {
+      naslov: string;
+      opis: string;
+      nemaLinka: string;
+      napravi: string;
+      kopiraj: string;
+      kopirano: string;
+      kopiranjeNeuspelo: string;
+      qrOznaka: string;
+      promeni: string;
+      promeniNaslov: string;
+      promeniOpis: string;
+      promeniPotvrdi: string;
+      odustani: string;
+      /** {broj} */
+      odjavljeno: string;
+      greska: string;
+    };
+    aktivnost: {
+      naslov: string;
+      opis: string;
+      prikazi: string;
+      sakrij: string;
+      prazno: string;
+      akcije: Record<MenuAuditAction, string>;
+      akter: { scanme: string; gost: string; sistem: string; clan: string; osoblje: string };
+      /** {akter} {radnja} */
+      red: string;
+      /** {radnja} {osoba} */
+      saOsobom: string;
+    };
+  };
+  // K28 — Podešavanja (master §13.9; plan docs/meni/planovi/K24.md §4.7).
+  podesavanja: {
+    opis: string;
+    ucitavanje: string;
+    greskaNaslov: string;
+    sidro: string;
+    blokovi: Record<"radnoVreme" | "jezici" | "konobar" | "zadrzavanje" | "posta" | "sabloni" | "brend", string>;
+    nemaPrava: string;
+    jezici: {
+      naslov: string;
+      opis: string;
+      izvorni: string;
+      /** {jezik} */
+      ukloni: string;
+      dodaj: string;
+      izaberi: string;
+      krozObjavu: string;
+      nemaPrevoda: string;
+      standardLimit: string;
+      premiumRazlog: string;
+      premiumOznaka: string;
+      iznadLimita: string;
+      sacuvaj: string;
+      cuva: string;
+      sacuvano: string;
+      greska: string;
+    };
+    konobar: {
+      naslov: string;
+      opis: string;
+      prag: string;
+      pragPomoc: string;
+      podsetnik: string;
+      podsetnikPomoc: string;
+      jedinica: string;
+      opseg: string;
+      sacuvaj: string;
+      cuva: string;
+      sacuvano: string;
+      greska: string;
+    };
+    brend: {
+      naslov: string;
+      opis: string;
+      naziv: string;
+      nazivPomoc: string;
+      plan: string;
+      planStandard: string;
+      planPremium: string;
+      premiumOtkljucava: string;
+      premiumStavke: readonly string[];
+      premiumUkljucen: string;
+      rezim: string;
+      rezimPomoc: string;
+      zatraziPromenu: string;
+      /** The subject of the prepared e-mail; {lokal} */
+      zatraziPredmet: string;
+      /** The body of the prepared e-mail; {lokal} */
+      zatraziTelo: string;
+      izgled: string;
+      izgledPomoc: string;
+      otvoriIzgled: string;
+    };
+  };
+  // K28 — accepting an invitation into the Menu team (/[slug]/client-panel/meni/poziv/[token]).
+  poziv: {
+    naslov: string;
+    ucitavanje: string;
+    /** {lokal} {uloga} */
+    opis: string;
+    /** {datum} */
+    istice: string;
+    prihvati: string;
+    prihvata: string;
+    prijavaNaslov: string;
+    prijavaOpis: string;
+    prijavaDugme: string;
+    drugiNalogNaslov: string;
+    drugiNalogOpis: string;
+    nevazeciNaslov: string;
+    nevazeciOpis: string;
+    istekaoNaslov: string;
+    istekaoOpis: string;
+    uspehNaslov: string;
+    otvoriPanel: string;
+    greska: string;
+  };
+}
+
+// ScanMe Menu V1 (MENI run, K10) — the editor (master §13.4, §5.3, §6.1).
+// Later editor steps (K11, K15–K18) add their groups here. Placeholders in
+// braces are filled via fmt(); MenuStudioMnozina is chosen by srPluralCategory.
+export type MenuStudioMnozina = { one: string; few: string; many: string };
+
+// K15 — the article detail of the editor (lib/i18n/sr/menu-studio-artikal.ts).
+export interface MenuStudioArtikalDict {
+  ucitava: string;
+  nePostojiNaslov: string;
+  nePostojiOpis: string;
+  nazad: string;
+  nazadOznaka: string;
+  urediStavka: string;
+  urediStavkaOpis: string;
+  otvoriStavka: string;
+  kombo: string;
+  nacrt: string;
+  samoCitanje: string;
+  cuvaSe: string;
+  sacuvano: string;
+  nijeSacuvano: string;
+  pokusajPonovo: string;
+  konflikt: string;
+  zadrziMoje: string;
+  uzmiSacuvano: string;
+  bezVrednosti: string;
+  znakova: string;
+  osnovno: {
+    naslov: string;
+    naziv: string;
+    cena: string;
+    cenaOznaka: string;
+    cenaZajednicka: string;
+    cenaVarijante: string;
+    sekcija: string;
+    sekcijaOpis: string;
+    opis: string;
+    opisPrimer: string;
+    kolicina: string;
+    kolicinaPrimer: string;
+    jedinica: string;
+    jedinicaPrimer: string;
+    greske: {
+      obavezno: string;
+      predugo: string;
+      neispravno: string;
+    };
+  };
+  prikaz: {
+    naslov: string;
+    izbor: string;
+    slika: string;
+    ikonica: string;
+    bez: string;
+    bezOpis: string;
+    izaberi: string;
+    zameni: string;
+    ukloni: string;
+    pravila: string;
+    alt: string;
+    nemaPregleda: string;
+    nemaSlike: string;
+    salje: string;
+    obrada: string;
+    gotovo: string;
+    uklonjena: string;
+    greske: {
+      too_large: string;
+      wrong_type: string;
+      heic: string;
+      empty: string;
+      neuspeh: string;
+    };
+    rezerva: string;
+    rezervaOpis: string;
+    ikonicaOpis: string;
+    podrazumevana: string;
+    ikonice: {
+      rakija: string;
+      "domaca kafa": string;
+      "turska kafa": string;
+      pivo: string;
+      vino: string;
+      sok: string;
+      voda: string;
+      burek: string;
+      pljeskavica: string;
+      cevapi: string;
+      kajmak: string;
+      ajvar: string;
+      supa: string;
+      salata: string;
+      riba: string;
+      rostilj: string;
+      testenina: string;
+      palacinke: string;
+      sladoled: string;
+      kolac: string;
+    };
+  };
+  grupe: {
+    otvori: string;
+    varijanteIDodaci: string;
+    alergeniIOznake: string;
+    oznake: string;
+    gdeSePrikazuje: string;
+    dostupnostIAkcija: string;
+    iskljuceno: string;
+    varijante: MenuStudioMnozina;
+    dodaci: MenuStudioMnozina;
+    napomena: string;
+    alergeni: MenuStudioMnozina;
+    alergeniNisuUneti: string;
+    sadrziBroj: string;
+    tragoviBroj: string;
+    oznakeBroj: MenuStudioMnozina;
+    bezOznaka: string;
+    stranice: MenuStudioMnozina;
+    nijednaStranica: string;
+    dostupno: string;
+    nedostupno: string;
+    bezAkcije: string;
+    akcija: string;
+  };
+  varijante: {
+    prekidac: string;
+    prekidacOpis: string;
+    komboNe: string;
+    naziv: string;
+    nazivOznaka: string;
+    cenaOznaka: string;
+    nazivPrimer: string;
+    cenaKolona: string;
+    nova: string;
+    novaCena: string;
+    dodaj: string;
+    ukloni: string;
+    prazno: string;
+    bezCene: string;
+  };
+  dodaci: {
+    prekidac: string;
+    prekidacOpis: string;
+    prazno: string;
+    dodajGrupu: string;
+    dodajGrupuNaslov: string;
+    nova: string;
+    novaOpis: string;
+    postojeca: string;
+    postojecaOpis: string;
+    nemaPostojecih: string;
+    vecNaArtiklu: string;
+    artikalaUGrupi: MenuStudioMnozina;
+    dodajPostojecu: string;
+    nazivGrupe: string;
+    nazivPrimer: string;
+    izbor: string;
+    jedan: string;
+    vise: string;
+    obavezna: string;
+    obaveznaOpis: string;
+    napredno: string;
+    min: string;
+    max: string;
+    naprednoOpis: string;
+    pravila: {
+      jedanObavezan: string;
+      jedanOpcion: string;
+      viseObavezno: string;
+      viseOpciono: string;
+      tacno: string;
+      odDo: string;
+      najvise: string;
+      najmanje: string;
+    };
+    povezana: MenuStudioMnozina;
+    dodatak: string;
+    dodatakNaziv: string;
+    dodatakOznaka: string;
+    doplata: string;
+    doplataOznaka: string;
+    besplatno: string;
+    doplataPrikaz: string;
+    noviDodatak: string;
+    novaDoplata: string;
+    dodajDodatak: string;
+    ukloniDodatak: string;
+    bezDodataka: string;
+    izmeni: string;
+    gotovo: string;
+    sacuvaj: string;
+    otkazi: string;
+    ukloni: string;
+    ukloniOpis: string;
+    primeni: string;
+    menjaSeZaSve: MenuStudioMnozina;
+    menjaSeKopija: string;
+    radnjeGrupe: string;
+  };
+  napomena: {
+    prekidac: string;
+    opis: string;
+  };
+  uticaj: {
+    naslov: string;
+    opis: MenuStudioMnozina;
+    ucitava: string;
+    greska: string;
+    artikli: string;
+    ovaj: string;
+    jos: MenuStudioMnozina;
+    izbor: string;
+    zaSve: string;
+    zaSveOpis: MenuStudioMnozina;
+    kopija: string;
+    kopijaOpis: string;
+    izaberiPrvo: string;
+    nastavi: string;
+    otkazi: string;
+  };
+  primeni: {
+    naslov: string;
+    opis: string;
+    pretraga: string;
+    pretragaPomoc: string;
+    trazi: string;
+    nemaRezultata: string;
+    vecIma: string;
+    izaberi: string;
+    izabrano: MenuStudioMnozina;
+    primeni: MenuStudioMnozina;
+    otkazi: string;
+    gotovo: MenuStudioMnozina;
+    preskoceno: MenuStudioMnozina;
+  };
+  alergeni: {
+    naslov: string;
+    alergen: string;
+    oznakaPolja: string;
+    sadrzi: string;
+    sadrziOpis: string;
+    tragovi: string;
+    tragoviOpis: string;
+    drugo: string;
+    drugoPrimer: string;
+    drugoObavezno: string;
+    nepoznato: string;
+    obrisi: string;
+  };
+  oznake: {
+    naslov: string;
+    opis: string;
+  };
+  gde: {
+    cena: string;
+    bezCene: string;
+    sakriveno: string;
+    arhivirana: string;
+    podrazumevana: string;
+    ukloni: string;
+    ukloniOznaka: string;
+    poslednje: string;
+    nijedna: string;
+    dodaj: string;
+    stranica: string;
+    sekcija: string;
+    izaberiStranicu: string;
+    dodajDugme: string;
+    vecTu: string;
+    nemaSekcija: string;
+    dodato: string;
+    uklonjeno: string;
+  };
+  dostupnost: {
+    naslov: string;
+    uzivo: string;
+    dostupno: string;
+    nedostupno: string;
+    opis: string;
+    najavaDostupno: string;
+    najavaNedostupno: string;
+  };
+  akcija: {
+    naslov: string;
+    nema: string;
+    dodaj: string;
+    izmeni: string;
+    sazetakProcenat: string;
+    sazetakCena: string;
+    ukloniTermin: string;
+    nacin: string;
+    cena: string;
+    procenat: string;
+    vrednostCena: string;
+    vrednostProcenat: string;
+    izvedeno: string;
+    izvedenoVarijanta: string;
+    natpis: string;
+    natpisi: {
+      promo: string;
+      recommended: string;
+      bez: string;
+    };
+    ukljucena: string;
+    ukljucenaOpis: string;
+    termin: string;
+    terminOpis: string;
+    pocetak: string;
+    kraj: string;
+    premium: string;
+    premiumRazlog: string;
+    varijanteCena: string;
+    sacuvaj: string;
+    ukloni: string;
+    otkazi: string;
+    stanje: {
+      off: string;
+      scheduled: string;
+      active: string;
+      ended: string;
+    };
+    greske: {
+      vrednost: string;
+      cena: string;
+      procenat: string;
+      varijante: string;
+      bez_cene: string;
+      termin: string;
+      premium: string;
+    };
+    sacuvano: string;
+    uklonjena: string;
+  };
+}
+
+// ScanMe Menu V1 (K16) — the editor: combo, translations, Room service.
+export interface MenuStudioPosebnoDict {
+  kombo: {
+    naslov: string;
+    opis: string;
+    artikal: string;
+    kolicina: string;
+    redovnaCena: string;
+    kolicinaOznaka: string;
+    zbir: string;
+    zbirNepotpun: string;
+    usteda: string;
+    skuplje: string;
+    isto: string;
+    samoInfo: string;
+    izmeni: string;
+    sacuvaj: string;
+    otkazi: string;
+    ukloni: string;
+    dodajNaslov: string;
+    pretraga: string;
+    pretragaPomoc: string;
+    nemaRezultata: string;
+    dodaj: string;
+    vecU: string;
+    bezCene: string;
+    greske: {
+      prazno: string;
+      previse: string;
+      kolicina: string;
+      ponavljanje: string;
+    };
+    sacuvano: string;
+    proveriNaslov: string;
+    proveriOpis: string;
+    promenjeni: string;
+    uklonjeni: string;
+    zadrzi: string;
+    novaCena: string;
+    zadrzano: string;
+  };
+  prevodi: {
+    naslov: string;
+    naslovStranice: string;
+    naslovRs: string;
+    otvori: string;
+    otvoriOpis: string;
+    nazad: string;
+    opis: string;
+    nacrt: string;
+    nemaJezikaNaslov: string;
+    nemaJezikaOpis: string;
+    podesavanja: string;
+    jezik: string;
+    izvor: string;
+    jezici: {
+      sr: string;
+      en: string;
+      de: string;
+      fr: string;
+      it: string;
+      es: string;
+      pt: string;
+      nl: string;
+      ru: string;
+      uk: string;
+      pl: string;
+      cs: string;
+      sk: string;
+      hu: string;
+      ro: string;
+      bg: string;
+      el: string;
+      tr: string;
+      sl: string;
+      hr: string;
+      bs: string;
+      mk: string;
+      sq: string;
+      zh: string;
+      ja: string;
+      ko: string;
+      ar: string;
+      he: string;
+    };
+    polja: {
+      name: string;
+      description: string;
+      publicTitle: string;
+    };
+    vrste: {
+      page: string;
+      section: string;
+      article: string;
+      variant: string;
+      addonGroup: string;
+      addonOption: string;
+      roomServiceCategory: string;
+    };
+    grupe: {
+      stranica: string;
+      dodaci: string;
+      roomService: string;
+    };
+    statusi: {
+      missing: string;
+      stale: string;
+      suggested: string;
+      done: string;
+    };
+    statusOpis: {
+      missing: string;
+      stale: string;
+      suggested: string;
+      done: string;
+    };
+    sazetak: {
+      missing: string;
+      stale: string;
+      suggested: string;
+      done: string;
+    };
+    filter: {
+      oznaka: string;
+      treba: string;
+      sve: string;
+    };
+    sveGotovo: string;
+    prikaziJos: string;
+    skraceno: string;
+    poljeOznaka: string;
+    pripada: string;
+    jeDobar: string;
+    bezIzvora: string;
+    detaljSazetak: string;
+    nemaJezika: string;
+    ai: {
+      predlozi: string;
+      radi: string;
+      predlogNaslov: string;
+      predlogOpis: string;
+      potvrdi: string;
+      odbaci: string;
+      premium: string;
+      kljuc: string;
+      stigao: string;
+      potvrdjeno: string;
+      odbaceno: string;
+    };
+    limit: {
+      standard: string;
+      premium: string;
+      vanLimita: string;
+    };
+  };
+  roomService: {
+    naslov: string;
+    opis: string;
+    nacrt: string;
+    legenda: string;
+    dostava: string;
+    pravila: {
+      naslov: string;
+      uvecanje: string;
+      uvecanjePomoc: string;
+      obuhvat: string;
+      obuhvatSve: string;
+      obuhvatIzabrane: string;
+      naknada: string;
+      naknadaPomoc: string;
+      sacuvaj: string;
+      sacuvano: string;
+      sazetakUvecanje: string;
+      sazetakBezUvecanja: string;
+      sazetakNaknada: string;
+      sazetakBezNaknade: string;
+      obuhvatSveKratko: string;
+      obuhvatIzabraneKratko: string;
+      greskaProcenat: string;
+      greskaNaknada: string;
+    };
+    radnje: {
+      preuzmi: string;
+      preuzmiOpis: string;
+      dodaj: string;
+      kategorija: string;
+      prevodi: string;
+      jos: string;
+    };
+    preuzeto: string;
+    vanRs: MenuStudioMnozina;
+    skraceno: string;
+    praznoNaslov: string;
+    praznoOpis: string;
+    kategorija: {
+      nova: string;
+      primer: string;
+      dodaj: string;
+      radnje: string;
+      preimenuj: string;
+      nazivOznaka: string;
+      sacuvaj: string;
+      otkazi: string;
+      gore: string;
+      dole: string;
+      obrisi: string;
+      prazna: string;
+      dodajOvde: string;
+      broj: MenuStudioMnozina;
+    };
+    poreklo: {
+      inherited: string;
+      computed: string;
+      manual: string;
+      inheritedOpis: string;
+      computedOpis: string;
+      manualOpis: string;
+    };
+    red: {
+      osnovna: string;
+      rs: string;
+      rsCenaOznaka: string;
+      rucnaPomoc: string;
+      uvecanjeOznaka: string;
+      uvecanje: string;
+      uvecanjeRucna: string;
+      vratiNaPravilo: string;
+      radnje: string;
+      gore: string;
+      dole: string;
+      uKategoriju: string;
+      ukloni: string;
+      ukloniOpis: string;
+      bezCene: string;
+      varijante: string;
+      upozorenje: string;
+      odluci: string;
+    };
+    upozorenja: MenuStudioMnozina;
+    pregledaj: string;
+    dijalog: {
+      naslov: string;
+      opis: string;
+      stara: string;
+      nova: string;
+      rs: string;
+      izracunata: string;
+      zadrzi: string;
+      izracunaj: string;
+      kasnije: string;
+      posledicaZadrzi: string;
+      posledicaIzracunaj: string;
+      kasnijeOpis: string;
+      zadrzano: string;
+      izracunato: string;
+      bezCene: string;
+    };
+    dodajDijalog: {
+      naslov: string;
+      opis: string;
+      kategorija: string;
+      pretraga: string;
+      pomoc: string;
+      nema: string;
+      vecU: string;
+      izabrano: MenuStudioMnozina;
+      dodaj: string;
+      ukloniIzbor: string;
+      otkazi: string;
+      bezKategorije: string;
+      dodato: string;
+    };
+  };
+}
+
+export interface MenuStudioDict {
+  meta: {
+    naslov: string;
+  };
+  stanja: {
+    ucitava: string;
+    greskaNaslov: string;
+    greskaOpis: string;
+    stariEditor: string;
+  };
+  zaglavlje: {
+    rezimi: string;
+    ponuda: string;
+    izgled: string;
+    pregled: string;
+    objavi: string;
+    samoCitanje: string;
+    bezObjave: string;
+    bezVeze: string;
+    danas: string;
+    juce: string;
+    datum: string;
+    napusti: string;
+  };
+  panoi: {
+    oznaka: string;
+    struktura: string;
+    uredi: string;
+    pregled: string;
+    podesavanja: string;
+  };
+  stranice: {
+    naslov: string;
+    otvori: string;
+    dodaj: string;
+    nazivNove: string;
+    primer: string;
+    potvrdiDodavanje: string;
+    otkazi: string;
+    radnje: string;
+    preimenuj: string;
+    nazivOznaka: string;
+    sacuvaj: string;
+    dupliraj: string;
+    gore: string;
+    dole: string;
+    arhiviraj: string;
+    vrati: string;
+    obrisi: string;
+    arhivirane: string;
+    podrazumevana: string;
+    sakrivena: string;
+    arhivirana: string;
+    imaQr: string;
+    imaQrRazlog: string;
+    poslednjaRazlog: string;
+    potvrdaBrisanjaNaslov: string;
+    potvrdaBrisanjaOpis: string;
+    potvrdaArhiviranjaNaslov: string;
+    potvrdaArhiviranjaOpis: string;
+    predajaGlavne: string;
+    obrisiPotvrda: string;
+    arhivirajPotvrda: string;
+    posebneUsluge: string;
+    roomService: string;
+    roomServiceOpis: string;
+    roomServiceUskoro: string;
+    sekcija: string;
+    dodato: string;
+  };
+  ponuda: {
+    pretraga: string;
+    dodaj: string;
+    dodajArtikal: string;
+    dodajArtikalOpis: string;
+    dodajSekciju: string;
+    dodajSekcijuOpis: string;
+    dodajKombo: string;
+    dodajKomboOpis: string;
+    jos: string;
+    brzoVise: string;
+    cenaZajednicka: string;
+    artikli: MenuStudioMnozina;
+    nemaRezultata: string;
+    nemaRezultataOpis: string;
+    obrisiPretragu: string;
+    rezultati: MenuStudioMnozina;
+    praznoNaslov: string;
+    praznoOpis: string;
+    skraceno: string;
+    arhivirana: string;
+    novaSekcijaNaslov: string;
+    novaSekcijaNaziv: string;
+    novaSekcijaPrimer: string;
+    novaSekcijaDodaj: string;
+    prvaSekcija: string;
+    sekcijaZaArtikal: string;
+  };
+  sekcija: {
+    radnje: string;
+    preimenuj: string;
+    nazivOznaka: string;
+    sacuvaj: string;
+    otkazi: string;
+    obrisi: string;
+    skupi: string;
+    prosiri: string;
+    potvrdaBrisanjaNaslov: string;
+    potvrdaBrisanjaOpis: string;
+    praznaSekcija: string;
+  };
+  red: {
+    cena: string;
+    rsd: string;
+    bezCene: string;
+    sakriveno: string;
+    nedostupno: string;
+    varijante: string;
+    kombo: string;
+    proveriCenu: string;
+    cuvaSe: string;
+    sacuvano: string;
+    nijeSacuvano: string;
+    pokusajPonovo: string;
+    konflikt: string;
+    zadrziMoju: string;
+    uzmiSacuvanu: string;
+    bezVrednosti: string;
+  };
+  cena: {
+    greske: {
+      decimale: string;
+      negativna: string;
+      prevelika: string;
+      neispravna: string;
+    };
+    pomoc: string;
+  };
+  brziUnos: {
+    dodajStavku: string;
+    noviArtikal: string;
+    naziv: string;
+    cena: string;
+    nazivOznaka: string;
+    cenaOznaka: string;
+    dodaj: string;
+    odustani: string;
+    dodajJos: string;
+    pomoc: string;
+    nazivGreske: {
+      obavezan: string;
+      predugacak: string;
+    };
+    slicno: string;
+    dodajPostojeci: string;
+    napraviNov: string;
+    dodato: string;
+  };
+  tabela: {
+    naslov: string;
+    opis: string;
+    naziv: string;
+    cena: string;
+    sekcija: string;
+    red: string;
+    nazivReda: string;
+    cenaReda: string;
+    sekcijaReda: string;
+    dodajRed: string;
+    ukloniRed: string;
+    posalji: string;
+    otkazi: string;
+    prazno: string;
+    previse: string;
+    imaGresaka: string;
+    sekcijaGreska: string;
+    duplikat: string;
+    slicnoNaslov: string;
+    slicnoOpis: string;
+    postojeci: string;
+    postojeciKandidat: string;
+    novi: string;
+    preskoci: string;
+    odluka: string;
+    dodato: MenuStudioMnozina;
+    bezSekcija: string;
+  };
+  kombo: {
+    naslov: string;
+    opis: string;
+    naziv: string;
+    cena: string;
+    sekcija: string;
+    sastojci: string;
+    sastojciOpis: string;
+    zbir: string;
+    dodaj: string;
+    otkazi: string;
+    bezSastojaka: string;
+    nemaArtikala: string;
+    pretraga: string;
+  };
+  opste: {
+    nazivObavezan: string;
+    nazivDug: string;
+    nazivKonflikt: string;
+  };
+  /** K17 — Izgled (menu-studio-izgled.ts). */
+  izgled: MenuStudioIzgledDict;
+  pregled: {
+    naslov: string;
+    uredjaj: string;
+    telefon: string;
+    /** K17: the tablet frame of the preview. */
+    tablet: string;
+    desktop: string;
+    /** K17: "{uredjaj}, {px} px" under the device switch. */
+    sirina: string;
+    /** K17: opens the large preview (tablet and desktop read better there). */
+    uvecaj: string;
+    napomena: string;
+    zatvori: string;
+    prazno: string;
+    okvir: string;
+  };
+  objava: {
+    naslov: string;
+    ucitava: string;
+    opis: string;
+    promene: string;
+    cene: MenuStudioMnozina;
+    novi: MenuStudioMnozina;
+    uklonjeni: MenuStudioMnozina;
+    strukturne: MenuStudioMnozina;
+    prvaObjava: string;
+    bezPromena: string;
+    greskeNaslov: string;
+    greskeOpis: string;
+    artikal: string;
+    upozorenjaNaslov: string;
+    potvrda: string;
+    potvrdaGreska: string;
+    sigurnost: string;
+    nazad: string;
+    zatvori: string;
+    ostalo: string;
+    objavi: string;
+    uspeh: string;
+    staro: string;
+    osvezi: string;
+    prevelik: string;
+    bezDozvole: string;
+    greskaUcitavanja: string;
+  };
+  dnd: {
+    rucica: string;
+    rucicaSekcija: string;
+    uputstvo: string;
+    podignuto: string;
+    kodArtikla: string;
+    naKrajSekcije: string;
+    kodSekcije: string;
+    vanListe: string;
+    spusteno: string;
+    spustenaSekcija: string;
+    otkazano: string;
+    nijeSacuvano: string;
+    spustiOvde: string;
+  };
+  premesti: {
+    naslov: string;
+    naslovSekcije: string;
+    opis: string;
+    opisSekcije: string;
+    sekcija: string;
+    mesto: string;
+    naPocetak: string;
+    posle: string;
+    sada: string;
+    potvrdi: string;
+    otkazi: string;
+    premesteno: string;
+    premestenaSekcija: string;
+    bezPromene: string;
+  };
+  stanjaArtikla: {
+    radnje: string;
+    premesti: string;
+    premestiOpis: string;
+    nedostupno: string;
+    dostupno: string;
+    odmah: string;
+    sakrij: string;
+    prikazi: string;
+    ukloni: string;
+    ukloniOpis: string;
+    obrisi: string;
+    obrisiOpis: string;
+    oznakaNacrt: string;
+    oznakaUzivo: string;
+    grupaUzivo: string;
+    grupaNacrt: string;
+    potvrdaNaslov: string;
+    potvrdaOpis: string;
+    potvrdaDugme: string;
+    otkazi: string;
+    najavaNedostupno: MenuStudioMnozina;
+    najavaDostupno: MenuStudioMnozina;
+    najavaSakriveno: MenuStudioMnozina;
+    najavaPrikazano: MenuStudioMnozina;
+    najavaUklonjeno: MenuStudioMnozina;
+    najavaObrisano: MenuStudioMnozina;
+    najavaPremesteno: MenuStudioMnozina;
+    najavaDodato: MenuStudioMnozina;
+    preskoceno: MenuStudioMnozina;
+    bezIzmene: string;
+  };
+  izaberiVise: {
+    ukljuci: string;
+    traka: string;
+    izabrano: MenuStudioMnozina;
+    nista: string;
+    izaberi: string;
+    izaberiSekciju: string;
+    granica: string;
+    promeniCene: string;
+    dostupnost: string;
+    raspored: string;
+    premestiUSekciju: string;
+    dodajNaStranicu: string;
+    ukloniSaStranice: string;
+    vidljivost: string;
+    obrisi: string;
+    zavrsi: string;
+    radnje: string;
+    napomena: string;
+    premestiNaslov: string;
+    premestiOpis: string;
+    premestiDugme: string;
+    dodajNaslov: string;
+    dodajOpis: string;
+    stranica: string;
+    sekcija: string;
+    ucitavaSekcije: string;
+    nemaSekcija: string;
+    nemaDrugihStranica: string;
+    dodajDugme: string;
+    ukloniNaslov: string;
+    ukloniOpis: string;
+    ukloniDugme: string;
+    otkazi: string;
+  };
+  cene: {
+    naslov: string;
+    opis: string;
+    nacin: string;
+    procenat: string;
+    iznos: string;
+    ista: string;
+    smer: string;
+    povecaj: string;
+    smanji: string;
+    dodaj: string;
+    oduzmi: string;
+    vrednostProcenat: string;
+    vrednostIznos: string;
+    vrednostIsta: string;
+    zaokruzivanje: string;
+    greske: {
+      prazno: string;
+      procenat_opseg: string;
+      procenat_smanjenje: string;
+      procenat_decimale: string;
+      iznos_ceo: string;
+      iznos_opseg: string;
+      cena_neispravna: string;
+    };
+    pregled: string;
+    artikal: string;
+    stara: string;
+    nova: string;
+    razlika: string;
+    uDinarima: string;
+    bezCene: string;
+    preskaceSe: string;
+    razlozi: {
+      varijante: string;
+      bez_cene: string;
+      bez_promene: string;
+    };
+    nevazeceNaslov: string;
+    nevazece: {
+      negativna: string;
+      prevelika: string;
+    };
+    nevazeceOpis: string;
+    sazetak: MenuStudioMnozina;
+    nistaSeNeMenja: string;
+    potvrdi: MenuStudioMnozina;
+    primeni: string;
+    otkazi: string;
+    konflikt: MenuStudioMnozina;
+    najava: MenuStudioMnozina;
+  };
+  brisanje: {
+    naslovJedan: string;
+    naslovVise: MenuStudioMnozina;
+    ucitava: string;
+    opis: string;
+    opisVise: string;
+    umestoToga: string;
+    stranice: string;
+    nijednaStranica: string;
+    arhivirana: string;
+    komboJedan: string;
+    komboVise: string;
+    bezKomba: string;
+    varijante: MenuStudioMnozina;
+    roomService: string;
+    potvrdaOznaka: string;
+    potvrdaGreska: string;
+    obrisiJedan: string;
+    obrisi: MenuStudioMnozina;
+    otkazi: string;
+    promenjeno: string;
+    prevelik: string;
+    greska: string;
+  };
+  // K15 — the article detail.
+  artikal: MenuStudioArtikalDict;
+  // K16 — combo, translations, Room service.
+  posebno: MenuStudioPosebnoDict;
+  // K18 — publishing, versions, presence and conflicts.
+  objavljivanje: MenuStudioObjavljivanjeDict;
+}
+
+/** "jedan" for one person, "vise" for two or more (present tense: no gender is guessed). */
+export type MenuStudioOsobe = { jedan: string; vise: string };
+
+// ScanMe Menu V1 (MENI run, K18) — the editor's publishing: the publish dialog
+// (consequences, errors that lead to the article, warnings that need a
+// conscious yes, a stale review), versions (a restore makes a new draft),
+// presence and conflicts (master §6.1). Placeholders are filled via fmt().
+export interface MenuStudioObjavljivanjeDict {
+  modal: {
+    cekaCuvanje: string;
+    nesacuvano: MenuStudioMnozina;
+    pokusajCuvanje: string;
+    /** Replaces the dialog's "Nacrt je sačuvan." while a save failed or waits for a choice. */
+    opisNesacuvano: string;
+    konflikti: MenuStudioMnozina;
+    /** "{imena}": who else is in the editor while publishing. */
+    drugiUEditoru: MenuStudioOsobe;
+    otvoriJavniMeni: string;
+    noviProzor: string;
+    posledice: {
+      naslov: string;
+      strukturneDetalji: {
+        sakriveno: MenuStudioMnozina;
+        uklonjenoSaStranice: MenuStudioMnozina;
+        obrisano: MenuStudioMnozina;
+        redosled: MenuStudioMnozina;
+      };
+      pogledajCene: string;
+      cenaPre: string;
+      cenaPosle: string;
+      bezCene: string;
+      josCena: MenuStudioMnozina;
+    };
+    greske: {
+      broj: MenuStudioMnozina;
+      idiNaArtikal: string;
+      /** "{naziv}" */
+      idiNaArtikalOznaka: string;
+      naStranici: string;
+      roomService: string;
+      bezStranice: string;
+      bezNaziva: string;
+      upozorenjaKasnije: MenuStudioMnozina;
+    };
+    upozorenja: {
+      opis: string;
+      /** "{jezik}" and "{n}" */
+      jezik: MenuStudioMnozina;
+      otvoriPrevode: string;
+    };
+    pregledNacrta: string;
+    pregledNacrtaOpis: string;
+    sigurnostVerzija: string;
+    sigurnostPrva: string;
+    zastarelo: {
+      naslov: string;
+      /** "{ime}", "{kada}" */
+      poslednja: string;
+      ja: string;
+      uputstvo: string;
+      osvezi: string;
+      osvezeno: string;
+    };
+    razlozi: {
+      greske: string;
+      zastarelo: string;
+      konflikt: string;
+      cuvaSe: string;
+      potvrda: string;
+      bezPromena: string;
+      prevelik: string;
+    };
+    uspehNaslov: string;
+    uspeh: string;
+    neuspehNaslov: string;
+    neuspeh: string;
+    neuspehPrva: string;
+    pokusajObjavu: string;
+  };
+  verzije: {
+    dugme: string;
+    dugmeOznaka: string;
+    naslov: string;
+    opis: string;
+    ucitava: string;
+    greska: string;
+    prazno: string;
+    verzija: string;
+    uzivo: string;
+    uzivoOpis: string;
+    nepoznato: string;
+    iz: string;
+    bezPromenaPonude: string;
+    vrati: string;
+    vratiOznaka: string;
+    odbaci: string;
+    odbaciOznaka: string;
+    bezDozvole: string;
+    potvrda: {
+      naslov: string;
+      /** "{broj}", "{kada}", "{ko}" */
+      objavljena: string;
+      tekst: string;
+      gubi: string;
+      qr: string;
+      potvrdi: string;
+      odbaciNaslov: string;
+      odbaciTekst: string;
+      odbaciPotvrdi: string;
+      otkazi: string;
+    };
+    rezultat: {
+      naslov: string;
+      tekst: string;
+      odbacenoNaslov: string;
+      odbaceno: string;
+      bezIzmena: string;
+      zadrzane: string;
+      bezSlike: MenuStudioMnozina;
+      zastarelo: string;
+      pregledaj: string;
+      nazad: string;
+    };
+  };
+  nacrtIz: string;
+  nacrtIzOpis: string;
+  prisustvo: {
+    oznaka: string;
+    uredjuje: MenuStudioOsobe;
+    dvoje: string;
+    jos: string;
+    clanTima: string;
+    naArtiklu: MenuStudioOsobe;
+    detalj: MenuStudioOsobe;
+    detaljOpis: string;
+  };
+  konflikt: {
+    drugi: MenuStudioOsobe;
+    nistaPrepisano: string;
+    moja: string;
+    ista: string;
+    uRedu: string;
+    /** "{vrednost}": the saved value on the button, equal in weight to `Zadrži moju`. */
+    uzmiSacuvanu: string;
+    cekaIzbor: string;
+    idiNaIzbor: string;
+  };
+  problemObjave: {
+    greska: string;
+    upozorenje: string;
+    saveti: { price_missing: string; name_missing: string; section_missing: string };
+    reseno: string;
+    ponovoObjavi: string;
+  };
+}
+
+// ScanMe Menu V1 (MENI run, K17) — the editor's Izgled: the curated
+// appearance of the public menu (master §7.1, §7.4, §15.2).
+export interface MenuStudioIzgledDict {
+  naslov: string;
+  uvod: string;
+  ucitava: string;
+  greska: string;
+  premium: string;
+  izabrano: string;
+  drugiIzbor: string;
+  izgubljenPremium: string;
+  raspored: {
+    naslov: string;
+    opis: string;
+    layouti: Record<"flow" | "categories" | "compact", { naziv: string; opis: string }>;
+    varijante: {
+      naslov: string;
+      osnovna: string;
+      osnovnaOpis: string;
+      opisi: Record<"kartice" | "lista" | "dve-kolone", { naziv: string; opis: string }>;
+      zakljucano: string;
+    };
+    /** Stand-in content of the layout miniatures while the page is empty. */
+    mini: { sekcija: string; druga: string; treca: string; cetvrta: string; artikli: readonly string[] };
+  };
+  boje: {
+    naslov: string;
+    opis: string;
+    ton: Record<"svetla" | "tamna", string>;
+    /** "{ton}, {zaKoga}" under a palette name. */
+    opisPalete: string;
+    zakljucano: string;
+    /** Names of the curated palettes (lib/menu/identity/palettes.ts). */
+    palete: Record<
+      "topla" | "espresso" | "bordo" | "more" | "kamen" | "ponoc" | "ugalj" | "sampanjac" | "indigo" | "vino" | "sumrak",
+      string
+    >;
+    zaKoga: Record<"kafic" | "restoran" | "prestizni" | "opste", string>;
+    uzorak: { sekcija: string; druga: string; naziv: string; cena: string };
+    brend: {
+      naslov: string;
+      opis: string;
+      kartica: string;
+      karticaOpis: string;
+      uloge: Record<"glavna" | "pozadina" | "tekst", string>;
+      ulogeOpis: Record<"glavna" | "pozadina" | "tekst", string>;
+      opciono: string;
+      polje: string;
+      birac: string;
+      ocisti: string;
+      podloga: string;
+      svetla: string;
+      tamna: string;
+      podlogaOpis: string;
+      logotip: string;
+      logotipOpis: string;
+      logotipCita: string;
+      logotipGreska: string;
+      logotipPredlog: string;
+      citljivo: string;
+      necitljivo: string;
+      par: string;
+      potrebno: string;
+      /** The roles of the contrast check (lib/menu/identity/contrast.ts pairs "role/background"). */
+      parovi: Record<"title" | "body" | "focus" | "accent-text", string>;
+      savetTekst: string;
+      savetPozadina: string;
+      izvediTekst: string;
+      izvediPozadinu: string;
+      neispravno: string;
+      primeni: string;
+      primenjeno: string;
+      otkazi: string;
+      izmeni: string;
+      dodaj: string;
+    };
+  };
+  pismo: {
+    naslov: string;
+    opis: string;
+    /** Names of the curated font pairs (lib/menu/identity/font-pairs.ts). */
+    parovi: Record<
+      "osnovni" | "kafe" | "bistro" | "klasika" | "elegancija" | "knjiga" | "savremeno" | "galerija" | "atelje" | "grotesk",
+      string
+    >;
+    uzorakNaslov: string;
+    uzorakTekst: string;
+    lica: string;
+    zakljucano: string;
+  };
+  gustina: { naslov: string; opis: string; vrednosti: Record<"airy" | "standard" | "dense", string> };
+  naglasak: { naslov: string; opis: string; vrednosti: Record<"calm" | "bold", string> };
+  mediji: {
+    naslov: string;
+    opis: string;
+    vrednosti: Record<"image" | "icon" | "none", string>;
+    opisi: Record<"image" | "icon" | "none", string>;
+    kompaktno: string;
+  };
+  zaGoste: {
+    naslov: string;
+    opis: string;
+    pretraga: string;
+    pretragaOpis: string;
+    filteri: string;
+    filteriOpis: string;
+    /** K34: the choice of which filters guests get (master §7.2). */
+    filteriKoji: string;
+    filteriKojiOpis: string;
+    valuta: string;
+    valutaOpis: string;
+  };
+  brending: {
+    naslov: string;
+    opis: string;
+    vrednosti: Record<"standard" | "reduced", string>;
+    opisi: Record<"standard" | "reduced", string>;
+    zakljucano: string;
+  };
+  prilagodjen: {
+    naslov: string;
+    opis: string;
+    akcija: string;
+    akcijaOpis: string;
+    kopiraj: string;
+    kopirano: string;
+    tema: string;
+    telo: string;
+  };
+}
+
+// ScanMe Menu V1 (MENI run, K13) — the public menu a guest reads (master §7).
+export interface MenuJavniDict {
+  meta: { naslov: string; naslovStranice: string; opis: string };
+  razdelnik: { uvod: string; meni: string; stranice: string };
+  navigacija: {
+    sekcije: string;
+    sadrzaj: string;
+    otvoriSadrzaj: string;
+    sveStranice: string;
+    stranice: string;
+    sveKategorije: string;
+    kategorije: string;
+    sledeca: string;
+  };
+  kategorije: { artikli: MenuStudioMnozina };
+  artikal: {
+    redovnaCena: string;
+    akcijskaCena: string;
+    nedostupnoOpis: string;
+  };
+  detalj: {
+    zatvori: string;
+    varijante: string;
+    dodaci: string;
+    biraSeJedno: string;
+    biraSeVise: string;
+    obavezno: string;
+    izborOdDo: string;
+    izborDo: string;
+    izborTacno: string;
+    sastav: string;
+    kolicinaKomada: string;
+    oznake: string;
+    alergeni: string;
+    alergeniNepoznato: string;
+    alergeniNista: string;
+    drugo: string;
+    akcijaDo: string;
+  };
+  stanja: {
+    praznoNaslov: string;
+    praznoOpis: string;
+    praznoPitajte: string;
+    praznoMeniNaslov: string;
+    praznoMeniOpis: string;
+    nedostupnaNaslov: string;
+    nedostupnaOpis: string;
+    otvoriMeni: string;
+    nijeDostupanNaslov: string;
+    nijeDostupanOpis: string;
+    sadrzajNaslov: string;
+    novaVerzija: string;
+    prikaziNovu: string;
+    /** K33: error boundary of the public menu routes (app/[slug]/meni/error.tsx). */
+    greskaNaslov: string;
+    greskaOpis: string;
+    pokusajPonovo: string;
+  };
+  podnozje: { pokrece: string; kratko: string };
+  izlog: { naslov: string };
+  /** K14 — search and filters (master §7.2). */
+  pretraga: {
+    oznaka: string;
+    placeholder: string;
+    obrisi: string;
+    nemaRezultata: string;
+    nemaZaFiltere: string;
+    nemaSavet: string;
+    prikaziSve: string;
+    rezultati: MenuStudioMnozina;
+    filteri: string;
+  };
+  /** K14 — the guest's allergens (master §7.3); names and the disclaimer stay in menu-domen. */
+  alergeni: {
+    dugme: string;
+    dugmeBroj: string;
+    naslov: string;
+    uvod: string;
+    gotovo: string;
+    ponisti: string;
+    oznaceno: string;
+    brojUpozorenja: MenuStudioMnozina;
+    bezUpozorenja: string;
+    bezPodataka: MenuStudioMnozina;
+    promeni: string;
+    nepoznato: string;
+    /** Short lowercase names for a row warning ("Sadrži: mleko"); the full names stay in menu-domen. */
+    kratko: Record<string, string>;
+  };
+  /** K14 — languages (master §7.7); language names in their own language. */
+  jezik: { oznaka: string; nazivi: Record<string, string> };
+  /** K14 — the informative EUR price (master §5.3). */
+  valuta: { oznaka: string; rsd: string; eurOznaka: string; eur: string; eurCitac: string; napomena: string };
+}
+
+// ScanMe Menu V1 (MENI run, K20) — "Lokal i QR" (lib/i18n/sr/menu-lokal.ts, master §9, §13.6).
+// Plural groups carry one key per Serbian category (srPluralCategory).
+// The floor layout editor's text lives in its own module (lib/i18n/sr/menu-lokal-raspored.ts).
+export interface MenuLokalRasporedDict {
+  oblast: string;
+  prazno: {
+    naslov: string;
+    opis: string;
+  };
+  bezZone: string;
+  mesto: string;
+  mesta: string;
+  sediste: string;
+  sedista: string;
+  praznaZona: string;
+  grupa: string;
+  pomoc: {
+    tastatura: string;
+    pokazivac: string;
+  };
+  legenda: {
+    naslov: string;
+    sto: string;
+    soba: string;
+    ostalo: string;
+    oblik: string;
+    izabrano: string;
+  };
+  vrsta: {
+    table: string;
+    room: string;
+    other: string;
+  };
+  oblik: {
+    rect: string;
+    round: string;
+  };
+  polozaj: string;
+  velicina: string;
+  izabrano: {
+    naslov: string;
+    uredi: string;
+    uKrug: string;
+    uPravougaonik: string;
+    ponisti: string;
+  };
+  automatski: {
+    dugme: string;
+    pitanjeZona: string;
+    pitanjeSve: string;
+    potvrdi: string;
+    odustani: string;
+    gotovo: string;
+  };
+  lista: {
+    zona: string;
+    sva: string;
+    opis: string;
+  };
+  najava: {
+    izabrano: string;
+    ponisteno: string;
+    pomereno: string;
+    velicina: string;
+    oblik: string;
+    nemozeDalje: string;
+    nemozeVelicina: string;
+    cuvaSe: string;
+  };
+  zauzeto: string;
+  nijeSacuvano: string;
+  greskaOpste: string;
+  zatvori: string;
+  prevlacenje: {
+    uputstvo: string;
+    podignuto: string;
+    otkazano: string;
+  };
+}
+
+export interface MenuLokalDict {
+  raspored: MenuLokalRasporedDict;
+  ruta: {
+    ucitavanje: string;
+    greskaNaslov: string;
+    greskaOpis: string;
+  };
+  ekran: {
+    naslov: string;
+    opis: string;
+    otvoriJavniMeni: string;
+    otvaraSeUNovomTabu: string;
+    pogledi: {
+      oznaka: string;
+      lista: string;
+      raspored: string;
+      kartice: string;
+    };
+    sazetak: {
+      razdelnik: string;
+      nista: string;
+    };
+  };
+  brojevi: {
+    mesta: {
+      one: string;
+      few: string;
+      many: string;
+    };
+    zone: {
+      one: string;
+      few: string;
+      many: string;
+    };
+    qrKartice: {
+      one: string;
+      few: string;
+      many: string;
+    };
+    sedista: {
+      one: string;
+      few: string;
+      many: string;
+    };
+  };
+  vrste: {
+    oznaka: string;
+    table: string;
+    room: string;
+    other: string;
+    prefiks: {
+      table: string;
+      room: string;
+      other: string;
+    };
+    primer: {
+      table: string;
+      room: string;
+      other: string;
+    };
+  };
+  zajednicko: {
+    bezZone: string;
+    zona: string;
+    sedista: string;
+    nijeObavezno: string;
+    sedistaPomoc: string;
+    otkazi: string;
+    cuvaSe: string;
+    nazivPrazan: string;
+    nazivPredug: string;
+    sedistaNeispravno: string;
+    greskaOpsta: string;
+    greskaOznaka: string;
+  };
+  lista: {
+    naslov: string;
+    opis: string;
+    oznakaListe: string;
+    dodajMesta: string;
+    zone: string;
+    podeliNaZone: string;
+    praznaZona: string;
+    uredi: string;
+    urediOznaka: string;
+    kartice: {
+      imaKartice: {
+        one: string;
+        few: string;
+        many: string;
+      };
+      nemaKartice: string;
+      neRadi: string;
+    };
+    prazno: {
+      naslov: string;
+      opis: string;
+      akcija: string;
+    };
+  };
+  dodaj: {
+    naslov: string;
+    opis: string;
+    vrsta: string;
+    nacin: string;
+    jedno: string;
+    vise: string;
+    naziv: string;
+    prefiks: string;
+    prefiksPrazan: string;
+    od: string;
+    odNeispravno: string;
+    koliko: string;
+    kolikoPomoc: string;
+    kolikoNeispravno: string;
+    pregled: string;
+    pregledOpseg: string;
+    dugmeJedno: string;
+    dugmeVise: {
+      one: string;
+      few: string;
+      many: string;
+    };
+    uspeh: {
+      one: string;
+      few: string;
+      many: string;
+    };
+  };
+  pozicija: {
+    opis: string;
+    naziv: string;
+    vrsta: string;
+    sacuvaj: string;
+    sacuvano: string;
+    kartice: {
+      naslov: string;
+      prazno: string;
+      napravi: string;
+      napravljena: string;
+      kod: string;
+    };
+    arhiviraj: {
+      naslov: string;
+      dugme: string;
+      potvrda: string;
+      potvrdi: string;
+      odustani: string;
+      uspeh: string;
+    };
+  };
+  zone: {
+    naslov: string;
+    opis: string;
+    prazno: string;
+    oznakaListe: string;
+    novaOznaka: string;
+    novaPrimer: string;
+    dodaj: string;
+    dodata: string;
+    preimenuj: string;
+    nazivZone: string;
+    sacuvaj: string;
+    preimenovana: string;
+    gore: string;
+    dole: string;
+    pomerena: string;
+    arhiviraj: string;
+    potvrda: string;
+    potvrdi: string;
+    odustani: string;
+    arhivirana: string;
+    nazivPrazan: string;
+    nazivPredug: string;
+    limit: string;
+  };
+  kartice: {
+    naslov: string;
+    napomena: string;
+    oznakaListe: string;
+    prazno: {
+      naslov: string;
+      opis: string;
+    };
+    traka: {
+      oznaka: string;
+      zaMesta: string;
+      zaMestaBroj: string;
+      novaZaStranicu: string;
+      stampajIzabrane: string;
+      stampajSve: string;
+      izabrano: string;
+    };
+    skraceno: string;
+    kod: string;
+    zaStampu: string;
+    stanje: {
+      aktivna: string;
+      iskljucena: string;
+      drugoOdrediste: string;
+    };
+    drugoOdrediste: string;
+    otvara: {
+      prefiks: string;
+      razdelnik: string;
+      meni: string;
+      ulaz: string;
+      bezMesta: string;
+    };
+    sken: {
+      poslednji: string;
+      kadaFormat: string;
+      nikad: string;
+      ukupno: string;
+    };
+    problemi: {
+      oznaka: string;
+      vezaIskljucena: string;
+      stranicaNedostupna: string;
+      pozicijaNedostupna: string;
+    };
+    scanMe: string;
+    radnje: {
+      poveziOznaka: string;
+      poveziAria: string;
+      iskljuci: string;
+      iskljuciAria: string;
+      ukljuci: string;
+      ukljuciAria: string;
+      preuzmi: string;
+      preuzmiAria: string;
+    };
+    iskljuciPotvrda: string;
+    iskljuciDa: string;
+    iskljuciNe: string;
+    iskljucena: string;
+    ukljucena: string;
+    povezana: string;
+    preuzeta: string;
+    povezi: {
+      naslov: string;
+      opis: string;
+      stranica: string;
+      mesto: string;
+      ulaz: string;
+      bezMesta: string;
+      sacuvaj: string;
+    };
+    zaMesta: {
+      naslov: string;
+      opis: string;
+      stranica: string;
+      broj: {
+        one: string;
+        few: string;
+        many: string;
+      };
+      serija: string;
+      napravi: string;
+      uspeh: {
+        one: string;
+        few: string;
+        many: string;
+      };
+    };
+    zaStranicu: {
+      naslov: string;
+      opis: string;
+      stranica: string;
+      broj: string;
+      brojPomoc: string;
+      brojNeispravno: string;
+      napravi: string;
+      uspeh: {
+        one: string;
+        few: string;
+        many: string;
+      };
+    };
+  };
+  stampa: {
+    naslov: string;
+    opis: string;
+    savet: string;
+    stampaj: string;
+    zatvori: string;
+    broj: string;
+    prazno: string;
+    oznakaListe: string;
+  };
+  qr: {
+    oznaka: string;
+  };
+}
+
+// ScanMe Menu V1 (MENI run, K21) — the guest's requests from the public menu
+// (lib/i18n/sr/menu-gost.ts; master §8.1–§8.4, §9.1). Statuses, request kinds,
+// payment preferences and error codes are in menu-domen (shared with the waiter).
+export interface MenuGostDict {
+  traka: {
+    oblast: string;
+    mesto: string;
+    pozovi: string;
+    racun: string;
+    korpa: string;
+    korpaCitac: MenuStudioMnozina;
+    roomService: string;
+    mojiZahtevi: string;
+    otvoreni: MenuStudioMnozina;
+    saljeSe: string;
+    bezVeze: string;
+    dodato: string;
+  };
+  potvrda: {
+    poziv: string;
+    racun: string;
+    porudzbina: string;
+    porudzbinaRs: string;
+    vecPoslatPoziv: string;
+    vecPoslatRacun: string;
+    vecPoslatPozivDrugi: string;
+    vecPoslatRacunDrugi: string;
+    vreme: string;
+    porudzbinaOpis: string;
+    porudzbinaRsOpis: string;
+    racunNacin: string;
+    zatvori: string;
+    nazadNaMeni: string;
+  };
+  racun: {
+    naslov: string;
+    pitanje: string;
+    opis: string;
+    gotovinom: string;
+    karticom: string;
+    odustani: string;
+  };
+  korpa: {
+    naslov: string;
+    naslovRs: string;
+    zaMesto: string;
+    prazno: string;
+    praznoOpis: string;
+    smanji: string;
+    povecaj: string;
+    kolicina: string;
+    ukloni: string;
+    ukloniCitac: string;
+    napomena: string;
+    nedostupno: string;
+    nemaViseUMeniju: string;
+    artikli: string;
+    dostava: string;
+    dostavaJednom: string;
+    ukupno: string;
+    proveraOpis: string;
+    proveraOpisRs: string;
+    posalji: string;
+    posaljiRs: string;
+    posaljiNovo: string;
+    ceneNove: string;
+    nedostupnoGreska: string;
+    stareStavke: string;
+    puna: string;
+    zatvori: string;
+  };
+  dodaj: {
+    naslov: string;
+    izaberite: string;
+    obavezno: string;
+    bezDodatka: string;
+    napomena: string;
+    napomenaPrimer: string;
+    napomenaBroj: string;
+    kolicina: string;
+    manje: string;
+    vise: string;
+    dodaj: string;
+    dodajBezIznosa: string;
+    nedostaje: string;
+    nedostupno: string;
+    bezCene: string;
+  };
+  zahtevi: {
+    naslov: string;
+    uvod: string;
+    prazno: string;
+    bezUredjaja: string;
+    nazad: string;
+    otvoriMeni: string;
+    stavke: MenuStudioMnozina;
+    mestoVreme: string;
+    prihvacenU: string;
+    zavrsenU: string;
+    otkazaliSteU: string;
+    otkazaloOsobljeU: string;
+    otkazi: string;
+    otkaziPitanje: string;
+    otkaziOpis: string;
+    otkaziDa: string;
+    otkaziNe: string;
+    otkazano: string;
+    ucitava: string;
+  };
+  roomService: {
+    naslov: string;
+    cene: string;
+    dostava: string;
+    izSobe: string;
+    nedostupanNaslov: string;
+    nedostupanOpis: string;
+  };
+  greska: { nepoznata: string; pokusaj: string };
+  // K25 — the reservation request (master §11.2, §11.7): the form, the
+  // confirmation, the cancel link, "Moji zahtevi" and the venue's own system.
+  rezervacija: {
+    ulaz: string;
+    ulazOpis: string;
+    ulazEksterniCitac: string;
+    naslov: string;
+    uvod: string;
+    bezStola: string;
+    ime: string;
+    imePrimer: string;
+    datum: string;
+    vreme: string;
+    vremeOpis: string;
+    bezTermina: string;
+    nemaTermina: string;
+    izaberiVreme: string;
+    brojGostiju: string;
+    manje: string;
+    vise: string;
+    email: string;
+    emailPrimer: string;
+    telefon: string;
+    telefonPrimer: string;
+    napomena: string;
+    napomenaOpis: string;
+    napomenaBroj: string;
+    opciono: string;
+    kontaktOpis: { email: string; phone: string; both: string };
+    posalji: string;
+    saljeSe: string;
+    greskaForme: string;
+    greskePolja: {
+      required: string;
+      invalid: string;
+      too_long: string;
+      range: string;
+      in_past: string;
+      too_far: string;
+      outside_hours: string;
+    };
+    poslato: {
+      naslov: string;
+      opis: string;
+      nijePotvrda: string;
+      linkNaslov: string;
+      linkOpis: string;
+      kopiraj: string;
+      kopirano: string;
+      kopiranjeNeuspelo: string;
+      mojiZahtevi: string;
+      nazadNaMeni: string;
+      ponovljeno: string;
+    };
+    link: {
+      naslov: string;
+      nevazeciNaslov: string;
+      nevazeciOpis: string;
+      termin: string;
+      gosti: string;
+      status: string;
+      predlog: string;
+      predlogPoruka: string;
+      predlogUputstvo: string;
+      otkazi: string;
+      otkaziPitanje: string;
+      otkaziOpis: string;
+      otkaziDa: string;
+      otkaziNe: string;
+      otkazuje: string;
+      otkazano: string;
+      nemozeOtkazati: string;
+      nazadNaMeni: string;
+    };
+    /** The guest's wording of the statuses ("Poslato — čeka odgovor lokala"…). */
+    statusi: {
+      new: string;
+      accepted: string;
+      declined: string;
+      change_proposed: string;
+      arrived: string;
+      cancelled: string;
+    };
+    moji: {
+      naslov: string;
+      vrsta: string;
+      poslato: string;
+      otkazaliSte: string;
+      otkazaoLokal: string;
+      prazno: string;
+    };
+    eksterni: { naslov: string; opis: string; dugme: string };
+    iskljuceno: { naslov: string; opis: string };
+    greska: { mreza: string; nepoznata: string };
+  };
+}
+
+// ScanMe Menu V1 (MENI run, K22) — the waiter panel (lib/i18n/sr/menu-konobar.ts;
+// master §8.4, §10). Request kinds, statuses, payment preferences and error
+// codes (request/*, staff/*) are in menu-domen, shared with the guest.
+export interface MenuKonobarDict {
+  meta: { naslov: string; naslovLokala: string };
+  pin: {
+    podnaslov: string;
+    naslov: string;
+    uputstvo: string;
+    uneto: MenuStudioMnozina;
+    tastatura: string;
+    obrisi: string;
+    prijava: string;
+    proverava: string;
+    pogresan: MenuStudioMnozina;
+    blokada: string;
+    blokadaOpis: string;
+    mreza: string;
+    bezPeppera: string;
+    bezPepperaOpis: string;
+    greska: string;
+    istekla: string;
+    nalog: string;
+    nalogOpis: string;
+    pomoc: string;
+  };
+  zaglavlje: {
+    panel: string;
+    /** K33: the skip link to the work queue. */
+    preskociNaRed: string;
+    uSmeni: string;
+    vaziDo: string;
+    nalogom: string;
+    meniKorisnika: string;
+    bezVeze: string;
+    nalogBezImena: string;
+    odjava: string;
+    odjavljuje: string;
+    izlaz: string;
+    tema: string;
+    aktivni: MenuStudioMnozina;
+    aktivniKratko: string;
+    bezAktivnih: string;
+  };
+  nav: { oznaka: string; red: string; sala: string };
+  red: {
+    naslov: string;
+    filteri: string;
+    filter: { sve: string; zahtevi: string; rezervacije: string };
+    sazetak: string;
+    sazetakSviPreuzeti: string;
+    prazno: { naslov: string; opis: string };
+    praznoRezervacije: { naslov: string; opis: string };
+    uskoro: string;
+    skraceno: string;
+    otvori: string;
+    radnja: { accept: string; review: string; complete: string };
+    radnjaCitac: string;
+    noviBroj: MenuStudioMnozina;
+    grupaNovi: string;
+    grupaPrihvaceni: string;
+    potvrda: { accepted: string; done: string; cancelled: string };
+    novo: string;
+    preuzetoVi: string;
+    stavke: MenuStudioMnozina;
+    najava: string;
+    otkazaoGost: string;
+    zatvoriObavestenje: string;
+    preuzeto: string;
+    zavrseno: string;
+    otkazano: string;
+  };
+  vreme: {
+    par: string;
+    ceka: string;
+    kasni: string;
+    citac: string;
+    sati: string;
+    minuti: string;
+    sekunde: string;
+  };
+  detalj: {
+    nazad: string;
+    nazadCitac: string;
+    stiglo: string;
+    ceka: string;
+    izvor: string;
+    kartica: string;
+    placanje: string;
+    porudzbina: string;
+    roomService: string;
+    napomena: string;
+    dostava: string;
+    medjuzbir: string;
+    ukupno: string;
+    iznos: string;
+    preuzmi: string;
+    zavrsi: string;
+    otkazi: string;
+    otkaziPitanje: string;
+    otkaziOpis: string;
+    otkaziDa: string;
+    otkaziNe: string;
+    prihvacen: string;
+    zavrsen: string;
+    otkazanGost: string;
+    otkazanOsoblje: string;
+    zavrsenoNaslov: string;
+    ostalo: { table: string; room: string; other: string };
+    nemaOstalog: string;
+    vec: string;
+    nestao: { naslov: string; opis: string };
+    offline: string;
+    ucitava: string;
+  };
+  // K23 — the floor (Raspored / Tabela), the table detail, zones, sound, connection.
+  sala: {
+    naslov: string;
+    prikaz: string;
+    raspored: string;
+    tabela: string;
+    legenda: string;
+    neutralno: string;
+    neutralnoCitac: string;
+    nemaRezervacijeCitac: string;
+    legendaNeutralno: string;
+    legendaKasni: string;
+    legendaZauzetost: string;
+    legendaPrihvaceno: string;
+    zonaPodnaslov: string;
+    kolone: {
+      sto: string;
+      call: string;
+      order: string;
+      bill: string;
+      reservation: string;
+      konobar: string;
+      status: string;
+    };
+    vrste: { call: string; order: string; bill: string; reservation: string };
+    sedista: MenuStudioMnozina;
+    bezZone: string;
+    pretraga: string;
+    pretragaOznaka: string;
+    brojMesta: MenuStudioMnozina;
+    praznoPretraga: { naslov: string; opis: string };
+    ocistiPretragu: string;
+    prazno: { naslov: string; opis: string };
+    praznoZona: { naslov: string; opis: string };
+    mestoCitac: string;
+    stanjeCitac: string;
+    znackaCitac: string;
+    jos: string;
+    preuzeoCitac: string;
+    pomeriRaspored: string;
+    naRed: string;
+  };
+  sto: {
+    nazadRed: string;
+    nazadSala: string;
+    nazadRedCitac: string;
+    nazadSalaCitac: string;
+    nazadNaStoCitac: string;
+    vrsta: { table: string; room: string; other: string };
+    kartica: string;
+    bezKartice: string;
+    karticaUcitava: string;
+    aktivni: string;
+    nemaAktivnih: { table: string; room: string; other: string };
+    status: string;
+    statusOpis: string;
+    statusTrenutno: string;
+    statusPromenio: string;
+    statusPromenioBezImena: string;
+    neutralno: string;
+    neutralnoOpis: string;
+    ukloniOznaku: string;
+    postavljeno: string;
+    uklonjeno: string;
+    nestao: { naslov: string; opis: string };
+  };
+  zauzetost: { free: string; occupied: string; reserved: string; out_of_service: string };
+  zona: {
+    oznaka: string;
+    sve: string;
+    meniCitac: string;
+    moja: string;
+    bezZoneUvek: string;
+    raspodela: string;
+    raspodelaOpis: string;
+    raspodelaOsoba: string;
+    raspodelaPrazno: string;
+    raspodelaGotovo: string;
+    promenjena: string;
+    vanZone: MenuStudioMnozina;
+    vanZoneKasni: string;
+    prikaziSve: string;
+  };
+  zvuk: { ukljucen: string; iskljucen: string; oznaka: string; podsetnik: string };
+  /** nema: K33 polite announcement when the connection goes away. */
+  veza: { vracena: string; pokusajPonovo: string; nema: string };
+  /** panelNaslov/panelOpis: K33 error boundary of app/[slug]/konobar. */
+  greska: { nepoznata: string; mreza: string; panelNaslov: string; panelOpis: string };
+  // K25 — reservations in the waiter panel (master §10.3, §10.4, §11.3–§11.7).
+  rezervacije: {
+    naslov: string;
+    grupe: {
+      cekajuOdgovor: string;
+      kasne: string;
+      uskoro: string;
+      danas: string;
+      kasnije: string;
+      stigli: string;
+      otkazane: string;
+    };
+    iskljuceno: string;
+    skraceno: string;
+    bezStola: string;
+    imaNapomenu: string;
+    kasni: string;
+    uTerminu: string;
+    predlogKratko: string;
+    radnja: { odgovori: string; stigli: string; poveziSto: string; otvori: string };
+    radnjaCitac: string;
+    otvoriCitac: string;
+    najava: string;
+    otkazaoGost: string;
+    noviBroj: MenuStudioMnozina;
+    detalj: {
+      naslov: string;
+      nazad: string;
+      nazadCitac: string;
+      termin: string;
+      gosti: string;
+      ime: string;
+      kontakt: string;
+      pozovi: string;
+      pozoviCitac: string;
+      pisi: string;
+      pisiCitac: string;
+      napomena: string;
+      bezNapomene: string;
+      poslato: string;
+      odluka: string;
+      sto: string;
+      bezStola: string;
+      vezao: string;
+      predlogNaslov: string;
+      predlogTermin: string;
+      prihvati: string;
+      predlozi: string;
+      odbij: string;
+      odbijPitanje: string;
+      odbijOpis: string;
+      odbijDa: string;
+      odbijNe: string;
+      gostPrihvata: string;
+      gostPrihvataOpis: string;
+      stigli: string;
+      stigliZauzetost: string;
+      stigliBezStola: string;
+      otkazi: string;
+      otkaziPitanje: string;
+      otkaziOpis: string;
+      otkaziDa: string;
+      otkaziNe: string;
+      poveziSto: string;
+      promeniSto: string;
+      ukloniSto: string;
+      izaberiSto: string;
+      izaberiStoOpis: string;
+      nemaStolova: string;
+      drugeNaStolu: string;
+      javiteGostu: string;
+      javiteGostuOpis: string;
+      realizovana: string;
+      otkazanaGost: string;
+      otkazanaOsoblje: string;
+      odbijena: string;
+      potvrde: {
+        accepted: string;
+        declined: string;
+        change_proposed: string;
+        arrived: string;
+        cancelled: string;
+        bound: string;
+        unbound: string;
+      };
+      nestala: { naslov: string; opis: string };
+      ucitava: string;
+    };
+    predlog: {
+      naslov: string;
+      opis: string;
+      datum: string;
+      vreme: string;
+      poruka: string;
+      porukaPrimer: string;
+      sacuvaj: string;
+      odustani: string;
+    };
+    sto: {
+      naslov: string;
+      otkazana: string;
+      ko: { guest: string; staff: string };
+      jos: MenuStudioMnozina;
+      poveziRezervaciju: string;
+      poveziOpis: string;
+      nemaZaPovezivanje: string;
+      poveziCitac: string;
+    };
+    znacka: string;
+    znackaCitac: string;
+  };
+  // K27 — the reminder strip (components/menu/konobar/obavestenja.tsx). {ko}, {vrsta}, {mesto}, {vreme}.
+  podsetnik: {
+    oznaka: string;
+    tekst: string;
+    tekstBezImena: string;
+    otvori: string;
+    otvoriCitac: string;
+    uRedu: string;
+    uReduCitac: string;
+  };
+}
+
+// ScanMe Menu V1 (MENI run, K26) — the reply to a guest about a reservation
+// (lib/i18n/sr/menu-odgovor.ts; master §11.4): the sheet "Obavesti gosta", the
+// venue's mailbox and the reply templates in Podešavanja, the mail/* errors.
+type MenuOdgovorSablon = { subject: string; body: string };
+export interface MenuOdgovorDict {
+  vrste: { accept: string; decline: string; propose: string; other: string };
+  podrazumevano: {
+    accept: MenuOdgovorSablon;
+    decline: MenuOdgovorSablon;
+    propose: MenuOdgovorSablon;
+    other: MenuOdgovorSablon;
+    potpis: string;
+    gostiju: MenuStudioMnozina;
+    predlozeno: string;
+  };
+  obavesti: {
+    naslov: string;
+    naslovVrste: string;
+    vrsta: string;
+    kome: string;
+    predmet: string;
+    tekst: string;
+    posalji: string;
+    saljeSa: string;
+    salje: string;
+    poslato: string;
+    otvori: string;
+    otvoriCitac: string;
+    pozovi: string;
+    pozoviCitac: string;
+    skraceno: string;
+    napomenaSkraceno: string;
+    bezEmaila: string;
+    bezKontakta: string;
+    postaNijePovezana: string;
+    postaNedostupna: string;
+    postaGreska: string;
+    prazno: string;
+    ponovo: string;
+  };
+  ishod: {
+    naslov: string;
+    opis: string;
+    reached: string;
+    no_answer: string;
+    left_message: string;
+    zabelezi: string;
+    zabelezeno: string;
+  };
+  istorija: {
+    naslov: string;
+    red: string;
+    kanal: { mailbox: string; mailto: string; phone: string };
+    status: { sending: string; sent: string; failed: string; logged: string };
+  };
+  posta: {
+    naslov: string;
+    opis: string;
+    bezLozinke: string;
+    provajder: { gmail: string; microsoft: string };
+    povezana: string;
+    povezanaOd: string;
+    poveziGmail: string;
+    poveziMicrosoft: string;
+    povezujem: string;
+    prekini: string;
+    prekiniPotvrda: string;
+    prekiniDa: string;
+    odustani: string;
+    prekinuta: string;
+    nedostupno: string;
+    greska: string;
+    uspeh: string;
+    neuspeh: string;
+  };
+  sabloni: {
+    naslov: string;
+    opis: string;
+    predmet: string;
+    tekst: string;
+    zamene: string;
+    zameneOpis: {
+      ime: string;
+      lokal: string;
+      datum: string;
+      vreme: string;
+      brojGostiju: string;
+      predlozenoVreme: string;
+      poruka: string;
+      potpis: string;
+    };
+    potpis: string;
+    potpisOpis: string;
+    sacuvaj: string;
+    cuva: string;
+    sacuvano: string;
+    vrati: string;
+    prilagodjen: string;
+    podrazumevani: string;
+    pregled: string;
+    pregledOpis: string;
+    primer: { ime: string; lokal: string; predlog: string };
+    predugo: string;
+  };
+  /** Keyed by the codes of lib/menu/errors/mail.ts (kept literal: this file imports no values). */
+  greske: {
+    "mail/not_configured": string;
+    "mail/provider_unavailable": string;
+    "mail/state_invalid": string;
+    "mail/scope_missing": string;
+    "mail/not_connected": string;
+    "mail/reconnect_required": string;
+    "mail/no_recipient": string;
+    "mail/send_failed": string;
+    "mail/rate_limited": string;
+    "mail/invalid_input": string;
+  };
+}
+
+// ScanMe Menu V1 (MENI run, K30) — the Analitika section of the client panel and
+// the "Poslednjih 7 dana" card on Početna (lib/i18n/sr/menu-analitika.ts; master
+// §14). Every explanation is a row of docs/menu/ANALITIKA-DEFINICIJE.md in plain words.
+type MenuAnalitikaStavka = { naziv: string; objasnjenje: string };
+type MenuAnalitikaMnozina = { one: string; few: string; many: string };
+export interface MenuAnalitikaDict {
+  naslov: string;
+  opis: string;
+  ucitavanje: string;
+  greskaNaslov: string;
+  greskaPeriod: string;
+  greskaPovratak: string;
+  staSeBroji: string;
+  meniNaslov: string;
+  kasnjenje: string;
+  period: {
+    oznaka: string;
+    izbori: { d7: string; d30: string; d90: string; izbor: string };
+    od: string;
+    do: string;
+    primeni: string;
+    opseg: string;
+    prikazano: string;
+    zakljucano: string;
+    greske: { neispravan: string; obrnut: string; predug: string; buducnost: string; van_cuvanja: string };
+  };
+  stanja: { praznoNaslov: string; praznoOpis: string; maloNaslov: string; maloOpis: string };
+  premium: { oznaka: string; razlog: string; naslov: string; opis: string; stavke: readonly string[]; paket: string };
+  poredjenje: {
+    vise: string;
+    manje: string;
+    isto: string;
+    procenat: string;
+    objasnjenje: string;
+    nemaPrethodnog: string;
+    zahtevi: string;
+    rezervacije: string;
+  };
+  metrike: Record<"otvaranja" | "detalji" | "skenovi" | "sesije" | "zahtevi" | "rezervacije", MenuAnalitikaStavka>;
+  sesije: { nedostupno: string; neMere: string; nepouzdane: string };
+  trend: { naslov: string; opis: string; izbor: string; tabela: string; kolonaDan: string; grafikon: string; najvise: string; danas: string };
+  zahtevi: {
+    naslov: string;
+    opis: string;
+    kolone: { vrsta: string; poslato: string; prihvaceno: string; zavrseno: string; otkazano: string };
+    objasnjenja: { poslato: string; prihvaceno: string; zavrseno: string; otkazano: string };
+    vrste: { call: string; bill: string; order: string };
+    ukupno: string;
+    udeo: string;
+    udeoObjasnjenje: string;
+    otkazali: string;
+    otkazaliObjasnjenje: string;
+    roomService: string;
+    roomServiceObjasnjenje: string;
+    prazno: string;
+  };
+  rezervacije: {
+    naslov: string;
+    opis: string;
+    stavke: Record<"poslato" | "prihvaceno" | "predlozeno" | "odbijeno" | "realizovano" | "otkazano", MenuAnalitikaStavka>;
+    udeo: string;
+    udeoObjasnjenje: string;
+    otkazali: string;
+    otkazaliObjasnjenje: string;
+    prazno: string;
+  };
+  najotvaraniji: { naslov: string; opis: string; prazno: string; broj: MenuAnalitikaMnozina };
+  kartice: { naslov: string; opis: string; prazno: string; ostale: string; broj: MenuAnalitikaMnozina };
+  tok: {
+    naslov: string;
+    opis: string;
+    koraci: Record<"sesije" | "detalj" | "zahtev" | "porudzbina" | "rezervacija", MenuAnalitikaStavka>;
+    udeo: string;
+    broj: MenuAnalitikaMnozina;
+    nedostupno: string;
+  };
+  raspodela: {
+    naslov: string;
+    opis: string;
+    metrika: string;
+    dimenzija: string;
+    nema: string;
+    dimenzije: Record<"stranica" | "artikal" | "kartica" | "jezik" | "uredjaj" | "sat" | "zahtev" | "kanal" | "ko", string>;
+    metrike: Record<"otvaranja" | "detalji" | "skenovi" | "zahtevi" | "zahteviOtkazani" | "rezervacije", string>;
+    objasnjenje: string;
+    ostalo: string;
+    uklonjeno: string;
+    bezNaziva: string;
+    bezPodatka: string;
+    bezKartice: string;
+    uredjaji: { telefon: string; tablet: string; racunar: string };
+    kanali: { standard: string; room_service: string };
+    ko: { guest: string; staff: string };
+    sat: string;
+    udeo: string;
+    prazno: string;
+    ucitavanje: string;
+  };
+  csv: {
+    dugme: string;
+    opis: string;
+    zakljucano: string;
+    datum: string;
+    ukupno: string;
+    kolone: Record<
+      | "otvaranja"
+      | "detalji"
+      | "skenovi"
+      | "zahtevi"
+      | "porudzbine"
+      | "zahteviPrihvaceni"
+      | "zahteviZavrseni"
+      | "zahteviOtkazani"
+      | "rezervacije"
+      | "rezervacijePrihvacene"
+      | "rezervacijePredlozi"
+      | "rezervacijeOdbijene"
+      | "rezervacijeRealizovane"
+      | "rezervacijeOtkazane"
+      | "sesije"
+      | "sesijeSaDetaljem"
+      | "sesijeSaZahtevom"
+      | "sesijeSaPorudzbinom"
+      | "sesijeSaRezervacijom",
+      string
+    >;
+    fajl: string;
+  };
+  kakoBrojimo: { naslov: string; stavke: readonly string[] };
+  pocetna: {
+    opis: string;
+    otvori: string;
+    najotvaranijiArtikal: string;
+    najotvaranijiObjasnjenje: string;
+    grafikon: string;
+    prazno: string;
+    praznoOpis: string;
+    greska: string;
+    ucitavanje: string;
+  };
+  meseci: readonly string[];
+}
+
 export interface DictBySurface {
   "fair-exhibitor-registration": FairExhibitorRegistrationDict;
   "fair-demo": FairDemoDict;
@@ -6444,6 +10582,16 @@ export interface DictBySurface {
   menu: MenuDict;
   "menu-editor": MenuEditorDict;
   "menu-admin": MenuAdminDict;
+  "menu-domen": MenuDomenDict;
+  "menu-zajednicko": MenuZajednickoDict;
+  "menu-panel": MenuPanelDict;
+  "menu-studio": MenuStudioDict;
+  "menu-javni": MenuJavniDict;
+  "menu-lokal": MenuLokalDict;
+  "menu-gost": MenuGostDict;
+  "menu-konobar": MenuKonobarDict;
+  "menu-odgovor": MenuOdgovorDict;
+  "menu-analitika": MenuAnalitikaDict;
   "ordering-admin": OrderingAdminDict;
   ordering: OrderingDict;
   "ordering-panel": OrderingPanelDict;

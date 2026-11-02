@@ -1,0 +1,80 @@
+/*
+ * ScanMe Menu V1 (K23) — the two motions of the waiter panel (MENU-UX §1.3, §7;
+ * master §8.5, §10.4). Only transform and opacity move; nothing else animates.
+ *
+ * .kasni      a late chip (the wait passed the venue's threshold): a ring
+ *             pulses gently ONCE every 10 s. With prefers-reduced-motion the
+ *             ring stands still (a static emphasis); the colour, the clock icon
+ *             and the word "kasni" are there in both cases.
+ * .podsetnik  a reminder of a request still `Novi`: its row or table flashes an
+ *             ink ring three times (about 1.8 s; ink, so it is never read as the
+ *             amber of a reservation). With reduced motion the ring is simply
+ *             shown while the reminder lasts.
+ *
+ * The element must be positioned (relative or absolute): the rings are its
+ * pseudo-elements and follow its border radius.
+ */
+
+.kasni::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 2px solid var(--mp-opasnost);
+  opacity: 0;
+  pointer-events: none;
+  animation: kasniPuls 10s var(--mp-kriva-ulaz) infinite;
+}
+
+@keyframes kasniPuls {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  5% {
+    opacity: 0.85;
+    transform: scale(1.06);
+  }
+  12%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+.podsetnik::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 3px solid var(--mp-mastilo);
+  opacity: 0;
+  pointer-events: none;
+  animation: podsetnikBlesak 0.6s var(--mp-kriva-ulaz) 3;
+}
+
+@keyframes podsetnikBlesak {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kasni::after {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .podsetnik::before {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}

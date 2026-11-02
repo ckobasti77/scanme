@@ -8,11 +8,28 @@ import {
 } from "./_generated/server";
 import { requireAdmin } from "./lib/access";
 import { writeAdminAudit } from "./lib/adminAudit";
+import { activeMenuServiceForBusiness } from "./lib/menuAccess";
+import { touchDraft, writeMenuAudit } from "./lib/menuDraft";
+import { assertLegacyMenuWritable } from "./lib/menuLegacyGuard";
+import {
+  defaultPageOf,
+  legacyPlanOptions,
+  loadActiveMenuService,
+  loadLegacyTarget,
+  writeLegacySlice,
+} from "./lib/menuLegacyMigration";
 import { menuModelValidator } from "./lib/menuValidators";
 import { menuForBusiness, prepareDraftModel, publishFromDraft } from "./menu";
 import type { MenuModel } from "../lib/menu-blocks";
 import { countItems, MENU_MAX_ITEMS } from "../lib/menu-export/rows";
 import { migrationDeadline, type MigrationStage } from "../lib/menu-migration";
+import type { MenuMigrationBlocker } from "../lib/menu/errors/migration";
+import {
+  MENU_IMPORT_MAX_WRITES,
+  legacySourceFromModel,
+  planLegacyMenu,
+  plannedWrites,
+} from "../lib/menu/legacy-mapping";
 import { fmt, getDict } from "../lib/i18n";
 
 // =============================================================================
@@ -135,13 +152,9 @@ export const overview = query({
         migrationStage: (menu.migrationStage ?? null) as MigrationStage | null,
         migrationReceivedAt: menu.migrationReceivedAt ?? null,
         migrationStageAt: menu.migrationStageAt ?? null,
+        // K33 C1: a query never reads the clock. "Overdue" is worked out on the
+        // device from `deadlineAt` and `migrationStage`.
         deadlineAt,
-        // A display hint evaluated when the query runs (re-evaluated on any
-        // change to the menu row); not a stored fact.
-        overdue:
-          deadlineAt !== null &&
-          menu.migrationStage !== "published" &&
-          Date.now() > deadlineAt,
         groupsCount: model.groups.length,
         itemsCount: countItems(model),
         publishedAt: menu.publishedAt ?? null,
@@ -270,6 +283,7 @@ export const importDraft = mutation({
       );
     }
     const { menu, business } = await loadMenu(ctx, args.menuId);
+    await assertLegacyMenuWritable(ctx, menu._id);
     const model = prepareDraftModel(incoming);
     const replacedItems = countItems(asPureModel(menu.draftModel));
     const now = Date.now();
@@ -316,6 +330,7 @@ export const publishForClient = mutation({
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const { menu, business } = await loadMenu(ctx, args.menuId);
+    await assertLegacyMenuWritable(ctx, menu._id);
     const result = await publishFromDraft(ctx, menu, {
       onAvailabilityConflict: "keepLive",
     });
@@ -343,5 +358,105 @@ export const publishForClient = mutation({
       items: result.itemCount,
       keptUnavailable: result.keptUnavailable,
     };
+  },
+});
+
+// -----------------------------------------------------------------------------
+// K06 — the internal import into the NEW model (master §6.2, recipe §12)
+// -----------------------------------------------------------------------------
+
+// The ScanMe operator's import (lib/menu-import.ts parseMenuImport on the admin
+// screen turns the client's lines into the same inline model) goes into the
+// DRAFT of the Menu service — sections on "Kompletan meni", shared articles,
+// variants — through the same mapping as the legacy migration
+// (lib/menu/legacy-mapping.ts). It never publishes: the client or ScanMe
+// previews and publishes later (§6.2 steps 5–6). `dryRun` returns the report
+// only (names, prices, groups, variants, duplicates — §6.2 step 3). The
+// import goes only into a draft without articles (a second import would mix
+// two menus); the operator removes an import with the internal
+// menuMigration.purgeMigratedService. One transaction, refused BEFORE any
+// write when it would exceed MENU_IMPORT_MAX_WRITES. The client panel has no
+// import and no migration (master §2.3).
+/**
+ * K28 — the new-model Menu service of a business for the internal admin tool
+ * (Režim usluge, Uvoz u nacrt): its id, locked mode and feature switches.
+ * ScanMe admin only; null when the business has no active Menu service.
+ */
+export const serviceForBusiness = query({
+  args: { businessId: v.id("businesses") },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const service = await activeMenuServiceForBusiness(ctx, args.businessId);
+    if (!service) return null;
+    return {
+      menuServiceId: service._id,
+      mode: service.mode,
+      modeSetAt: service.modeSetAt ?? null,
+      features: service.features,
+    };
+  },
+});
+
+export const importDraftV2 = mutation({
+  args: {
+    menuServiceId: v.id("menuServices"),
+    model: menuModelValidator,
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const service = await loadActiveMenuService(ctx, args.menuServiceId);
+    const model = prepareDraftModel(asPureModel(args.model));
+    const source = legacySourceFromModel(model, {
+      kind: "import",
+      revision: 0,
+      hasUnpublishedChanges: false,
+    });
+    const page = await defaultPageOf(ctx, service._id);
+    const loaded = await loadLegacyTarget(ctx, service, page, { verify: false });
+    const plan = planLegacyMenu(source, loaded.target, legacyPlanOptions(false));
+    const blockers: MenuMigrationBlocker[] = [...plan.report.blockers];
+    if (loaded.target.articleCount > 0) blockers.push("import_target_not_empty");
+    if (plannedWrites(plan) > MENU_IMPORT_MAX_WRITES) blockers.push("import_too_large");
+    const report = { ...plan.report, blockers };
+    if (blockers.length > 0 || args.dryRun === true) {
+      return { ok: blockers.length === 0, imported: false as const, report };
+    }
+
+    const now = Date.now();
+    const written = await writeLegacySlice(ctx, {
+      menuServiceId: service._id,
+      loaded,
+      plan,
+      from: 0,
+      to: plan.articles.length,
+      now,
+    });
+    await touchDraft(ctx, service._id, admin._id, { articleDelta: written.articles });
+    const details = {
+      sections: written.sections,
+      articles: written.articles,
+      variants: written.variants,
+      warnings: report.warningCount,
+      duplicates: report.duplicateCount,
+    };
+    await writeMenuAudit(ctx, {
+      menuServiceId: service._id,
+      actorKind: "admin",
+      actorUserId: admin._id,
+      action: "legacy.imported",
+      entityType: "menuServices",
+      details,
+    });
+    const business = await ctx.db.get(service.businessId);
+    await writeAdminAudit(ctx, {
+      actorUserId: admin._id,
+      ...(business?.accountId ? { accountId: business.accountId } : {}),
+      businessId: service.businessId,
+      action: "menu_import_draft_v2",
+      detail: { menuServiceId: service._id, ...details },
+      now,
+    });
+    return { ok: true, imported: true as const, report, written };
   },
 });

@@ -5,8 +5,8 @@ import { useId, useState, type FocusEvent, type KeyboardEvent } from "react";
 import { adminFieldClass, adminTouchFieldClass } from "@/components/admin/admin-ui/admin-controls";
 import {
   changeHierarchy,
-  hierarchyOptions,
   nextActiveIndex,
+  sanitizeHierarchyValue,
   searchHierarchyModels,
   type HierarchyData,
   type HierarchyModel,
@@ -16,22 +16,19 @@ import { fmt } from "@/lib/i18n/format";
 import { adminUiSr as dict } from "@/lib/i18n/sr/admin-ui";
 import { cn } from "@/lib/utils";
 
-// Admin UX A3 — the shared Izlagač → Brend → Model picker (A0 §2.4). Used by
-// Modeli and later by QR, Interakcije and Leadovi. Presentational: the screen
-// keeps the value (Modeli: in the query string). There is no long `<select>`
-// of models: a model is found by typing in a combobox (name, variant, key,
-// QR or SMQ code), narrowed by the chosen exhibitor and brand.
+// Admin UX A3 / ADMIN v2 — the model picker of a form (Glas publike, Ankete,
+// the QR flow): there is no long `<select>` of models, a model is found by
+// typing in a combobox (name, variant, key, QR or SMQ code). Presentational:
+// the screen keeps the value. The Izlagač → Brend → Model filters of the
+// lists are in the sidebar of the admin frame
+// (lib/admin-v2/sidebar/hierarchy.ts), not here.
 
 export type AdminHierarchyPickerProps = {
   data: HierarchyData;
   value: HierarchyValue;
   onChange: (next: HierarchyValue) => void;
-  /** filter = three dependent fields (lists); select = choose one model (forms). */
-  mode?: "filter" | "select";
   label: string;
-  /** Models that pass the screen's other filters; their number is shown next to each exhibitor and brand. */
-  counted?: ReadonlySet<string>;
-  /** select mode: the field must be filled. */
+  /** The field must be filled. */
   required?: boolean;
   /** N2 — 16 px on the phone (a field typed on the fair floor; adminTouchFieldClass). */
   touch?: boolean;
@@ -39,68 +36,21 @@ export type AdminHierarchyPickerProps = {
 
 const MAX_SHOWN = 50;
 
-export function AdminHierarchyPicker({ data, value, onChange, mode = "filter", label, counted, required, touch }: AdminHierarchyPickerProps) {
+export function AdminHierarchyPicker({ data, value, onChange, label, required, touch }: AdminHierarchyPickerProps) {
   const id = useId();
-  const options = hierarchyOptions(data, value, counted);
-  const current = options.value;
-  const optionText = (option: { label: string; count: number }) => (counted ? fmt(dict.hierarchy.optionCount, { label: option.label, count: option.count }) : option.label);
-  const pickModel = (modelId: string | undefined) => onChange(changeHierarchy(data, current, "model", modelId));
-
-  if (mode === "select") {
-    return (
-      <div data-admin-primitive="hierarchy-picker" className="grid min-w-0 gap-1.5">
-        <ModelCombobox
-          id={`${id}-model`}
-          label={label}
-          models={data.models}
-          selectedId={current.modelId}
-          onSelect={pickModel}
-          required={required}
-          touch={touch}
-        />
-      </div>
-    );
-  }
-  const fieldClass = touch ? adminTouchFieldClass : adminFieldClass;
-
+  const current = sanitizeHierarchyValue(data, value);
   return (
-    <fieldset data-admin-primitive="hierarchy-picker" className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)]">
-      <legend className="sr-only">{label}</legend>
-      <div className="grid min-w-0 gap-1.5">
-        <label htmlFor={`${id}-exhibitor`} className="text-xs font-semibold">{dict.hierarchy.exhibitor}</label>
-        <select
-          id={`${id}-exhibitor`}
-          value={current.exhibitorId ?? ""}
-          onChange={(event) => onChange(changeHierarchy(data, current, "exhibitor", event.target.value || undefined))}
-          className={fieldClass}
-        >
-          <option value="">{dict.hierarchy.allExhibitors}</option>
-          {options.exhibitors.map((option) => <option key={option.id} value={option.id}>{optionText(option)}</option>)}
-        </select>
-      </div>
-      <div className="grid min-w-0 gap-1.5">
-        <label htmlFor={`${id}-brand`} className="text-xs font-semibold">{dict.hierarchy.brand}</label>
-        <select
-          id={`${id}-brand`}
-          value={current.brandId ?? ""}
-          onChange={(event) => onChange(changeHierarchy(data, current, "brand", event.target.value || undefined))}
-          className={fieldClass}
-        >
-          <option value="">{dict.hierarchy.allBrands}</option>
-          {options.brands.map((option) => <option key={option.id} value={option.id}>{optionText(option)}</option>)}
-        </select>
-      </div>
-      <div className="grid min-w-0 gap-1.5 sm:col-span-2 lg:col-span-1">
-        <ModelCombobox
-          id={`${id}-model`}
-          label={dict.hierarchy.model}
-          models={options.models}
-          selectedId={current.modelId}
-          onSelect={pickModel}
-          touch={touch}
-        />
-      </div>
-    </fieldset>
+    <div data-admin-primitive="hierarchy-picker" className="grid min-w-0 gap-1.5">
+      <ModelCombobox
+        id={`${id}-model`}
+        label={label}
+        models={data.models}
+        selectedId={current.modelId}
+        onSelect={(modelId) => onChange(changeHierarchy(data, current, "model", modelId))}
+        required={required}
+        touch={touch}
+      />
+    </div>
   );
 }
 

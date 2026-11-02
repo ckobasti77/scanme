@@ -39,6 +39,9 @@ const isThree = (s: string) => s === "three" || s.startsWith("three/");
 
 const AUTO3D = resolve(ROOT, "components/fair/auto3d");
 const VIEWER = resolve(AUTO3D, "viewer");
+// Admin V2 ima svoj, lenjo učitan three kit (components/admin/three/**,
+// sopstvena granica u lib/admin-v2/three/import-boundary.test.ts).
+const ADMIN_THREE = resolve(ROOT, "components/admin/three");
 const files = [
   ...walk(resolve(ROOT, "app")),
   ...walk(resolve(ROOT, "components")),
@@ -49,6 +52,7 @@ describe("granica three-a", () => {
   test("three se statički uvozi samo iz components/fair/auto3d/viewer/**", () => {
     const offenders = files
       .filter((f) => !f.startsWith(VIEWER + sep))
+      .filter((f) => !f.startsWith(ADMIN_THREE + sep))
       .filter((f) => staticImports(readFileSync(f, "utf8")).some(isThree) || dynamicImports(readFileSync(f, "utf8")).some(isThree))
       .map(rel);
     expect(offenders).toEqual([]);

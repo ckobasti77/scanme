@@ -53,8 +53,9 @@ export function modelProblemKind(model: Pick<FilterableModel, "issues">): ModelP
   return model.issues.length ? "upozorenja" : "bez";
 }
 
+/** ADMIN v2: Modeli has one search, so it also finds a model by its exhibitor (the model picker did). */
 export function modelSearchText(model: FilterableModel): string {
-  return normalizeSearch([model.displayName, model.variant, model.externalKey, model.qrCode, model.qrSmq, model.brandName].filter(Boolean).join(" "));
+  return normalizeSearch([model.displayName, model.variant, model.externalKey, model.qrCode, model.qrSmq, model.brandName, model.exhibitorName].filter(Boolean).join(" "));
 }
 
 function facetValue(model: FilterableModel, facet: ModelFacet): string {

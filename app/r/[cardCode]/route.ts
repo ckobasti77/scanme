@@ -12,6 +12,7 @@ import {
   buildGuestCookieValue,
   guestCookieHeader,
 } from "@/lib/memories-guest-cookie";
+import { menuOutcomePath } from "@/lib/menu/http/card-redirect";
 
 // The printed-card resolver (RFC-001 §2.7, TASK-14 STEP 1): GET /r/[cardCode]
 // → server-side 302. This URL is the only thing printed on physical cards, so
@@ -95,9 +96,10 @@ export async function GET(
           new URL(`/${outcome.businessSlug}/venue`, request.url).toString(),
         );
       case "menu":
-        return redirect(
-          new URL(`/${outcome.businessSlug}/meni`, request.url).toString(),
-        );
+        // K20: a card linked to a page opens it; a card standing on a table or
+        // room goes through the hop /r/[cardCode]/meni (guest session). No link
+        // → /{slug}/meni as before (lib/menu/http/card-redirect.ts).
+        return redirect(new URL(menuOutcomePath(outcome), request.url).toString());
       case "event":
         return redirect(
           new URL(

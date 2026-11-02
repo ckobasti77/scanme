@@ -1,0 +1,29 @@
+/*
+ * ScanMe Menu V1 (K11) — the drag handle (2 × 3 dots) and the row menu mark
+ * (3 dots) drawn with one element each, in the text colour. A 400-article page
+ * renders them on every row, so they are not SVG icons (an icon is up to seven
+ * elements; the K10 element budget of the large page would not hold).
+ */
+
+.rucica {
+  /* display comes from the Tailwind classes (hidden below 640 px); the padding
+     makes a 44 × 43 px target around the 10 × 15 px dots */
+  box-sizing: content-box;
+  width: 10px;
+  height: 15px;
+  padding: 14px 17px;
+  background-image: radial-gradient(circle, currentColor 1.5px, transparent 1.9px);
+  background-size: 5px 5px;
+  background-repeat: repeat;
+  background-origin: content-box;
+  background-clip: content-box;
+}
+
+.tacke {
+  display: block;
+  width: 18px;
+  height: 6px;
+  background-image: radial-gradient(circle, currentColor 1.7px, transparent 2.1px);
+  background-size: 6px 6px;
+  background-repeat: repeat-x;
+}
