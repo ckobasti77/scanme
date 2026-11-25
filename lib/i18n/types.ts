@@ -904,6 +904,110 @@ export interface FairPassportDict {
   ticketsPostmarkAria: string;
 }
 
+// Counter functions for the brand page. Two shapes, because the count lives in
+// two different typographic contexts:
+// - a bare number in the 11px/0.16em tracked `.lbl` header row, next to its own
+//   uppercase label — `modelsOnStand(3)` returns "3", the unit rides on the label;
+// - an inline sentence in the hero subtitle and the sheet — `modelsOnStandLine(3)`
+//   returns "3 modela na štandu", because a 0.16em label cannot carry a sentence.
+// The count inside the returned string must come from `fmt(n)` — a raw
+// `String(n)` is RFC-001 §2.12 drift (the thousands separator is a locale
+// decision, not a string-concat decision).
+// Declension (mockup sheet 1: "MODELI NA ŠTANDU — 3", subtitle "3 modela na
+// štandu"; the same three-form rule as every other counted family in the
+// app — 11-14 counts as many): 1 -> model, 2-4 -> modela, 5+ -> modela.
+export type FairBrandModelsOnStand = (count: number) => string;
+export type FairBrandModelsOnStandLine = (count: number) => string;
+// The bare unit noun next to a count ("{count} {unit}"): the count and the
+// noun are two children in the same flex row (the .lbl header, the
+// confirmation eyebrow), so they cannot come from one interpolated string;
+// the component passes `modelsOnStandWord(n)` as the fmt param of its own
+// One/Few/Many key, so the two always decline together.
+export type FairBrandModelsOnStandWord = (count: number) => string;
+// The model picker (card 05): the selected count is a male-gender adjective
+// (model, maskulinum), so its three forms are izabran / izabrana / izabrano,
+// NOT the model-noun forms: 1 -> 1 izabran, 2-4 -> {n} izabrana,
+// 5+ -> {n} izabrano, 11-14 as 5+.
+export type FairBrandSelectedCount = (count: number) => string;
+export type FairBrandSelectedCountWord = (count: number) => string;
+
+// stranica brenda — the public brand page /sajam/<event>/brend/<brand>
+// (docs/events/stranica-brenda/MAPA-KODA.md, mockup
+// /workspace/scanme-brend-run/referenca/stranica-brenda-mockup.html). Everything
+// the brand-page components say: eyebrow, labels, counters, the drive sheet,
+// the confirmation screen, and the lead-form error messages. `{...}`
+// placeholders go through fmt().
+export interface FairBrandDict {
+  metaTitle: string;
+  metaDescription: string;
+  notFoundTitle: string;
+  eyebrow: string;
+  modelsOnStandLabel: string;
+  modelsOnStand: FairBrandModelsOnStand;
+  modelsOnStandLine: FairBrandModelsOnStandLine;
+  modelsOnStandWord: FairBrandModelsOnStandWord;
+  modelsOnStandWordOne: string;
+  modelsOnStandWordFew: string;
+  modelsOnStandWordMany: string;
+  modelsOnStandLineOne: string;
+  modelsOnStandLineFew: string;
+  modelsOnStandLineMany: string;
+  passportStampLabel: string;
+  passportStampAria: string;
+  driveButton: string;
+  hint: string;
+  requestedPill: string;
+  // Drive sheet (the mockup's "Probna vožnja" drawer).
+  sheetTitle: string;
+  sheetSubtitle: string;
+  sheetSelectModels: string;
+  selectedCount: FairBrandSelectedCount;
+  selectedCountWord: FairBrandSelectedCountWord;
+  selectedCountOne: string;
+  selectedCountFew: string;
+  selectedCountMany: string;
+  sheetSelectedModelsOne: string;
+  sheetSelectedModelsFew: string;
+  sheetSelectedModelsMany: string;
+  limitError: string;
+  nameLabel: string;
+  phoneLabel: string;
+  emailLabel: string;
+  optionalSuffix: string;
+  emailHelp: string;
+  consentOne: string;
+  consentFew: string;
+  consentMany: string;
+  submitOne: string;
+  submitFew: string;
+  submitMany: string;
+  submitting: string;
+  cancel: string;
+  closeSheet: string;
+  dismissSheetAria: string;
+  // Confirmation screen.
+  successTitle: string;
+  successEyebrowOne: string;
+  successEyebrowFew: string;
+  successEyebrowMany: string;
+  successBody: string;
+  successEmail: string;
+  successAnother: string;
+  successBack: string;
+  signedInAsOne: string;
+  signedInAsFew: string;
+  signedInAsMany: string;
+  change: string;
+  // Lead-form errors (client validation + the server messages the form can
+  // receive; the copy is here, the mapping is card 05/06's wiring).
+  errorName: string;
+  errorPhone: string;
+  errorEmail: string;
+  errorEmailInvalid: string;
+  errorConsent: string;
+  errorSend: string;
+}
+
 export interface AdminDomainDict {
   services: Record<ServiceType, string>;
   products: Record<ProductType, string>;
@@ -10548,6 +10652,7 @@ export interface DictBySurface {
   "fair-model": FairModelDict;
   "fair-garage": FairGarageDict;
   "fair-passport": FairPassportDict;
+  "fair-brand": FairBrandDict;
   "fair-admin-dev": FairAdminDevDict;
   "fair-privacy": FairPrivacyDict;
   "admin-v1": AdminV1Dict;

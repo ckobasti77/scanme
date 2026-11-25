@@ -18,6 +18,7 @@ import type { DictBySurface, Surface } from "./types";
 import { eventMapSr } from "./sr/event-map";
 import { fairMapSr } from "./sr/fair-map";
 import { fairModelSr } from "./sr/fair-model";
+import { fairBrandSr } from "./sr/fair-brand";
 import { fairGarageSr } from "./sr/fair-garage";
 import { fairPassportSr } from "./sr/fair-passport";
 import { fairAdminDevSr } from "./sr/fair-admin-dev";
@@ -178,6 +179,7 @@ const SR: DictBySurface = {
   "fair-map": fairMapSr,
   "fair-model": fairModelSr,
   "fair-garage": fairGarageSr,
+  "fair-brand": fairBrandSr,
   "fair-passport": fairPassportSr,
   "fair-admin-dev": fairAdminDevSr,
   "fair-privacy": fairPrivacySr,

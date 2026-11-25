@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { FAIR_DEMO_EVENT as event, FAIR_DEMO_SLUG, FAIR_DEMO_MODELS, FAIR_DEMO_PASSPORTS, FAIR_DEMO_PROGRESS, FAIR_DEMO_STUCK, FAIR_DEMO_ROTATION } from "@/lib/fair-demo";
 import { fairPublicModelToFixture } from "@/lib/fair-client/model-fixtures";
 import { fairPassportBrandSlug } from "@/lib/fair-passport";
+import { projectFairBrandPage } from "@/lib/fair-server/brand-page";
 import { AUTO_MOTO_FEST_2026_MAP } from "@/lib/fair-map/auto-moto-fest-2026";
 import { buildFairMapView } from "@/lib/fair-map/view";
+import { FairBrandPage } from "@/components/fair/brand/brand-page";
 import { FairEventShell } from "@/components/fair/event-shell";
 import { FairModelPage } from "@/components/fair/fair-model-page";
 import { FairPassportExperience } from "@/components/fair/passport/fair-passport";
@@ -55,6 +57,24 @@ export default async function DemoPage({ params, searchParams }: {
     const form = (kind: "interest" | "test_drive") => ({ eventModelId: model.id, kind, state: "open" as const, contactRequirement: "email" as const, consent: { version: 1, text: dict.consent } });
     const surveyOptions = dict.surveyOptions.map((label, order) => ({ id: `opt-${order + 1}`, label, order }));
     content = <FairModelPage model={fixture} dict={demoModelDict} routePath={`${base}/model/${model.slug}`} selection={{ mode: "advanced", withPhoto: true, alignment: "left" }} showDevPanel={false} interactions={{ leadForms: { interest: form("interest"), testDrive: form("test_drive") }, survey: { surveyId: "demo-survey", eventModelId: model.id, version: 1, title: dict.specsTitle, questions: [{ id: "demo-question", prompt: dict.surveyQuestion, kind: "single_choice", options: surveyOptions, order: 0 }] } }} stand={null} audienceTeaser={dict.question} openSurvey={screen[2] === "anketa"} />;
-  } else notFound();
+  }
+  else if (section === "brend" && screen.length === 2) {
+    // /sajam/<eventSlug>/brend/<brandSlug> against the fixtures: the same projection the live
+    // route (app/sajam/[eventSlug]/brend/[brandSlug]/page.tsx) runs on Convex data.
+    const brandPage = projectFairBrandPage({
+      eventId: event.id,
+      eventName: dict.title,
+      eventSlug: FAIR_DEMO_SLUG,
+      catalog: FAIR_DEMO_PASSPORTS,
+      models: FAIR_DEMO_MODELS,
+      brandSlug: screen[1],
+    });
+    if (!brandPage) notFound();
+    content = <>
+      <FairEventShell eventId={event.id} eventSlug={FAIR_DEMO_SLUG} eventTitle={fairPassportSr.umbrellaTitle} eventName={dict.title} dict={fairModelSr} current="passports" />
+      <FairBrandPage data={brandPage} />
+    </>;
+  }
+  else notFound();
   return <div className="fair-event fair-event--auto-moto" data-reveal="off"><DemoBootstrap />{content}</div>;
 }
