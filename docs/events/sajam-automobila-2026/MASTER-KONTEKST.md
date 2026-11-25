@@ -740,6 +740,13 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 
 ## 20. Dnevnik izmena
 
+### 25. novembar 2026. (stranica brenda — frontend gotov, backend čeka odobrenje)
+
+- Živi frontend landing `/sajam/<event>/brend/<brand>` (obojeni QR sa A4 postera): hero sa CTAnim, lista modela u paketu, jedna forma za više modela — jedan POST `/api/fair/lead` po modelu, sequence sa idempotency ključem po modelu, retry samo neuspelih. Kontakt se pamti samo uz štiklu "Zapamti" i pun uspeh (`contact-store`).
+- Admin sekcija `brendovi-qr`: A4 QR poster po brendu (DOM u milimetrima, `window.print()`), `lib/admin-v1/event-sections.ts`.
+- **Čeka Aleksino/Jovanovo odobrenje (backend, nijedna stavka nije urađena):** analitika otvaranja stranice brenda sa izvorom `qr-brend`; instant-mejl prijave izlagaču (ručno odobravanje slanja je ZAKLJUČANO); spajanje više modela u jedan zapis `fairLeads` (traži šemu + `submitLead`); pasoš za brendove koji nisu u celom paketu (`no_exhibited_models`, SWM slučaj).
+- Detaljan izveštaj sa spiskom fajlova: [`docs/events/stranica-brenda/STRANICA-BRENDA.md`](../stranica-brenda/STRANICA-BRENDA.md).
+
 ### 30. oktobar 2026. (pasoši sa jednim modelom: Ineos i Fiat)
 
 - Jovanova odluka iz zadatka: **brend dobija pasoš kada su svi njegovi izloženi modeli na sajmu u našoj usluzi, i sa samo jednim modelom.** Uslov `najmanje dva modela` je ukinut; pravilo živi samo u `fairBrandPassportProblems` / `fairBrandPassportEligible` (`lib/fair-entitlements.ts`), razlog `fewer_than_two_models` je preimenovan u `no_exhibited_models` (brend bez izloženih modela).
