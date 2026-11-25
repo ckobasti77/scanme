@@ -295,5 +295,28 @@ describe("buildLeadEmail", () => {
     expect(email.html).not.toContain("amf-2026-exhibitor-registration");
     expect(email.replyTo).toBe("marko@example.invalid");
   });
+
+  test("Auto Expo prijava izlagača nosi Auto Expo 2026 u naslovu i telu, bez AMF", () => {
+    const expoLead: Doc<"leads"> = {
+      ...lead,
+      businessName: "TEST Auto Kragujevac",
+      contactName: "TEST Izlagač",
+      businessType: "Izlagač · Auto Expo 2026",
+      email: "test@example.invalid",
+      interest: "not_sure",
+      offerSelection: JSON.stringify({
+        source: "auto-expo-2026-exhibitor-registration",
+        eventSlug: "auto-expo-2026",
+        vehicles: [{ model: "TEST Model", package: "advanced" }],
+      }),
+    };
+    const email = buildLeadEmail(expoLead);
+    expect(email.subject).toBe("Prijava izlagača · Auto Expo 2026 — TEST Auto Kragujevac (1)");
+    expect(email.text).toContain("Prijava izlagača — Auto Expo 2026");
+    expect(email.text).toContain("Sajam: Auto Expo 2026 · Šumadija sajam, Kragujevac");
+    expect(email.html).toContain("Prijava izlagača — Auto Expo 2026");
+    expect(email.html).toContain("Šumadija sajam, Kragujevac");
+    for (const part of [email.subject, email.text, email.html]) expect(part).not.toMatch(/AMF|Auto Moto|Čair|Niš/);
+  });
 });
 

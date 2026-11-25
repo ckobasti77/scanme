@@ -15,8 +15,9 @@ const bundle = await build({
     import {createRoot} from "react-dom/client";
     import {ExhibitorRegistration} from "./exhibitor-registration";
     import {fairExhibitorRegistrationSr as dict} from "../../lib/i18n/sr/fair-exhibitor-registration";
+    import {openFairExhibitorRegistration} from "../../lib/fair-exhibitor-registration";
     window.qaCalls=[];
-    createRoot(document.getElementById("app")).render(<React.StrictMode><ExhibitorRegistration dict={dict}/></React.StrictMode>);
+    createRoot(document.getElementById("app")).render(<React.StrictMode><ExhibitorRegistration dict={dict} fair={openFairExhibitorRegistration("auto-expo-2026")}/></React.StrictMode>);
   ` },
   define: { "process.env.NODE_ENV": '"development"' },
   plugins: [{ name: "registration-qa", setup(plugin) {

@@ -1,3 +1,5 @@
+import type { FairExhibitorRegistrationConfig } from "@/lib/fair-exhibitor-registration";
+
 export type ExhibitorVehicleDraft = {
   id: number;
   model: string;
@@ -6,18 +8,20 @@ export type ExhibitorVehicleDraft = {
 
 export const emptyExhibitorVehicle = (id: number): ExhibitorVehicleDraft => ({ id, model: "", package: "" });
 
-export function exhibitorRegistrationSelection(vehicles: ExhibitorVehicleDraft[]) {
+type FairTag = Pick<FairExhibitorRegistrationConfig, "slug" | "source" | "name" | "venue">;
+
+export function exhibitorRegistrationSelection(vehicles: ExhibitorVehicleDraft[], fair: FairTag) {
   return {
-    source: "amf-2026-exhibitor-registration",
-    eventSlug: "auto-moto-fest-2026",
+    source: fair.source,
+    eventSlug: fair.slug,
     vehicles: vehicles.filter((vehicle) => vehicle.model.trim()).map((vehicle) => ({
       model: vehicle.model.trim(), package: vehicle.package,
     })),
   };
 }
 
-export function exhibitorRegistrationMessage(vehicles: ExhibitorVehicleDraft[]) {
-  const selected = exhibitorRegistrationSelection(vehicles).vehicles;
+export function exhibitorRegistrationMessage(vehicles: ExhibitorVehicleDraft[], fair: FairTag) {
+  const selected = exhibitorRegistrationSelection(vehicles, fair).vehicles;
   const advancedCount = selected.filter((v) => v.package === "advanced").length;
   const starterCount = selected.filter((v) => v.package === "starter").length;
   const lines = selected.map((v, i) => {
@@ -25,6 +29,7 @@ export function exhibitorRegistrationMessage(vehicles: ExhibitorVehicleDraft[]) 
     return `${i + 1}. ${v.model} — ${pkg}`;
   });
   return [
+    `Sajam: ${[fair.name, fair.venue].filter(Boolean).join(" · ")}`,
     `Ukupno vozila: ${selected.length} (Napredni: ${advancedCount} · Starter: ${starterCount})`,
     ...lines,
   ].join("\n");

@@ -8,7 +8,7 @@
 .header p { margin: 0; line-height: 1.45; }
 .header .intro { font-size: 15px; color: var(--fair-ink-muted); }
 .header .brand { font-size: 14px; font-weight: 800; color: var(--fair-accent); }
-.header .deadline { font-size: 14px; font-weight: 600; }
+.header .metaItem { font-size: 14px; font-weight: 600; }
 .header a { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
 .form { padding: 22px 26px; border: var(--fair-border); border-radius: 20px; background: var(--fair-surface); box-shadow: var(--fair-shadow-2); }
 .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; min-width: 0; }

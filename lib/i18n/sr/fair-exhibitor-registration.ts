@@ -3,8 +3,8 @@ import type { FairExhibitorRegistrationDict } from "../types";
 export const fairExhibitorRegistrationSr = {
   title: "Prijava izlagača",
   intro: "Upišite modele za koje želite ScanMe i izaberite paket za svaki.",
-  deadline: "Prijave do 23. oktobra u 17h",
-  event: "ScanMe × Auto Moto Fest 2026",
+  // {fair}: name of the fair from lib/fair-exhibitor-registration.ts.
+  event: "ScanMe × {fair}",
   back: "Pogledajte demo aplikacije",
   company: "Naziv firme", contact: "Ime i prezime", contactHeading: "Vaš kontakt",
   email: "Email", phone: "Telefon", package: "Paket",
@@ -25,5 +25,5 @@ export const fairExhibitorRegistrationSr = {
   error: "Prijava nije potvrđena. Proverite vezu i pokušajte ponovo; uneti podaci su još u obrascu.",
   phoneError: "Unesite ispravan broj telefona sa najmanje sedam cifara.",
   lengthError: "Upit je predugačak. Skratite nazive modela ili nas kontaktirajte za prijavu većeg broja vozila.",
-  source: "Izlagač · Auto Moto Fest 2026", honeypot: "Ostavite prazno",
+  source: "Izlagač · {fair}", honeypot: "Ostavite prazno",
 } satisfies FairExhibitorRegistrationDict;

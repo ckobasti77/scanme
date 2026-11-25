@@ -10601,7 +10601,8 @@ export interface DictBySurface {
 export type Surface = keyof DictBySurface;
 
 export interface FairExhibitorRegistrationDict {
-  title: string; intro: string; deadline: string; event: string; back: string;
+  /** event and source take {fair}; venue and deadline come from lib/fair-exhibitor-registration.ts. */
+  title: string; intro: string; event: string; back: string;
   company: string; contact: string; contactHeading: string; email: string; phone: string;
   package: string; starter: string; advanced: string; starterPrice: string; advancedPrice: string;
   packageNote: string; vehicles: string; model: string; vehicleNumber: string; removeVehicle: string;

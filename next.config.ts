@@ -14,6 +14,18 @@ const nextConfig: NextConfig = {
   // Permit this computer's own LAN addresses in development so a phone can
   // load the client bundle and hydrate the interactive fair controls.
   allowedDevOrigins: localDevelopmentOrigins(),
+  async redirects() {
+    return [
+      // Auto Moto Fest registration is closed. Its printed QR (/r/KZ739G7D,
+      // stored target .../auto-moto-fest-2026/prijava) and old links open the
+      // open Auto Expo form (lib/fair-exhibitor-registration.ts).
+      {
+        source: "/sajam/auto-moto-fest-2026/prijava",
+        destination: "/sajam/auto-expo-2026/prijava",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     // Venue gallery/program/performer images live in Convex file storage and
     // are served from the deployment's *.convex.cloud origin (TASK-09).
