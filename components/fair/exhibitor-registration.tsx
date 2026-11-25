@@ -12,7 +12,7 @@ import { fairNewSubmissionId } from "./lead-form-model";
 import { fmt } from "@/lib/i18n/format";
 import type { FairExhibitorRegistrationDict } from "@/lib/i18n/types";
 import type { FairExhibitorRegistrationConfig } from "@/lib/fair-exhibitor-registration";
-import { emptyExhibitorVehicle, exhibitorRegistrationMessage, exhibitorRegistrationSelection, type ExhibitorVehicleDraft } from "./exhibitor-registration-model";
+import { emptyExhibitorVehicle, exhibitorRegistrationMessage, exhibitorRegistrationSelection, MIN_EXHIBITOR_VEHICLE_ROWS, normalizeExhibitorVehicles, type ExhibitorVehicleDraft } from "./exhibitor-registration-model";
 import styles from "./exhibitor-registration.module.css";
 
 function VehicleReveal({ children, reducedMotion }: { children: React.ReactNode; reducedMotion: boolean | null }) {
@@ -32,27 +32,23 @@ export function ExhibitorRegistration({ dict, fair }: { dict: FairExhibitorRegis
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const reducedMotion = useReducedMotion();
-  const [vehicles, setVehicles] = useState<ExhibitorVehicleDraft[]>([emptyExhibitorVehicle(0)]);
-  const nextVehicleId = useRef(1);
+  const [vehicles, setVehicles] = useState<ExhibitorVehicleDraft[]>(() => Array.from({ length: MIN_EXHIBITOR_VEHICLE_ROWS }, (_, id) => emptyExhibitorVehicle(id)));
+  const nextVehicleId = useRef(MIN_EXHIBITOR_VEHICLE_ROWS);
+  const takeVehicleId = () => nextVehicleId.current++;
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => { startedAt.current = Date.now(); }, []);
 
-  function updateVehicle(id: number, change: Partial<Pick<ExhibitorVehicleDraft, "model" | "package">>, finished = false) {
-    const updated = vehicles.map((vehicle) => vehicle.id === id ? { ...vehicle, ...change } : vehicle);
-    // Reveal the invitation only after editing finishes, never during typing.
-    if (finished && updated.at(-1)!.model.trim()) updated.push(emptyExhibitorVehicle(nextVehicleId.current++));
-    if (finished) while (updated.length > 1 && !updated.at(-1)!.model.trim() && !updated.at(-1)!.package && !updated.at(-2)!.model.trim() && !updated.at(-2)!.package) updated.pop();
-    setVehicles(updated);
+  function updateVehicle(id: number, change: Partial<Pick<ExhibitorVehicleDraft, "model" | "package">>) {
+    // The next empty row appears while typing in the last one: on a phone the
+    // user must not have to leave the field first.
+    setVehicles(normalizeExhibitorVehicles(vehicles.map((vehicle) => vehicle.id === id ? { ...vehicle, ...change } : vehicle), takeVehicleId));
   }
 
   function removeVehicle(id: number, index: number) {
     const neighbor = vehicles[index + 1] ?? vehicles[index - 1];
     const input = formRef.current?.elements.namedItem(`vehicle-model-${neighbor?.id ?? id}`);
     if (input instanceof HTMLElement) input.focus({ preventScroll: true });
-    const remaining = vehicles.filter((vehicle) => vehicle.id !== id);
-    if (!remaining.length) remaining.push(emptyExhibitorVehicle(id));
-    else if (remaining.at(-1)!.model.trim()) remaining.push(emptyExhibitorVehicle(nextVehicleId.current++));
-    setVehicles(remaining);
+    setVehicles(normalizeExhibitorVehicles(vehicles.filter((vehicle) => vehicle.id !== id), takeVehicleId));
     setFieldErrors((current) => {
       const next = { ...current };
       delete next[`vehicle-model-${id}`];
@@ -167,20 +163,20 @@ export function ExhibitorRegistration({ dict, fair }: { dict: FairExhibitorRegis
             <div className={styles.vehicleFields}>
             <div className={styles.vehicleModel}>
               <Label htmlFor={`vehicle-model-${vehicle.id}`}>{dict.model} {requiredMark}</Label>
-              <Input id={`vehicle-model-${vehicle.id}`} name={`vehicle-model-${vehicle.id}`} value={vehicle.model} onChange={(event) => updateVehicle(vehicle.id, { model: event.target.value })} onBlur={(event) => updateVehicle(vehicle.id, { model: event.target.value.trim() }, true)} required={!!vehicle.package || index === 0} pattern=".*\S.*" minLength={2} maxLength={120} autoComplete="off" {...errorProps(`vehicle-model-${vehicle.id}`)} />
+              <Input id={`vehicle-model-${vehicle.id}`} name={`vehicle-model-${vehicle.id}`} value={vehicle.model} onChange={(event) => updateVehicle(vehicle.id, { model: event.target.value })} onBlur={(event) => updateVehicle(vehicle.id, { model: event.target.value.trim() })} required={!!vehicle.package || index === 0} pattern=".*\S.*" minLength={2} maxLength={120} autoComplete="off" {...errorProps(`vehicle-model-${vehicle.id}`)} />
               {fieldError(`vehicle-model-${vehicle.id}`)}
             </div>
             <div role="group" aria-labelledby={`package-label-${vehicle.id}`} {...errorProps(`vehicle-package-${vehicle.id}`)}>
               <p id={`package-label-${vehicle.id}`} className={styles.packageLabel}>{dict.package} {requiredMark}</p>
               <div className={styles.packages}>
               {([['starter', dict.starter, dict.starterPrice], ['advanced', dict.advanced, dict.advancedPrice]] as const).map(([value, name, price]) => <label key={value}>
-                <input type="radio" name={`vehicle-package-${vehicle.id}`} value={value} checked={vehicle.package === value} onChange={() => updateVehicle(vehicle.id, { package: value }, true)} required={!!vehicle.model.trim() || index === 0} {...errorProps(`vehicle-package-${vehicle.id}`)} /><span><strong>{name}</strong><small>{price}</small></span>
+                <input type="radio" name={`vehicle-package-${vehicle.id}`} value={value} checked={vehicle.package === value} onChange={() => updateVehicle(vehicle.id, { package: value })} required={!!vehicle.model.trim() || index === 0} {...errorProps(`vehicle-package-${vehicle.id}`)} /><span><strong>{name}</strong><small>{price}</small></span>
               </label>)}
               </div>
               {fieldError(`vehicle-package-${vehicle.id}`)}
             </div>
             </div>
-            {(index < vehicles.length - 1 || vehicle.package) && <button type="button" className={styles.remove} onClick={() => removeVehicle(vehicle.id, index)} aria-label={fmt(dict.removeVehicle, { number: index + 1 })}><X size={18} aria-hidden="true" /></button>}
+            {(!!vehicle.model.trim() || !!vehicle.package || (vehicles.length > MIN_EXHIBITOR_VEHICLE_ROWS && index < vehicles.length - 1)) && <button type="button" className={styles.remove} onClick={() => removeVehicle(vehicle.id, index)} aria-label={fmt(dict.removeVehicle, { number: index + 1 })}><X size={18} aria-hidden="true" /></button>}
           </fieldset></VehicleReveal>)}
           </AnimatePresence>
         </section>

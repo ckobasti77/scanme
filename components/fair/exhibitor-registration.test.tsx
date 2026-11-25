@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import schema from "@/convex/schema";
 import { getDict } from "@/lib/i18n";
 import { ExhibitorRegistration } from "./exhibitor-registration";
-import { emptyExhibitorVehicle, exhibitorRegistrationMessage, exhibitorRegistrationSelection } from "./exhibitor-registration-model";
+import { emptyExhibitorVehicle, exhibitorRegistrationMessage, exhibitorRegistrationSelection, normalizeExhibitorVehicles } from "./exhibitor-registration-model";
 import { openFairExhibitorRegistration } from "@/lib/fair-exhibitor-registration";
 
 vi.mock("convex/react", () => ({ useMutation: () => vi.fn() }));
@@ -15,10 +15,12 @@ const modules = import.meta.glob("../../convex/**/*.ts");
 const fair = openFairExhibitorRegistration("auto-expo-2026")!;
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-test("initial form has one model and its own unselected package, no bulk entry or catalogue", () => {
+test("initial form has two model rows, each with its own unselected package, no bulk entry or catalogue", () => {
   const html = renderToStaticMarkup(createElement(ExhibitorRegistration, { dict: getDict("fair-exhibitor-registration"), fair }));
-  expect(html.match(/name="vehicle-model-/g)).toHaveLength(1);
+  expect(html.match(/name="vehicle-model-/g)).toHaveLength(2);
   expect(html).toContain('name="vehicle-package-0"');
+  expect(html).toContain('name="vehicle-package-1"');
+  expect(html).not.toContain("Ukloni vozilo");
   expect(html).not.toContain("checked");
   expect(html).not.toContain("<textarea");
   expect(html).not.toMatch(/Dodaj još|Paket za navedena|name="catalog"|name="brand"|name="note"/);
@@ -40,6 +42,18 @@ test("Auto Expo page copy: fair and venue, no deadline and no Auto Moto Fest", (
   expect(html).toContain("Cene su po vozilu, za ceo sajam. Popust za više vozila potvrđujemo u dogovoru.");
   expect(html).not.toMatch(/Prijave do|Auto Moto|AMF|Čair|Niš|oktob/i);
   expect(exhibitorRegistrationMessage([{ id: 0, model: "TEST Model", package: "starter" }], fair)).toMatch(/^Sajam: Auto Expo 2026 · Šumadija sajam, Kragujevac\n/);
+});
+
+test("rows: two from the start, a new one as soon as the last gets content, surplus empty tail dropped", () => {
+  let id = 10;
+  const next = () => id++;
+  const row = (rowId: number, model = "", pkg: "" | "starter" | "advanced" = "") => ({ id: rowId, model, package: pkg });
+  expect(normalizeExhibitorVehicles([], next).map((v) => v.id)).toEqual([10, 11]);
+  expect(normalizeExhibitorVehicles([row(0, "T"), row(1)], next).map((v) => v.id)).toEqual([0, 1]);
+  expect(normalizeExhibitorVehicles([row(0, "A"), row(1, "T")], next).map((v) => v.id)).toEqual([0, 1, 12]);
+  expect(normalizeExhibitorVehicles([row(0, "A"), row(1, "", "starter")], next).map((v) => v.id)).toEqual([0, 1, 13]);
+  expect(normalizeExhibitorVehicles([row(0, "A"), row(1, "   "), row(2), row(3)], next).map((v) => v.id)).toEqual([0, 1]);
+  expect(normalizeExhibitorVehicles([row(0), row(1)], next).map((v) => v.id)).toEqual([0, 1]);
 });
 
 test("each vehicle keeps its own package; trailing or cleared empty rows are omitted", () => {

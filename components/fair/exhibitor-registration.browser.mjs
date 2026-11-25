@@ -51,7 +51,8 @@ try {
     const group = (number) => page.getByRole("group", { name: `Vozilo ${number}`, exact: true });
     const formValid = () => page.locator("form").evaluate((form) => form.checkValidity());
     const calls = () => page.evaluate(() => window.qaCalls);
-    assert.equal(await models().count(), 1);
+    assert.equal(await models().count(), 2, "two vehicle rows from the start");
+    assert.equal(await page.getByRole("button", { name: /^Ukloni vozilo/ }).count(), 0, "empty starting rows have no remove button");
     assert.equal(await models().first().getAttribute("placeholder"), null);
     assert.equal(await page.locator("form").getAttribute("novalidate"), "");
     assert.equal(await page.locator('input[name="businessName"]').evaluate((input) => !!(input.compareDocumentPosition(document.querySelector('[name="vehicle-model-0"]')) & Node.DOCUMENT_POSITION_FOLLOWING)), true);
@@ -63,18 +64,20 @@ try {
     // Selecting a package first is supported and can be undone without losing the only row.
     await group(1).getByRole("radio", { name: "Starter" }).check();
     await page.getByRole("button", { name: "Ukloni vozilo 1" }).click();
-    assert.equal(await models().count(), 1);
+    assert.equal(await models().count(), 2, "removing keeps the two starting rows");
     assert.equal(await page.locator("input:checked").count(), 0);
     assert.equal(await models().first().evaluate((input) => input === document.activeElement), true);
     await models().first().fill("   ");
-    assert.equal(await models().count(), 1, "spaces must not append rows");
+    assert.equal(await models().count(), 2, "spaces must not append rows");
     await models().first().fill("");
     await models().first().pressSequentially("TEST Model A");
-    assert.equal(await models().count(), 1, "typing must never reveal the next row");
+    assert.equal(await models().count(), 2, "typing in the first row keeps the second row ready, no third");
     assert.equal(await models().first().evaluate((input) => input === document.activeElement), true);
     await group(1).getByRole("radio", { name: "Napredni" }).check();
-    assert.equal(await models().count(), 2, "leaving the model and choosing its package reveals one next row");
-    await models().nth(1).fill("TEST Model B");
+    assert.equal(await models().count(), 2);
+    await models().nth(1).pressSequentially("TEST Model B");
+    assert.equal(await models().count(), 3, "typing in the last row reveals the next one without leaving the field");
+    assert.equal(await models().nth(1).evaluate((input) => input === document.activeElement), true, "focus stays in the row being typed");
     await group(2).getByRole("radio", { name: "Starter" }).check();
     await models().nth(2).fill("TEST Model C");
     await group(3).getByRole("radio", { name: "Napredni" }).check();
@@ -141,7 +144,7 @@ try {
     await page.getByRole("heading", { name: "Upit je primljen" }).waitFor();
     assert.equal(await page.getByRole("status").evaluate((element) => element === document.activeElement), true);
     assert.deepEqual(errors, []);
-    results.push({ width, height, rowsOnlyAfterBlur: true, mixedPackages: true, contactEitherOr: true, serbianErrors: true, emptyTail: true, errorRetrySuccess: true, errors });
+    results.push({ width, height, twoRowsFromStart: true, nextRowWhileTyping: true, mixedPackages: true, contactEitherOr: true, serbianErrors: true, emptyTail: true, errorRetrySuccess: true, errors });
     await context.close();
   }
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "no-preference" });
@@ -151,20 +154,22 @@ try {
   await page.goto("https://registration-qa.invalid/");
   await page.screenshot({ path: resolve(output, "form-empty-mobile.png"), fullPage: true });
   const model = page.getByRole("textbox", { name: "Marka i model", exact: true }).first();
-  await model.fill("TEST Model A");
-  assert.equal(await page.getByRole("group", { name: "Vozilo 2", exact: true }).count(), 0);
-  await model.press("Tab");
-  const reveal = page.getByRole("group", { name: "Vozilo 2", exact: true }).locator("..");
+  const second = page.getByRole("textbox", { name: "Marka i model", exact: true }).nth(1);
+  assert.equal(await page.getByRole("group", { name: "Vozilo 2", exact: true }).count(), 1);
+  assert.equal(await page.getByRole("group", { name: "Vozilo 3", exact: true }).count(), 0);
+  await second.click();
+  await second.pressSequentially("T");
+  const reveal = page.getByRole("group", { name: "Vozilo 3", exact: true }).locator("..");
   await reveal.waitFor({ state: "attached" });
   const initial = await reveal.evaluate((element) => ({ height: element.getBoundingClientRect().height, opacity: Number(getComputedStyle(element).opacity) }));
   await page.waitForFunction(() => {
-    const row = [...document.querySelectorAll('fieldset')].find((element) => element.querySelector('legend')?.textContent === "Vozilo 2");
+    const row = [...document.querySelectorAll('fieldset')].find((element) => element.querySelector('legend')?.textContent === "Vozilo 3");
     return row && getComputedStyle(row.parentElement).opacity === "1";
   });
   const final = await reveal.evaluate((element) => ({ height: element.getBoundingClientRect().height, opacity: Number(getComputedStyle(element).opacity) }));
-  assert.ok(initial.height < final.height && initial.opacity < final.opacity, "the next row grows and fades in after blur");
-  assert.equal(await model.evaluate((element) => element === document.activeElement), false);
-  results.push({ animationOnBlur: true, initial, final });
+  assert.ok(initial.height < final.height && initial.opacity < final.opacity, "the next row grows and fades in while typing");
+  assert.equal(await second.evaluate((element) => element === document.activeElement), true, "typing keeps focus while the next row appears");
+  results.push({ animationWhileTyping: true, initial, final });
   await page.getByRole("group", { name: "Vozilo 1", exact: true }).getByRole("radio", { name: "Napredni" }).check();
   const firstRow = model.locator("xpath=ancestor::fieldset[1]/..");
   const beforeRemoval = await firstRow.evaluate((element) => element.getBoundingClientRect().height);
@@ -176,9 +181,9 @@ try {
   });
   const duringRemoval = await exiting.evaluate((element) => ({ height: element.getBoundingClientRect().height, opacity: Number(getComputedStyle(element).opacity) }));
   assert.ok(duringRemoval.height > 0 && duringRemoval.height < beforeRemoval && duringRemoval.opacity < 1, "removed row stays visible while collapsing and fading out");
-  assert.equal(await page.getByRole("textbox", { name: "Marka i model", exact: true }).count(), 1, "the exiting row is immediately removed from keyboard and accessibility interaction");
+  assert.equal(await page.getByRole("textbox", { name: "Marka i model", exact: true }).count(), 2, "the exiting row is immediately removed from keyboard and accessibility interaction");
   await exiting.waitFor({ state: "detached" });
-  assert.equal(await page.getByRole("textbox", { name: "Marka i model", exact: true }).evaluate((element) => element === document.activeElement), true, "focus remains on the surviving row");
+  assert.equal(await page.getByRole("textbox", { name: "Marka i model", exact: true }).first().evaluate((element) => element === document.activeElement), true, "focus moves to the next surviving row");
   results.push({ animationOnRemove: true, beforeRemoval, duringRemoval });
   await context.close();
   console.log(JSON.stringify({ results }, null, 2));

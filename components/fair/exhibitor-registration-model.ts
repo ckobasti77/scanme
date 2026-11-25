@@ -8,6 +8,24 @@ export type ExhibitorVehicleDraft = {
 
 export const emptyExhibitorVehicle = (id: number): ExhibitorVehicleDraft => ({ id, model: "", package: "" });
 
+/** Rows shown from the start, so a phone user never has to leave a field to reach the next one. */
+export const MIN_EXHIBITOR_VEHICLE_ROWS = 2;
+
+const hasContent = (vehicle: ExhibitorVehicleDraft) => !!vehicle.model.trim() || !!vehicle.package;
+
+/**
+ * Keeps at least MIN rows and exactly one empty row at the end: a new row
+ * appears as soon as the last one gets a model or a package (while typing, no
+ * blur needed), and surplus empty rows at the end are dropped.
+ */
+export function normalizeExhibitorVehicles(vehicles: ExhibitorVehicleDraft[], nextId: () => number) {
+  const rows = [...vehicles];
+  while (rows.length > MIN_EXHIBITOR_VEHICLE_ROWS && !hasContent(rows.at(-1)!) && !hasContent(rows.at(-2)!)) rows.pop();
+  if (rows.length && hasContent(rows.at(-1)!)) rows.push(emptyExhibitorVehicle(nextId()));
+  while (rows.length < MIN_EXHIBITOR_VEHICLE_ROWS) rows.push(emptyExhibitorVehicle(nextId()));
+  return rows;
+}
+
 type FairTag = Pick<FairExhibitorRegistrationConfig, "slug" | "source" | "name" | "venue">;
 
 export function exhibitorRegistrationSelection(vehicles: ExhibitorVehicleDraft[], fair: FairTag) {
