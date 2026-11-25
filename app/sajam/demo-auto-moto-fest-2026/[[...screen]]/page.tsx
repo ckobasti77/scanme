@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { FAIR_DEMO_EVENT as event, FAIR_DEMO_SLUG, FAIR_DEMO_MODELS, FAIR_DEMO_PASSPORTS, FAIR_DEMO_PROGRESS, FAIR_DEMO_STUCK, FAIR_DEMO_ROTATION } from "@/lib/fair-demo";
 import { fairPublicModelToFixture } from "@/lib/fair-client/model-fixtures";
 import { fairPassportBrandSlug } from "@/lib/fair-passport";
-import { projectFairBrandPage } from "@/lib/fair-server/brand-page";
+import { fairBrandPageHref, projectFairBrandPage } from "@/lib/fair-server/brand-page";
 import { AUTO_MOTO_FEST_2026_MAP } from "@/lib/fair-map/auto-moto-fest-2026";
 import { buildFairMapView } from "@/lib/fair-map/view";
 import { FairBrandPage } from "@/components/fair/brand/brand-page";
@@ -25,6 +25,10 @@ const eventView = { publicSlug: FAIR_DEMO_SLUG, dataSlug: FAIR_DEMO_SLUG, event,
 const base = `/sajam/${FAIR_DEMO_SLUG}`;
 const demoModelDict = { ...fairModelSr, ...dict.modelCopy };
 const demoMapView = buildFairMapView(AUTO_MOTO_FEST_2026_MAP, [], []);
+// Demo lead form of one model, shared by the demo model page and the demo brand page. Submits
+// go through postFair, which answers `demo-model-*` ids locally (lib/fair-client/demo-api.ts):
+// nothing is POSTed to /api/fair/lead and no lead is created.
+const demoLeadForm = (eventModelId: string, kind: "interest" | "test_drive") => ({ eventModelId, kind, state: "open" as const, contactRequirement: "email" as const, consent: { version: 1, text: dict.consent } });
 
 export default async function DemoPage({ params, searchParams }: {
   params: Promise<{ screen?: string[] }>;
@@ -54,9 +58,8 @@ export default async function DemoPage({ params, searchParams }: {
   } else if (section === "model" && model && fixture && screen[2] === "glas-publike" && screen.length === 3) {
     content = <AudienceFlow model={fixture} questions={[{ id: "demo-question", prompt: dict.question, answers: [{ id: "yes", label: dict.yes }, { id: "no", label: dict.no }], fixturePercentages: { yes: [60, 40], no: [60, 40] } }]} source={{ kind: "fixture", threshold: "public", response: "success" }} dict={fairModelSr} routePath={`${base}/model/${model.slug}/glas-publike`} modelHref={`${base}/model/${model.slug}`} selection={null} showDevPanel={false} />;
   } else if (section === "model" && model && fixture && (screen.length <= 2 || (screen[2] === "anketa" && screen.length === 3))) {
-    const form = (kind: "interest" | "test_drive") => ({ eventModelId: model.id, kind, state: "open" as const, contactRequirement: "email" as const, consent: { version: 1, text: dict.consent } });
     const surveyOptions = dict.surveyOptions.map((label, order) => ({ id: `opt-${order + 1}`, label, order }));
-    content = <FairModelPage model={fixture} dict={demoModelDict} routePath={`${base}/model/${model.slug}`} selection={{ mode: "advanced", withPhoto: true, alignment: "left" }} showDevPanel={false} interactions={{ leadForms: { interest: form("interest"), testDrive: form("test_drive") }, survey: { surveyId: "demo-survey", eventModelId: model.id, version: 1, title: dict.specsTitle, questions: [{ id: "demo-question", prompt: dict.surveyQuestion, kind: "single_choice", options: surveyOptions, order: 0 }] } }} stand={null} audienceTeaser={dict.question} openSurvey={screen[2] === "anketa"} />;
+    content = <FairModelPage model={fixture} dict={demoModelDict} routePath={`${base}/model/${model.slug}`} selection={{ mode: "advanced", withPhoto: true, alignment: "left" }} showDevPanel={false} interactions={{ leadForms: { interest: demoLeadForm(model.id, "interest"), testDrive: demoLeadForm(model.id, "test_drive") }, survey: { surveyId: "demo-survey", eventModelId: model.id, version: 1, title: dict.specsTitle, questions: [{ id: "demo-question", prompt: dict.surveyQuestion, kind: "single_choice", options: surveyOptions, order: 0 }] } }} stand={null} audienceTeaser={dict.question} openSurvey={screen[2] === "anketa"} brandHref={fairBrandPageHref({ catalog: FAIR_DEMO_PASSPORTS, models: FAIR_DEMO_MODELS, eventSlug: FAIR_DEMO_SLUG, brandName: model.brandName })} />;
   }
   else if (section === "brend" && screen.length === 2) {
     // /sajam/<eventSlug>/brend/<brandSlug> against the fixtures: the same projection the live
@@ -65,11 +68,13 @@ export default async function DemoPage({ params, searchParams }: {
       eventId: event.id,
       eventName: dict.title,
       eventSlug: FAIR_DEMO_SLUG,
+      eventCode: event.code,
       catalog: FAIR_DEMO_PASSPORTS,
       models: FAIR_DEMO_MODELS,
       brandSlug: screen[1],
     });
     if (!brandPage) notFound();
+    for (const row of brandPage.models) brandPage.leadForms[row.id] = { interest: demoLeadForm(row.id, "interest"), testDrive: demoLeadForm(row.id, "test_drive") };
     content = <>
       <FairEventShell eventId={event.id} eventSlug={FAIR_DEMO_SLUG} eventTitle={fairPassportSr.umbrellaTitle} eventName={dict.title} dict={fairModelSr} current="passports" />
       <FairBrandPage data={brandPage} />

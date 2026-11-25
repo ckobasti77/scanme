@@ -561,8 +561,8 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   text-transform: uppercase;
 }
 
-/* Card 10: the eyebrow is a link to the brand page — same look, the underline
-   only appears on hover/focus (the shared underline-offset idiom). */
+/* The eyebrow links to the brand page when the brand has one — same look, the
+   underline only appears on hover/focus (the shared underline-offset idiom). */
 .fair-model-identity__name > a {
   color: inherit;
   text-decoration: none;

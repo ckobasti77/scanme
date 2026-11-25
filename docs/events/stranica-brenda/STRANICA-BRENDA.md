@@ -9,10 +9,10 @@ Kartice: 01–11 (mapa koda: [`MAPA-KODA.md`](./MAPA-KODA.md)). Poslednja prover
 
 - `app/sajam/[eventSlug]/brend/[brandSlug]/page.tsx` — server komponenta, `dynamic = "force-dynamic"` (ista svežina kao `pasosi/[brandSlug]`: podaci se menjaju bez deploy-a); `generateMetadata` sa naslovom "{brand} | {event}" (`fairModelSr.metaTitle`), `robots: index:false`.
 - `not-found.tsx` — nepoznat brend/događaj: `fair-not-found` kopija model stranice.
-- Demo ruta `app/sajam/demo-auto-moto-fest-2026/[[...screen]]/page.tsx` section `brend`: ista projekcija na fixture podacima (bez formi).
+- Demo ruta `app/sajam/demo-auto-moto-fest-2026/[[...screen]]/page.tsx` section `brend`: ista projekcija na fixture podacima, sa istim demo formama kao demo stranica modela (`demoLeadForm`); slanje ide kroz `postFair`, koji `demo-model-*` id-jeve odgovara lokalno (`lib/fair-client/demo-api.ts`) — nijedan POST na `/api/fair/lead`, nijedan pravi lead.
 - Podaci: `lib/fair-server/brand-page.ts` → `loadFairBrandPage` koristi `loadFairPassportPage` (postojeće `fairPublic.getPassportCatalog` + `getModelsByIds`), pa po modelu `fetchQuery(fairPublic.getLeadForm, kind: interest|test_drive)`; neuspešno čitanje forme skriva samo tu akciju (`orNull`), stranica i dalje radi.
 - Šta prikazuje (`components/fair/brand/brand-page.tsx`, `getDict("fair-brand")`):
-  - hero (`brand-hero.tsx`): brend + broj modela + dugmad "Probna vožnja" i "Zainteresovan sam"; pečat-pasoš se prikazuje SAMO kad brend ima pasoš (`hasPassport`), link na `/sajam/<event>/pasosi/<brand>`;
+  - hero (`brand-hero.tsx`): eyebrow "Brend · Štand <oznaka>" (oznaka štanda izlagača sa mape događaja, `fairMapLocationById`; bez numerisanog štanda samo "Brend"), brend + broj modela + dugmad "Probna vožnja" i "Zainteresovan sam"; pečat-pasoš se prikazuje SAMO kad brend ima pasoš (`hasPassport`), link na `/sajam/<event>/pasosi/<brand>`;
   - red "MODELI NA ŠTANDU" sa brojačem (plural pravac `srPluralCategory`);
   - po jedan red po modelu (`brand-model-row.tsx`): slika preko modelove pipeline (`fairPhotoUnoptimized` + `fairVehiclePhotoStyle`), `priceText` doslovno, pil "Probna vožnja" otvara formu sa tim modelom (ne otvara model stranicu), posle slanja zeleni "Prijavljeno"; ceo red linkuje na `/sajam/<event>/model/<model>`.
 - Sve ide kroz postojeće primitive: `FairEventShell`, `FairSheet`, `.fair-*` tokeni u `app/sajam/fair-event.css`; `components/ui/*` se ne koristi na javnoj stranici.
@@ -22,7 +22,7 @@ Kartice: 01–11 (mapa koda: [`MAPA-KODA.md`](./MAPA-KODA.md)). Poslednja prover
 - Jedna forma (`brand-lead-sheet.tsx`) za ceo brend: biraju se samo modeli sa `open` formom za tu vrstu; pravilo kontakta i saglasnost dolaze od PRVOG otvorenog modela (jedan izlagač = jedno pravilo), a svaki model šalje svoj `consent.version`.
 - Slanje (`submit-brand-leads.ts`): jedan POST `/api/fair/lead` po izabranom modelu, redom kojim ih posetilac izabrao, SEQUENCERno (nikad `Promise.all` — gateway je single-threaded po posetiocu i `RATE_LIMITED` je realan odgovor); svaki poziv ide na postojeći put `app/api/fair/lead` → `handleFairLead` → `submitLead`, bez novih backend poziva.
 - Idempotentnost: `submissionIds` je uporni map `modelId → client UUID` (isti objekat se ponovo prosleđuje na retry), pa retry šalje SAMO modele koji su padali i server vidi isti ključ, ne drugi lead.
-- Delimičan uspeh: neuspeli modeli ostaju izabrani u formi sa `.fair-inline-error`; kad sve prođe, `onSent` → `FairBrandLeadSuccess` (`brand-lead-success.tsx`) zamenjuje hero + listu potvrdom (vrsta, modeli, kontakt linija) do izlaska ili "prijavi još".
+- Delimičan uspeh: neuspeli modeli ostaju izabrani u formi sa `.fair-inline-error` ("Prijava za <model(i)> nije poslata. Pokušajte ponovo."); uspešno poslati se odmah označavaju "Prijavljeno" na stranici (`onPartialSent`), i kad posetilac zatvori formu. Kad retry prođe, `onSent` dobija SVE modele poslate iz tog otvaranja forme → `FairBrandLeadSuccess` (`brand-lead-success.tsx`) zamenjuje hero + listu potvrdom (vrsta, modeli, kontakt linija) do izlaska ili "prijavi još".
 - `requestedIds` u `brand-page.tsx` pamti poslane modele u sesiji (SPA state — bez localStorage reload-a).
 
 ### Pamćenje kontakta
@@ -33,7 +33,7 @@ Kartice: 01–11 (mapa koda: [`MAPA-KODA.md`](./MAPA-KODA.md)). Poslednja prover
 ### Linkovi
 
 - Iz stranice brenda: pasoš `pasosi/<brand>` (pečat, samo `hasPassport`), model stranica `model/<slug>` (svaki red), dugmad otvaraju forme na istoj stranici.
-- Ka stranici brenda: `fair-model-page.tsx` ("Zainteresovan sam" area), `fair-passport.tsx` (pasoš kartica), i QR na A4 posteru (see ispod) — svi koriste isti slug `fairPassportBrandSlug(brandName)`.
+- Ka stranici brenda: `fair-model-page.tsx` (eyebrow sa imenom brenda), `fair-passport.tsx` (dugme "Svi modeli i probna vožnja"), i QR na A4 posteru (see ispod) — svi koriste isti slug `fairPassportBrandSlug(brandName)`. Link na model stranici i dugme na pasošu postoje SAMO kad stranica brenda postoji (brend u katalogu pasoša sa bar jednim modelom u paketu — `lib/fair-brand-page.ts` `fairBrandPageModels`, isto pravilo kao `projectFairBrandPage`); inače ostaje običan tekst.
 
 ### Stranica za štampu (A4 QR poster po brendu)
 

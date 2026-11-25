@@ -401,7 +401,7 @@
   transform: translateY(-50%);
 }
 
-/* Card 10: full-row white CTA under the passport header — all models and the
+/* Full-row white CTA under the passport header — all models and the
    test-drive flow on the brand page. States follow the house rules: hover
    only where a pointer hovers, a short press, the shared focus ring. */
 .brandCta {

@@ -16,6 +16,7 @@ import {
   loadFairModelPage,
 } from "@/lib/fair-server/model-page";
 import { loadFairCompareOptions } from "@/lib/fair-server/brand-compare";
+import { loadFairBrandPageHref } from "@/lib/fair-server/brand-page";
 import { fairAdminPreview, fairPreviewCapabilities } from "@/lib/fair-server/admin-session";
 import type { FairModelCapabilities } from "@/lib/fair-contract";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
@@ -131,13 +132,14 @@ export async function FairModelRoute({
 
   if (!model) notFound();
 
-  const [interactions, audienceTeaser, compareOptions] = live
+  const [interactions, audienceTeaser, compareOptions, brandHref] = live
     ? await Promise.all([
         loadFairModelInteractions(live.model.id, live.model.capabilities),
         live.model.capabilities.hasAudienceQuestions ? loadFairAudienceTeaser(live.model.id) : null,
         loadFairCompareOptions(live.event.slug, live.model),
+        loadFairBrandPageHref(live.event.slug, eventSlug, live.model.brandName),
       ])
-    : [null, null, []];
+    : [null, null, [], null];
   const stand = live ? fairModelStand(live.event, live.model, eventSlug) : null;
   const routePath = `/sajam/${eventSlug}/model/${modelSlug}`;
   return (
@@ -152,6 +154,7 @@ export async function FairModelRoute({
       audienceTeaser={audienceTeaser}
       openSurvey={openSurvey}
       compareOptions={compareOptions}
+      brandHref={brandHref}
       adminTools={live ? (
         <FairAdminTools
           event={{ id: live.event.id, slug: eventSlug, dataSlug: live.event.slug, title: live.event.title }}

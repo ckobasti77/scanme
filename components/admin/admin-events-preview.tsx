@@ -867,7 +867,7 @@ function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, k
           />
         );
     }
-    // Kartica 11 — the printable A4 posters; the fixture catalog shows the brands
+    // The printable A4 posters; the fixture catalog shows the brands
     // that have a car in a package, one poster per brand on its own A4 sheet.
     case "brendovi-qr": return <BrandQrPosterBoard rows={brandQrPosterRows(catalog.models, keep.dogadjaj ?? PREVIEW_EVENTS[0].slug)} />;
     case "izlagaci": return (

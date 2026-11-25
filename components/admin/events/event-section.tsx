@@ -28,7 +28,7 @@ export function AdminEventSection({ path, detailId }: { path: EventSectionPath; 
     case "povezi": return <PoveziSection />;
     case "modeli": return detailId ? <ModelDetailSection modelId={detailId} /> : <ModeliSection />;
     case "qr": return detailId ? <QrDetailSection code={detailId} /> : <QrSection />;
-    // Kartica 11 — the printable A4 posters of the brands with packaged cars.
+    // The printable A4 posters of the brands with packaged cars.
     case "brendovi-qr": return <BrendoviQrSection />;
     case "izlagaci": return <IzlagaciSection />;
     case "import": return <ImportSection />;

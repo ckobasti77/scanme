@@ -34,18 +34,17 @@ function CheckIcon() {
 
 /** One packaged model of the brand: the same photo pipeline as the model page (unoptimized
  * local/demo paths, vehicle focal crop), price verbatim, and the drive pill. The row opens the
- * model page; the pill alone calls `onDrive([slug])` so the drive form opens pre-selected
- * (card 05). `requested` = the visitor already sent this model in the session (prop from the
- * route, card 06 keeps it across reloads) — then the pill is the green "Prijavljeno" stamp and
- * only the row link remains. */
+ * model page; the pill alone calls `onDrive([slug])` so the drive form opens pre-selected.
+ * `requested` = the visitor already sent this model while on this page (page state, not kept
+ * across reloads) — then the pill is the green "Prijavljeno" stamp and only the row link
+ * remains. */
 export function FairBrandModelRow({ dict, model, brandName, eventSlug, requested, onDrive }: {
   dict: FairBrandDict;
   model: FairBrandPageModel;
   brandName: string;
   eventSlug: string;
   requested: boolean;
-  /** Optional until card 05 wires the drive form into the route. */
-  onDrive?: (slugs: string[]) => void;
+  onDrive: (slugs: string[]) => void;
 }) {
   const photo = model.photoUrl;
   const drive = (
@@ -59,7 +58,7 @@ export function FairBrandModelRow({ dict, model, brandName, eventSlug, requested
           // The pill is inside the row link: keep the click from opening the model page.
           event.preventDefault();
           event.stopPropagation();
-          onDrive?.([model.slug]);
+          onDrive([model.slug]);
         }}
       ><SteerIcon />{fairModelSr.requestTestDrive}</button>
     )

@@ -7,7 +7,7 @@ import { fmt } from "@/lib/i18n";
 import type { FairBrandDict } from "@/lib/i18n/types";
 import styles from "./brand-lead-success.module.css";
 
-// Brand-page confirmation (card 06a, mockup sheet 3): what the visitor sees after
+// Brand-page confirmation (mockup sheet 3): what the visitor sees after
 // FairBrandLeadSheet's onSent flips the sheet to the success state. The eyebrow, the body
 // and the back label come from the fair-brand dictionary (kind-picked here, counted
 // through modelsLine there); the sent models and the contact line are the caller's data,

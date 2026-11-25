@@ -111,8 +111,7 @@
   flex: none;
 }
 /* Submitted state — mockup .pill.ok verbatim (#E9F3EC, #2E7D4F): success has no --fair-good
-   token; the mockup inlines these hexes. Card 06/07 (the form that flips this state) ships the
-   shared success-soft tokens, and card 10 carries the dark-theme variant. */
+   token; the mockup inlines these hexes. */
 .ok {
   border-color: transparent;
   background: #E9F3EC;

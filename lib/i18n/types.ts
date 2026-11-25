@@ -924,13 +924,13 @@ export type FairBrandModelsOnStandLine = (count: number) => string;
 // the component passes `modelsOnStandWord(n)` as the fmt param of its own
 // One/Few/Many key, so the two always decline together.
 export type FairBrandModelsOnStandWord = (count: number) => string;
-// The model picker (card 05): the selected count is a male-gender adjective
+// The model picker: the selected count is a male-gender adjective
 // (model, maskulinum), so its three forms are izabran / izabrana / izabrano,
 // NOT the model-noun forms: 1 -> 1 izabran, 2-4 -> {n} izabrana,
 // 5+ -> {n} izabrano, 11-14 as 5+.
 export type FairBrandSelectedCount = (count: number) => string;
 export type FairBrandSelectedCountWord = (count: number) => string;
-// The confirmation eyebrow (card 06a): "Probna vožnja · {n} modela" and
+// The confirmation eyebrow: "Probna vožnja · {n} modela" and
 // "Zainteresovan sam · {n} modela" — the counted half is sr's modelsLine, so both
 // kinds decline exactly like every other counted family on this surface; the kind
 // label before the separator stays natural case and the stylesheet uppercases it.
@@ -947,6 +947,7 @@ export interface FairBrandDict {
   metaDescription: string;
   notFoundTitle: string;
   eyebrow: string;
+  eyebrowWithStand: string;
   modelsOnStandLabel: string;
   modelsOnStand: FairBrandModelsOnStand;
   modelsOnStandLine: FairBrandModelsOnStandLine;
@@ -960,7 +961,7 @@ export interface FairBrandDict {
   passportStampLabel: string;
   passportStampAria: string;
   driveButton: string;
-  // Card 10: the full-row CTA under a brand passport header, plus its aria
+  // The full-row CTA under a brand passport header, plus its aria
   // line. The button itself lives on the passport page (fair-passport.tsx),
   // the copy stays on this surface so every entry point to a brand page
   // says the same thing.
@@ -971,7 +972,8 @@ export interface FairBrandDict {
   // Drive sheet (the mockup's "Probna vožnja" drawer).
   sheetTitle: string;
   sheetSubtitle: string;
-  sheetSelectModels: string;
+  sheetSelectModelsTestDrive: string;
+  sheetSelectModelsInterest: string;
   selectedCount: FairBrandSelectedCount;
   selectedCountWord: FairBrandSelectedCountWord;
   selectedCountOne: string;
@@ -980,7 +982,6 @@ export interface FairBrandDict {
   sheetSelectedModelsOne: string;
   sheetSelectedModelsFew: string;
   sheetSelectedModelsMany: string;
-  limitError: string;
   nameLabel: string;
   phoneLabel: string;
   emailLabel: string;
@@ -996,7 +997,7 @@ export interface FairBrandDict {
   cancel: string;
   closeSheet: string;
   dismissSheetAria: string;
-  // Confirmation screen (card 06a). The eyebrow functions decline through sr's
+  // Confirmation screen. The eyebrow functions decline through sr's
   // modelsLine; the body strings take {brand}. The legacy One/Few/Many + successEmail
   // lines below are kept only to satisfy this interface — nothing renders them anymore.
   successTitle: string;
@@ -1016,7 +1017,7 @@ export interface FairBrandDict {
   signedInAsMany: string;
   change: string;
   // Lead-form errors (client validation + the server messages the form can
-  // receive; the copy is here, the mapping is card 05/06's wiring).
+  // receive). errorSend takes {models}: the failed model name(s).
   errorName: string;
   errorPhone: string;
   errorEmail: string;
@@ -4684,7 +4685,7 @@ export interface AdminEventsDict {
     povezi: string;
     modeli: string;
     qr: string;
-    /** Kartica 11 — the A4 poster print of a brand's QR. */
+    /** The A4 poster print of a brand's QR. */
     "brendovi-qr": string;
     izlagaci: string;
     import: string;
@@ -4704,7 +4705,7 @@ export interface AdminEventsDict {
   detailModelTitle: string;
   detailQrTitle: string;
   detailExhibitorTitle: string;
-  /** Kartica 11 — the A4 poster print of a brand's QR (`brendovi-qr`). */
+  /** The A4 poster print of a brand's QR (`brendovi-qr`). */
   brandQr: {
     printAll: string;
     loading: string;

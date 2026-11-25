@@ -1,4 +1,4 @@
-// Sajam 2026 card 09 — the two gates of the brand-page projection
+// Sajam 2026 — the two gates of the brand-page projection
 // (projectFairBrandPage, lib/fair-server/brand-page.ts): a model that never
 // entered a paid package (capabilities.ratingMode "none" is the `included`
 // tier, lib/fair-entitlements.ts:31) and a model of another brand (the
@@ -11,12 +11,12 @@
 
 import { describe, expect, test } from "vitest";
 import type { FairPassportCatalogEntry, FairPublicModel, FairRatingMode } from "../fair-contract";
-import { projectFairBrandPage } from "./brand-page";
+import { fairBrandPageHref, projectFairBrandPage } from "./brand-page";
 
 // Only the fields brand-page.ts:72-94 touches: the gate reads `capabilities`
 // and `brandId`, the row projects `id`/`slug`/`displayName`/`priceText` and
 // `rows[0].exhibitorName`. Optional fields stay absent — the projection's
-// spread logic is not what card 09 tests.
+// spread logic is not what these tests cover.
 const model = (id: string, brandId: string, ratingMode: FairRatingMode) =>
   ({
     id,
@@ -42,12 +42,13 @@ const input = (catalog: FairPassportCatalogEntry[], models: FairPublicModel[]) =
   eventId: "event-1",
   eventName: "Sajam automobila 2026",
   eventSlug: "sajam-automobila-2026",
+  eventCode: "sajam-automobila-2026",
   catalog,
   models,
   brandSlug: "volkswagen",
 });
 
-describe("projectFairBrandPage (card 09)", () => {
+describe("projectFairBrandPage", () => {
   test("a model outside the package (ratingMode none) is dropped", () => {
     const data = projectFairBrandPage(
       input(
@@ -90,5 +91,39 @@ describe("projectFairBrandPage (card 09)", () => {
         input([entry("brand-seat", "Seat", ["m-3"])], [model("m-3", "brand-seat", "overall")]),
       ),
     ).toBeNull();
+  });
+});
+
+describe("standLabel (hero eyebrow \"Brend · Štand <stand>\")", () => {
+  const onMap = (standMapLocationId: string) =>
+    ({ ...model("m-1", "brand-vw", "overall"), standMapLocationId }) as FairPublicModel;
+  const project = (standMapLocationId: string) =>
+    projectFairBrandPage({
+      ...input([entry("brand-vw", "Volkswagen", ["m-1"])], [onMap(standMapLocationId)]),
+      eventCode: "auto-moto-fest-2026",
+    });
+
+  test("a numbered stand on the event map gives its label", () => {
+    expect(project("hala-10")?.standLabel).toBe("10");
+  });
+
+  test("a location that is not a stand box, or not on the map, gives none", () => {
+    expect(project("ne-postoji")).not.toHaveProperty("standLabel");
+  });
+});
+
+describe("fairBrandPageHref (brand link on the model page and passport)", () => {
+  const href = (catalog: FairPassportCatalogEntry[], models: FairPublicModel[], brandName = "Volkswagen") =>
+    fairBrandPageHref({ catalog, models, eventSlug: "sajam-automobila-2026", brandName });
+
+  test("a brand with a packaged model links to its brand page", () => {
+    expect(href([entry("brand-vw", "Volkswagen", ["m-1"])], [model("m-1", "brand-vw", "overall")])).toBe(
+      "/sajam/sajam-automobila-2026/brend/volkswagen",
+    );
+  });
+
+  test("a brand with only free-tier models, or missing from the catalog, has no link", () => {
+    expect(href([entry("brand-vw", "Volkswagen", ["m-1"])], [model("m-1", "brand-vw", "none")])).toBeNull();
+    expect(href([entry("brand-seat", "Seat", ["m-3"])], [model("m-3", "brand-seat", "overall")])).toBeNull();
   });
 });

@@ -13,7 +13,7 @@ export const adminEventsSr = {
     povezi: "Poveži nalepnicu",
     modeli: "Modeli",
     qr: "QR kodovi",
-    // Kartica 11 — the A4 poster print of a brand's QR, next to the inventory.
+    // The A4 poster print of a brand's QR, next to the inventory.
     "brendovi-qr": "Štampa QR koda",
     izlagaci: "Izlagači",
     import: "Import kataloga",
@@ -32,7 +32,7 @@ export const adminEventsSr = {
   detailModelTitle: "Detalj modela",
   detailQrTitle: "Detalj QR koda",
   detailExhibitorTitle: "Interakcije izlagača",
-  /** Kartica 11 — the A4 poster print of a brand's QR (`brendovi-qr`). */
+  /** The A4 poster print of a brand's QR (`brendovi-qr`). */
   brandQr: {
     printAll: "Štampaj sve",
     loading: "Učitavanje…",

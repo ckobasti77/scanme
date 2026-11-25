@@ -66,7 +66,7 @@ const REAL_MODELS: FairPublicModel[] = payload.participations.flatMap((participa
   ),
 );
 
-function render(model: FairPublicModel, siteOrigin?: string): string {
+function render(model: FairPublicModel, siteOrigin?: string, brandHref?: string | null): string {
   const adapted = fairPublicModelToFixture({
     model,
     publicEventSlug: model.eventSlug,
@@ -86,6 +86,7 @@ function render(model: FairPublicModel, siteOrigin?: string): string {
       openSurvey={false}
       stand={null}
       audienceTeaser={null}
+      brandHref={brandHref}
     />
   );
   return renderToStaticMarkup(element);
@@ -162,5 +163,23 @@ describe("room for the new-stamp card (Aleksa §2.2)", () => {
     expect(withBadge).not.toContain("fair-model-highlight__icon");
     expect(withBadge).toContain('data-highlight="true"');
     expect(withBadge).toContain('data-shine-sequence="after-badge"');
+  });
+});
+
+describe("brand eyebrow", () => {
+  const identityName = (markup: string) => markup.match(/<div class="fair-model-identity__name">([\s\S]*?)<h1/)?.[1] ?? "";
+
+  test("without a brand page the brand name stays plain text", () => {
+    const [model] = REAL_MODELS;
+    const name = identityName(render(model));
+    expect(name).toBe(`<span>${model.brandName}</span>`);
+  });
+
+  test("with a brand page the brand name links to it", () => {
+    const [model] = REAL_MODELS;
+    const name = identityName(render(model, undefined, "/sajam/demo/brend/brend-x"));
+    expect(name).toContain('href="/sajam/demo/brend/brend-x"');
+    expect(name).toContain(`>${model.brandName}</a>`);
+    expect(name).not.toContain("<span>");
   });
 });

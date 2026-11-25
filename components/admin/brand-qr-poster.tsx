@@ -3,7 +3,7 @@ import { qrMatrix } from "@/lib/qr/qrcodegen";
 import { fairPassportBrandSlug } from "@/lib/fair-passport";
 import styles from "./brand-qr-poster.module.css";
 
-// Kartica 11 — the A4 poster of one brand's QR. Presentational: the section
+// The A4 poster of one brand's QR. Presentational: the section
 // passes the URL (what the QR must contain) and the copy; the poster is the
 // same box on the screen (a scaled preview) and on the print sheet (210x297
 // millimetres), every size inside is a container unit of its width, so both

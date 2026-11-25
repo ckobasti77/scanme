@@ -12,7 +12,7 @@ import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 import { cn } from "@/lib/utils";
 
-// Kartica 11 — printing the A4 poster of every brand that has a car in a paid
+// Printing the A4 poster of every brand that has a car in a paid
 // package (`starter` or `advanced`; `included` are the fair's own cars that no
 // visitor signs up for, `withdrawn` cars are not on the floor). The poster is
 // plain DOM sized in millimetres by brand-qr-poster.module.css, so `window.print()`

@@ -41,12 +41,14 @@ function InfoIcon() {
 }
 
 /** Brand page header (docs/mockups/stranica-brenda-mockup.html .bcard): the brand postcard —
- * eyebrow, 44px brand name, dashed passport stamp, model count line, the drive CTA + interest
- * button, and the no-app hint. `onDrive`/`onInterest` are optional until card 05/06 wires the
- * forms into the route; the stamp only shows when the brand has a passport page to open. */
-export function FairBrandHero({ dict, brandName, modelCount, modelNames, eventSlug, brandSlug, hasPassport, onDrive, onInterest }: {
+ * eyebrow ("Brend · Štand <stand>" when the stand is known), 44px brand name, dashed passport
+ * stamp, model count line, the drive CTA + interest button, and the no-app hint. The stamp only
+ * shows when the brand has a passport page to open. */
+export function FairBrandHero({ dict, brandName, standLabel, modelCount, modelNames, eventSlug, brandSlug, hasPassport, onDrive, onInterest }: {
   dict: FairBrandDict;
   brandName: string;
+  /** Stand label of the brand's exhibitor; absent shows the plain "Brend" eyebrow. */
+  standLabel?: string;
   /** Packaged models on this brand's stand — every count noun on the brand page declines from this number. */
   modelCount: number;
   /** Comma-joined model names for the sub line (projection order, never re-sorted). */
@@ -54,15 +56,14 @@ export function FairBrandHero({ dict, brandName, modelCount, modelNames, eventSl
   eventSlug: string;
   brandSlug: string;
   hasPassport: boolean;
-  /** Optional until the drive form (card 05) and interest form (card 06) open from the route. */
-  onDrive?: () => void;
-  onInterest?: () => void;
+  onDrive: () => void;
+  onInterest: () => void;
 }) {
   return (
     <header className={styles.card}>
       <div className={styles.top}>
         <div>
-          <span className={styles.eyebrow}>{dict.eyebrow}</span>
+          <span className={styles.eyebrow}>{standLabel ? fmt(dict.eyebrowWithStand, { stand: standLabel }) : dict.eyebrow}</span>
           <h1 className={styles.name}>{brandName}</h1>
           <p className={styles.sub}>{dict.modelsOnStand(modelCount)} · {modelNames}</p>
         </div>
@@ -75,10 +76,10 @@ export function FairBrandHero({ dict, brandName, modelCount, modelNames, eventSl
         )}
       </div>
       <div className={styles.btns}>
-        <button type="button" className={`${styles.btn} ${styles.drive}`} onClick={() => onDrive?.()}>
+        <button type="button" className={`${styles.btn} ${styles.drive}`} onClick={onDrive}>
           <SteerIcon />{dict.driveButton}
         </button>
-        <button type="button" className={`${styles.btn} ${styles.interest}`} onClick={() => onInterest?.()}>
+        <button type="button" className={`${styles.btn} ${styles.interest}`} onClick={onInterest}>
           <MailIcon />{fairModelSr.submitInterest}
         </button>
       </div>

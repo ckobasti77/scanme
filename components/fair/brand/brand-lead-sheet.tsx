@@ -7,22 +7,22 @@ import { fairHaptic } from "@/lib/fair-client/haptics";
 import type { FairLeadFormView } from "@/lib/fair-contract";
 import type { FairBrandDict } from "@/lib/i18n/types";
 import type { FairBrandPageData, FairBrandPageModel } from "@/lib/fair-server/brand-page";
-import { getDict, srPluralCategory } from "@/lib/i18n";
+import { fmt, getDict, srPluralCategory } from "@/lib/i18n";
 import { ContactBlock } from "../contact-block";
 import { FairSheet } from "../fair-sheet";
 import { FairBrandModelPicker } from "./brand-model-picker";
 import { submitBrandLeads } from "./submit-brand-leads";
 
-// Brand-page lead sheet (card 05d): one sheet for the whole brand, several models
-// per send. Only models whose form for this kind is `open` can be picked; the
+// Brand-page lead sheet: one sheet for the whole brand, several models per
+// send. Only models whose form for this kind is `open` can be picked; the
 // contact rule and the consent sentence come from the FIRST open model (one
 // exhibitor, one rule), while each model sends its own `consent.version`
-// (submit-brand-leads.ts, 05b). ContactBlock keeps the fair-model dictionary —
+// (submit-brand-leads.ts). ContactBlock keeps the fair-model dictionary —
 // the shared contact copy — and the unavailable block repeats the model page's.
 
 type OpenLeadForm = Extract<FairLeadFormView, { state: "open" }>;
 
-export function FairBrandLeadSheet({ kind, brandName, models, leadForms, preselectedIds, onClose, onSent, dict }: {
+export function FairBrandLeadSheet({ kind, brandName, models, leadForms, preselectedIds, onClose, onPartialSent, onSent, dict }: {
   kind: "testDrive" | "interest";
   brandName: string;
   models: FairBrandPageModel[];
@@ -31,6 +31,10 @@ export function FairBrandLeadSheet({ kind, brandName, models, leadForms, presele
   /** The page's fair-brand dictionary, taken as a prop the way the fair-garage components do. */
   dict: FairBrandDict;
   onClose: () => void;
+  /** Some models were sent and some failed: the sent ones are marked on the page right away,
+   * so they stay "Prijavljeno" even if the visitor closes the sheet instead of retrying. */
+  onPartialSent: (ids: string[]) => void;
+  /** Every chosen model is sent; `ids` are all models sent from this opening of the sheet. */
   onSent: (sent: { ids: string[]; contact: ContactPayload; email?: string }) => void;
 }) {
   const modelDict = getDict("fair-model");
@@ -47,9 +51,12 @@ export function FairBrandLeadSheet({ kind, brandName, models, leadForms, presele
   );
   const [draft, setDraft] = useState<ContactDraft>(EMPTY_CONTACT_DRAFT);
   const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
+  const [failedIds, setFailedIds] = useState<string[]>([]);
   // The same object goes to submitBrandLeads on every try: a model that failed
-  // keeps its submissionId, so a retry sends one lead, not two (05b's comment).
+  // keeps its submissionId, so a retry sends one lead, not two.
   const submissionIds = useRef<Record<string, string>>({});
+  // Models already sent from this opening of the sheet (first attempt + retries), in send order.
+  const sentIds = useRef<string[]>([]);
 
   const open = available[0]?.form;
   const contact = open
@@ -73,9 +80,10 @@ export function FairBrandLeadSheet({ kind, brandName, models, leadForms, presele
       contact: payload,
       consentVersionById,
       submissionIds: submissionIds.current,
-      dict, // page dict through, so every brand file takes dict (checker section 4)
     });
-    const failed = results.filter((result) => !result.ok);
+    const sentNow = results.filter((result) => result.ok).map((result) => result.eventModelId);
+    sentIds.current = [...new Set([...sentIds.current, ...sentNow])];
+    const failed = results.filter((result) => !result.ok).map((result) => result.eventModelId);
     if (failed.length === 0) {
       if (draft.remember) {
         saveContact(browserContactStorage(), {
@@ -85,16 +93,18 @@ export function FairBrandLeadSheet({ kind, brandName, models, leadForms, presele
         });
       }
       fairHaptic([20, 40, 40]);
-      onSent({ ids, contact: payload, email: payload.email });
+      onSent({ ids: sentIds.current, contact: payload, email: payload.email });
       return;
     }
+    if (sentNow.length) onPartialSent(sentNow);
     // The sheet stays open: only the failed models remain chosen, so the next
     // click re-sends exactly them (their submissionIds are still in the map).
-    setSelectedIds(failed.map((result) => result.eventModelId));
+    setSelectedIds(failed);
+    setFailedIds(failed);
     setStatus("error");
   }
 
-  // The button keeps the mockup's fixed strings (sr/fair-brand.ts:120-125):
+  // The button keeps the mockup's fixed strings (sr/fair-brand.ts submit*):
   // 1 -> submitOne, more -> submitFew/submitMany through the app's plural rule.
   const category = srPluralCategory(selectedIds.length);
   const submitText =
@@ -122,7 +132,12 @@ export function FairBrandLeadSheet({ kind, brandName, models, leadForms, presele
           <div className="fair-survey-send">
             {status === "error" ? (
               <p className="fair-inline-error" role="alert">
-                {dict.errorSend}
+                {fmt(dict.errorSend, {
+                  models: available
+                    .filter((entry) => failedIds.includes(entry.model.id))
+                    .map((entry) => entry.model.name)
+                    .join(", "),
+                })}
               </p>
             ) : null}
             <button
@@ -149,13 +164,12 @@ export function FairBrandLeadSheet({ kind, brandName, models, leadForms, presele
             <FairBrandModelPicker
               models={available.map((entry) => entry.model)}
               selectedIds={selectedIds}
-              dict={dict}
               onToggle={(id) =>
                 setSelectedIds((ids) =>
                   ids.includes(id) ? ids.filter((selected) => selected !== id) : [...ids, id],
                 )
               }
-              label={dict.sheetSelectModels}
+              label={kind === "testDrive" ? dict.sheetSelectModelsTestDrive : dict.sheetSelectModelsInterest}
               countText={dict.selectedCount(selectedIds.length)}
             />
             <ContactBlock

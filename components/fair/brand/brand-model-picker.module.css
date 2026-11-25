@@ -1,4 +1,4 @@
-/* Model picker for the drive flow on /sajam/<event>/brend/<brand> (card 05c). Sizes follow the
+/* Model picker of the brand lead sheet on /sajam/<event>/brend/<brand>. Sizes follow the
    card; every color comes from a --fair-* token (card values "surface-2"/"line-strong" map to
    the real names --fair-surface-muted / --fair-line-strong), so the picker is orange at Auto
    Moto Fest and blue on every other fair. */

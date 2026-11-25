@@ -1,5 +1,7 @@
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import { fairBrandPageModels } from "../fair-brand-page";
+import { fairMapLocationById } from "../fair-map";
 import { fairPassportBrandSlug } from "../fair-passport";
 import { loadFairPassportPage } from "./passport-page";
 import type { FairLeadFormView, FairPassportCatalogEntry, FairPublicModel } from "../fair-contract";
@@ -31,6 +33,9 @@ export type FairBrandPageData = {
   eventId: string;
   brand: { name: string; logoUrl?: string };
   exhibitor: { name: string };
+  /** Stand label of the brand's exhibitor on the event map ("Brend · Štand <label>"); absent
+   * when the stand is not a numbered stand box on the map. */
+  standLabel?: string;
   models: FairBrandPageModel[];
   /** Public event slug — the model-row links and the header's passport stamp (`/sajam/<slug>/…`). */
   eventSlug: string;
@@ -39,18 +44,9 @@ export type FairBrandPageData = {
   /** URL segment of this brand, same identity as `brandSlug` above — the stamp href. */
   brandSlug: string;
   /** Lead forms per model (`model.id` key): what that model's rows open. Only non-null reads are
-   * stored, so a key appears only for models with at least one form; the static demo has none. */
+   * stored, so a key appears only for models with at least one form. */
   leadForms: Record<string, { interest?: FairLeadFormView; testDrive?: FairLeadFormView }>;
 };
-
-/** Only paid-package models reach the page: `capabilities.ratingMode` is `"none"` for the
- * `included` tier, `"overall"` for `starter` and `"dimensions"` for `advanced`
- * (lib/fair-entitlements.ts:31, 47, 69), and `fairTierHasFeature(tier, "rating")` is exactly
- * `ratingMode !== "none"` (lib/fair-entitlements.ts:151-153). Models with `"none"` are the
- * free-ride catalog entries that visitors see on the map but never on a brand page. */
-function isPackaged(model: FairPublicModel): boolean {
-  return model.capabilities.ratingMode !== "none";
-}
 
 /** One brand row plus its packaged models, kept in the brand's own order (`catalog[].models[]`
  * is the order the passport shows, and `loadFairPassportPage` does not re-sort it). Pure so the
@@ -63,28 +59,28 @@ export function projectFairBrandPage(input: {
   /** Public slug from `page.event.slug` — projected so the components can build `/sajam/…` links
    * without learning the internal-vs-public slug rules. */
   eventSlug: string;
+  /** `event.code` — the key of the event's map geometry, for the stand label. */
+  eventCode: string;
   /** URL segment made by `fairPassportBrandSlug(brandName)` (lib/fair-passport.ts). */
   brandSlug: string;
 }): FairBrandPageData | null {
   const entry = input.catalog.find((passport) => fairPassportBrandSlug(passport.brandName) === input.brandSlug);
   if (!entry) return null;
 
-  const byId = new Map(input.models.map((model) => [model.id, model]));
-  // The passport payload also carries cross-brand favorites (see `modelsById` in
-  // lib/fair-server/passport-page.ts), so every reference is re-checked against this brand.
-  const rows = entry.models.flatMap((reference) => {
-    const model = byId.get(reference.eventModelId);
-    return model && model.brandId === entry.brandId && isPackaged(model) ? [model] : [];
-  });
-  // Card rule: a brand without a single packaged model renders the same "nije pronađen" view as
-  // a brand that does not exist, so both paths return null here.
+  const rows = fairBrandPageModels(entry, new Map(input.models.map((model) => [model.id, model])));
+  // A brand without a single packaged model renders the same "nije pronađen" view as a brand
+  // that does not exist, so both paths return null here.
   if (!rows.length) return null;
+  // The exhibitor's stand label from the event map (the same lookup as the model page's stand
+  // chip, `fairModelStand`); only a real stand box has a number, a hall or area has none.
+  const location = fairMapLocationById(input.eventCode, rows[0].standMapLocationId);
 
   return {
     eventId: input.eventId,
     eventName: input.eventName,
     brand: { name: entry.brandName, ...(entry.brandLogoUrl ? { logoUrl: entry.brandLogoUrl } : {}) },
     exhibitor: { name: rows[0].exhibitorName },
+    ...(location?.location.kind === "stand" ? { standLabel: location.location.label } : {}),
     models: rows.map((model) => ({
       id: model.id,
       slug: model.slug,
@@ -99,7 +95,7 @@ export function projectFairBrandPage(input: {
     // the catalog: that list is the event's own passport copy, not our claim about their stock.
     hasPassport: !!entry,
     // The pure projection cannot read forms; the live route fills this after projecting
-    // (`loadFairBrandPage`), the static demo route has no forms and keeps this empty.
+    // (`loadFairBrandPage`), the static demo route fills it with its own demo forms.
     leadForms: {},
   };
 }
@@ -114,6 +110,7 @@ export async function loadFairBrandPage(publicSlug: string, brandSlug: string): 
     eventId: page.event.id,
     eventName: page.event.title,
     eventSlug: publicSlug,
+    eventCode: page.event.code,
     catalog: page.catalog,
     models: page.models,
     brandSlug,
@@ -129,4 +126,30 @@ export async function loadFairBrandPage(publicSlug: string, brandSlug: string): 
     }),
   );
   return data;
+}
+
+/** Href of a brand's page, or null when that page does not exist (brand missing from the
+ * passport catalog, or without a packaged model) — the model page then keeps its plain-text
+ * brand name. Same rule as `projectFairBrandPage`; a failed read also means no link. */
+export function fairBrandPageHref(input: {
+  catalog: readonly FairPassportCatalogEntry[];
+  models: readonly FairPublicModel[];
+  eventSlug: string;
+  brandName: string;
+}): string | null {
+  const brandSlug = fairPassportBrandSlug(input.brandName);
+  const entry = input.catalog.find((passport) => fairPassportBrandSlug(passport.brandName) === brandSlug);
+  if (!entry || !fairBrandPageModels(entry, new Map(input.models.map((model) => [model.id, model]))).length) return null;
+  return `/sajam/${input.eventSlug}/brend/${brandSlug}`;
+}
+
+/** Live variant of `fairBrandPageHref` for the model route: reads the passport catalog and only
+ * this brand's model rows (the same queries `loadFairPassportPage` runs). */
+export async function loadFairBrandPageHref(dataSlug: string, publicSlug: string, brandName: string): Promise<string | null> {
+  const passport = await orNull(fetchQuery(api.fairPublic.getPassportCatalog, { eventSlug: dataSlug }));
+  const catalog = passport?.catalog ?? [];
+  const entry = catalog.find((row) => fairPassportBrandSlug(row.brandName) === fairPassportBrandSlug(brandName));
+  if (!entry?.models.length) return null;
+  const models = await orNull(fetchQuery(api.fairPublic.getModelsByIds, { ids: [...new Set(entry.models.map((model) => model.eventModelId))] }));
+  return models ? fairBrandPageHref({ catalog: [entry], models, eventSlug: publicSlug, brandName }) : null;
 }

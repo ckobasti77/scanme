@@ -5,8 +5,7 @@
 
 import { describe, expect, test, vi } from "vitest";
 import type { postFair } from "@/lib/fair-client/fair-api";
-import type { FairErrorCode, FairLeadSubmitResult, FairResult } from "@/lib/fair-contract";
-import type { FairBrandDict } from "@/lib/i18n/types";
+import type { FairLeadSubmitResult, FairResult } from "@/lib/fair-contract";
 import { submitBrandLeads } from "./submit-brand-leads";
 
 // "network" is not a FairErrorCode; the gateway-down code is SERVICE_UNAVAILABLE.
@@ -32,17 +31,12 @@ const lead = (eventModelId: string): FairResult<FairLeadSubmitResult> => ({
 
 const contact = { contactName: "Marko Petrović", email: "marko@primer.rs" };
 
-// The sender takes the page dict as an input member (checker section 4); it
-// posts bodies only, so the test hands it an empty dictionary.
-const dict: FairBrandDict = {} as FairBrandDict;
-
 const input = (submissionIds: Record<string, string> = {}) => ({
   kind: "testDrive" as const,
   eventModelIds: ["m1", "m2"],
   contact,
   consentVersionById: { m1: 3, m2: 3 },
   submissionIds,
-  dict,
 });
 
 const send = (args: Parameters<typeof submitBrandLeads>[0], post: ReturnType<typeof fakePost>) =>

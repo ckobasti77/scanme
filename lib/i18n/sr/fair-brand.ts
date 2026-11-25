@@ -1,7 +1,7 @@
-// stranica brenda (card 08) — the only place the brand page says anything,
+// stranica brenda — the only place the brand page says anything,
 // including its three-form counters (the card's rule: counters are
 // functions). Components import `fairBrandSr` exactly like garage/map do.
-// Card 09 adds `en/fair-brand.ts`. `{...}` placeholders go through fmt().
+// `{...}` placeholders go through fmt().
 import { fmt, srPluralCategory } from "../format";
 import type { FairBrandDict } from "../types";
 
@@ -56,6 +56,8 @@ export const fairBrandSr = {
   // something different from the mockup (the page itself never renders it).
   notFoundTitle: "Stranica nije pronađena",
   eyebrow: "Brend",
+  // Hero eyebrow when the exhibitor has a numbered stand on the event map.
+  eyebrowWithStand: "Brend · Štand {stand}",
   // The .lbl header row: label left (CSS uppercases it), the count right.
   // The count and the noun sit in two flex children, so the unit comes as
   // its own word — modelsOnStand(3) is the sentence the card names, the
@@ -84,8 +86,8 @@ export const fairBrandSr = {
   passportStampLabel: "Pasoš brenda",
   passportStampAria: "Pasoš brenda: {brand}",
   driveButton: "Prijavi probnu vožnju",
-  // Card 10: entry point from the brand passport to the brand page (all
-  // models + the test-drive flow). aria takes {brand} through fmt().
+  // Entry point from the brand passport to the brand page (all models +
+  // the test-drive flow). aria takes {brand} through fmt().
   brandPageCtaLabel: "Svi modeli i probna vožnja",
   brandPageCtaAria: "Svi modeli i probna vožnja: {brand}",
   hint: "Bez aplikacije i registracije",
@@ -93,7 +95,9 @@ export const fairBrandSr = {
   // Drive sheet (mockup sheet 2).
   sheetTitle: "Probna vožnja",
   sheetSubtitle: "{brand} · {location}",
-  sheetSelectModels: "Izaberite modele za probnu vožnju (1–3)",
+  // Picker title per sheet kind; the number of models is not limited.
+  sheetSelectModelsTestDrive: "Izaberite modele za probnu vožnju",
+  sheetSelectModelsInterest: "Izaberite modele",
   // The picker dock line: the card's izabran adjective family, as functions
   // and as the One/Few/Many keys any consumer can fmt().
   selectedCount: selectedLine,
@@ -109,7 +113,6 @@ export const fairBrandSr = {
   sheetSelectedModelsOne: "{count} model izabran",
   sheetSelectedModelsFew: "{count} modela izabrana",
   sheetSelectedModelsMany: "{count} modela izabrano",
-  limitError: "Možete izabrati najviše 3 modela po prijavi.",
   nameLabel: "Ime i prezime",
   phoneLabel: "Telefon",
   emailLabel: "Email",
@@ -131,7 +134,7 @@ export const fairBrandSr = {
   cancel: "Odustani",
   closeSheet: "Zatvori",
   dismissSheetAria: "Zatvori probnu vožnju",
-  // Confirmation screen (mockup sheet 3). Card 06a made the copy kind-picked: a test-drive
+  // Confirmation screen (mockup sheet 3). The copy is kind-picked: a test-drive
   // lead promises the call about the test-drive slot, an interest lead the offer. The counted
   // eyebrow resolves through modelsLine (the same three-form picker as every other counted
   // family in this file); the kind label sits before the separator in natural case and the
@@ -143,7 +146,7 @@ export const fairBrandSr = {
   successBodyTestDrive: "{brand} će vas kontaktirati da dogovorite termin probne vožnje.",
   successBodyInterest: "{brand} će vas kontaktirati sa ponudom.",
   // The mockup drew an email-confirmation row; the system never e-mails the visitor, so
-  // card 06a renders none of these legacy lines — they stay only to satisfy the interface.
+  // nothing renders these legacy lines — they stay only to satisfy the interface.
   successEyebrowOne: "{count} model poslat prodavcu",
   successEyebrowFew: "{count} modela poslata prodavcu",
   successEyebrowMany: "{count} modela poslato prodavcu",
@@ -157,11 +160,12 @@ export const fairBrandSr = {
   signedInAsFew: "Prijavljujete se kao {name} ({count} izabrana)",
   signedInAsMany: "Prijavljujete se kao {name} ({count} izabrano)",
   change: "Promeni",
-  // Lead-form errors (cards 05/06 wire the mapping; the copy lives here).
+  // Lead-form errors. errorSend names the model(s) whose lead failed:
+  // {models} is one name or several joined with ", ".
   errorName: "Unesite ime i prezime.",
   errorPhone: "Unesite ispravan broj telefona.",
   errorEmail: "Unesite email za potvrdu.",
   errorEmailInvalid: "Proverite format email adrese.",
   errorConsent: "Potrebna je saglasnost za slanje prijave.",
-  errorSend: "Nije uspelo slanje. Pokušajte ponovo.",
+  errorSend: "Prijava za {models} nije poslata. Pokušajte ponovo.",
 } as const satisfies FairBrandDict;

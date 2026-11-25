@@ -11,7 +11,6 @@ import { fairPhotoUnoptimized } from "@/lib/fair-client/photo-url";
 import { fmt, type FairModelDict } from "@/lib/i18n";
 import { fairEventThemeClass } from "@/lib/fair-theme";
 import { FAIR_PRIVACY_PATH } from "@/lib/fair-contract";
-import { fairPassportBrandSlug } from "@/lib/fair-passport";
 import type { FairModelInteractions, FairModelStand } from "@/lib/fair-server/model-page";
 import type { FairCompareOption } from "@/lib/fair-server/brand-compare";
 import { FairEventShell } from "./event-shell";
@@ -154,6 +153,7 @@ export function FairModelPage({
   audienceTeaser,
   openSurvey,
   compareOptions = [],
+  brandHref = null,
   adminTools,
 }: {
   model: FairPublicModelFixture;
@@ -171,6 +171,8 @@ export function FairModelPage({
   openSurvey: boolean;
   /** Other published models of the same brand ("Uporedi"); empty hides the button. */
   compareOptions?: FairCompareOption[];
+  /** Brand page of this model's brand; null (no brand page) keeps the plain-text brand name. */
+  brandHref?: string | null;
   /** Admin DEV tools (components/fair/admin): null for every visitor. */
   adminTools?: ReactNode;
 }) {
@@ -282,13 +284,13 @@ export function FairModelPage({
           ) : null}
           <div className="fair-model-identity">
             <div className="fair-model-identity__name">
-              <Link
-                className="fair-model-identity__brand"
-                prefetch={false}
-                href={`/sajam/${model.eventSlug}/brend/${fairPassportBrandSlug(model.brandName)}`}
-              >
-                {model.brandName}
-              </Link>
+              {brandHref ? (
+                <Link prefetch={false} href={brandHref}>
+                  {model.brandName}
+                </Link>
+              ) : (
+                <span>{model.brandName}</span>
+              )}
               <ModelName>{model.displayName}</ModelName>
               {model.variant ? <p>{model.variant}</p> : null}
             </div>

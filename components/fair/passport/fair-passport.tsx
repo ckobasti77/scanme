@@ -41,6 +41,7 @@ import { fairEventPresentation, fairEventThemeClass } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
 import type { FairPassportDict } from "@/lib/i18n/types";
 import { fairBrandSr } from "@/lib/i18n/sr/fair-brand";
+import { fairBrandPageModels } from "@/lib/fair-brand-page";
 import { FairBrandMark } from "../garage/fair-brand-mark";
 import styles from "./fair-passport.module.css";
 import { NewStampCard } from "./new-stamp-card";
@@ -625,19 +626,22 @@ function PassportDetail({
         </div>
       </section>
 
-      {/* Card 10: every visitor on a brand passport can reach the brand page
-          (all models + the test-drive flow), not only through the QR. The
-          copy comes from the brand surface so this entry says the same thing
-          as the brand page itself. */}
-      <Link
-        prefetch={false}
-        className={styles.brandCta}
-        aria-label={fmt(fairBrandSr.brandPageCtaAria, { brand })}
-        href={`/sajam/${event.publicSlug}/brend/${fairPassportBrandSlug(passport.brandName)}`}
-      >
-        <TbSteeringWheel aria-hidden="true" />
-        {fairBrandSr.brandPageCtaLabel}
-      </Link>
+      {/* Every visitor on a brand passport can reach the brand page
+          (all models + the test-drive flow), not only through the QR — when
+          that page exists (at least one packaged model). The copy comes from
+          the brand surface so this entry says the same thing as the brand
+          page itself. */}
+      {fairBrandPageModels(passport, modelById).length > 0 ? (
+        <Link
+          prefetch={false}
+          className={styles.brandCta}
+          aria-label={fmt(fairBrandSr.brandPageCtaAria, { brand })}
+          href={`/sajam/${event.publicSlug}/brend/${fairPassportBrandSlug(passport.brandName)}`}
+        >
+          <TbSteeringWheel aria-hidden="true" />
+          {fairBrandSr.brandPageCtaLabel}
+        </Link>
+      ) : null}
 
       <section
         className={styles.modelStack}
