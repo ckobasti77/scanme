@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { InterakcijeIzlagacSection, InterakcijeSection } from "@/components/admin/events/sections/interakcije-section";
 import { BrisanjeSection } from "@/components/admin/events/sections/brisanje-section";
+import { BrendoviQrSection } from "@/components/admin/events/sections/brendovi-qr-section";
 import { ImportSection } from "@/components/admin/events/sections/import-section";
 import { IzlagaciSection } from "@/components/admin/events/sections/izlagaci-section";
 import { SectionLoading } from "@/components/admin/events/sections/loading";
@@ -27,6 +28,8 @@ export function AdminEventSection({ path, detailId }: { path: EventSectionPath; 
     case "povezi": return <PoveziSection />;
     case "modeli": return detailId ? <ModelDetailSection modelId={detailId} /> : <ModeliSection />;
     case "qr": return detailId ? <QrDetailSection code={detailId} /> : <QrSection />;
+    // Kartica 11 — the printable A4 posters of the brands with packaged cars.
+    case "brendovi-qr": return <BrendoviQrSection />;
     case "izlagaci": return <IzlagaciSection />;
     case "import": return <ImportSection />;
     case "interakcije": return detailId ? <InterakcijeIzlagacSection key={detailId} participationId={detailId} /> : <InterakcijeSection />;

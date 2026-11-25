@@ -4684,6 +4684,8 @@ export interface AdminEventsDict {
     povezi: string;
     modeli: string;
     qr: string;
+    /** Kartica 11 — the A4 poster print of a brand's QR. */
+    "brendovi-qr": string;
     izlagaci: string;
     import: string;
     interakcije: string;
@@ -4702,6 +4704,30 @@ export interface AdminEventsDict {
   detailModelTitle: string;
   detailQrTitle: string;
   detailExhibitorTitle: string;
+  /** Kartica 11 — the A4 poster print of a brand's QR (`brendovi-qr`). */
+  brandQr: {
+    printAll: string;
+    loading: string;
+    emptyTitle: string;
+    emptyBody: string;
+    /** what the print does (one poster per A4 sheet) */
+    hint: string;
+    /** „<BREND> · ŠTAND <štand>“ */
+    standLine: string;
+    /** the brand alone when its models have no stand */
+    standLineWithoutStand: string;
+    /** „Probna vožnja?“ */
+    title: string;
+    /** „Prijavite se ovde.“ */
+    callToAction: string;
+    /** what the visitor does with the phone */
+    lead: string;
+    /** the three numbered steps */
+    steps: readonly string[];
+    /** the ScanMe wordmark at the bottom */
+    footer: string;
+    posterAria: string;
+  };
   interactionSections: { glasPublike: string; ankete: string; pasos: string; forme: string };
   eventNotFoundTitle: string;
   eventNotFoundBody: string;

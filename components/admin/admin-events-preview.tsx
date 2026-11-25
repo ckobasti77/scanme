@@ -36,6 +36,7 @@ import { AdminViewModeOverride } from "@/components/admin/admin-ui";
 import { useAdminQueryState } from "@/components/admin/admin-ui/use-admin-query-state";
 import { AdminEventFrameView, type FrameEvent } from "@/components/admin/events/event-frame-view";
 import { AdminEventsNotFound } from "@/components/admin/events/event-not-found";
+import { BrandQrPosterBoard, brandQrPosterRows } from "@/components/admin/events/sections/brendovi-qr-section";
 import { EventExhibitorsView } from "@/components/admin/events/sections/izlagaci-view";
 import { EventImportView, importContextFromCatalog } from "@/components/admin/events/sections/import-view";
 import { followUpTextState, leadInboxFilter, pickFollowUpExhibitor } from "@/components/admin/events/leads-logic";
@@ -866,6 +867,9 @@ function PreviewSection({ base: PREVIEW_BASE, path, detailId, query, setQuery, k
           />
         );
     }
+    // Kartica 11 — the printable A4 posters; the fixture catalog shows the brands
+    // that have a car in a package, one poster per brand on its own A4 sheet.
+    case "brendovi-qr": return <BrandQrPosterBoard rows={brandQrPosterRows(catalog.models, keep.dogadjaj ?? PREVIEW_EVENTS[0].slug)} />;
     case "izlagaci": return (
       <EventExhibitorsView
         exhibitors={exhibitors}

@@ -13,6 +13,8 @@ export const adminEventsSr = {
     povezi: "Poveži nalepnicu",
     modeli: "Modeli",
     qr: "QR kodovi",
+    // Kartica 11 — the A4 poster print of a brand's QR, next to the inventory.
+    "brendovi-qr": "Štampa QR koda",
     izlagaci: "Izlagači",
     import: "Import kataloga",
     interakcije: "Interakcije",
@@ -30,6 +32,22 @@ export const adminEventsSr = {
   detailModelTitle: "Detalj modela",
   detailQrTitle: "Detalj QR koda",
   detailExhibitorTitle: "Interakcije izlagača",
+  /** Kartica 11 — the A4 poster print of a brand's QR (`brendovi-qr`). */
+  brandQr: {
+    printAll: "Štampaj sve",
+    loading: "Učitavanje…",
+    emptyTitle: "Nema brendova za štampu",
+    emptyBody: "Poster se štampa samo za brendove koji u ovom događaju imaju bar jedan model u paketu.",
+    hint: "Jedan poster ide na jednu stranu A4. Svaki QR otvara stranicu brenda na sajmu.",
+    standLine: "{brand} · ŠTAND {stand}",
+    standLineWithoutStand: "{brand}",
+    title: "Probna vožnja?",
+    callToAction: "Prijavite se ovde.",
+    lead: "Skenirajte kamerom telefona, izaberite model i ostavite kontakt. Bez aplikacije.",
+    steps: ["Skenirajte", "Izaberite model", "Pošaljite prijavu"],
+    footer: "ScanMe",
+    posterAria: "Poster QR koda brenda {brand}",
+  },
   /** Izlagači 2026 — the four parts of an exhibitor's Interakcije page. */
   interactionSections: { glasPublike: "Glas publike", ankete: "Ankete", pasos: "Pasoš brenda", forme: "Forme" },
   eventNotFoundTitle: "Događaj nije pronađen",

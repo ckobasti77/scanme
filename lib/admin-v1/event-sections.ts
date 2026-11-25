@@ -13,6 +13,8 @@ export const EVENT_SECTION_PATHS = [
   "povezi",
   "modeli",
   "qr",
+  // Kartica 11 — printing the A4 poster of a brand's QR, next to the inventory.
+  "brendovi-qr",
   "izlagaci",
   "import",
   "interakcije",
@@ -49,6 +51,9 @@ export const EVENT_SECTIONS: readonly EventSectionDef[] = [
   { path: "povezi", group: null, queryKeys: ["kod", "izlagac", "model"], inNav: false },
   { path: "modeli", group: "katalog", queryKeys: ["izlagac", "brend", "model", "q", "paket", "status", "problemi", "qr", "foto", "prikaz"], detail: "model" },
   { path: "qr", group: "katalog", queryKeys: ["izlagac", "brend", "model", "stanje", "q", "prikaz"], detail: "qr" },
+  // Kartica 11 — the printable A4 posters of the brands that have a model in a
+  // package; no filters, the page prints one poster per sheet.
+  { path: "brendovi-qr", group: "katalog", queryKeys: [] },
   { path: "izlagaci", group: "katalog", queryKeys: ["q", "segment", "prikaz"] },
   { path: "import", group: "katalog", queryKeys: [] },
   // Izlagači 2026 — one page of exhibitor cards (`paket`: default only exhibitors
