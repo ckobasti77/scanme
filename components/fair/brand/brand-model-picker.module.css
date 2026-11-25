@@ -1,138 +1,66 @@
-/* Model picker of the brand lead sheet on /sajam/<event>/brend/<brand>. Sizes follow the
-   card; every color comes from a --fair-* token (card values "surface-2"/"line-strong" map to
-   the real names --fair-surface-muted / --fair-line-strong), so the picker is orange at Auto
-   Moto Fest and blue on every other fair. */
+/* Model picker of the brand lead sheet: the rows are the sheet's `.fair-survey-option`
+   (border, radius, selected tint and round check from fair-event.css); this file only lays
+   out the photo and the two text lines inside a row, and the head line. */
+.picker {
+  margin-bottom: 18px;
+}
+
+/* Label as the sheet's field labels (`.fair-field > span`), counter in the accent. */
 .head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-}
-.label {
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  margin-bottom: 8px;
   color: var(--fair-ink-muted);
-}
-.count {
-  flex: none;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--fair-accent);
+  font-size: 13px;
+  font-weight: 650;
 }
 
-.pick {
-  display: grid;
-  gap: 7px;
-  margin-top: 6px;
-  margin-bottom: 0;
+.count {
+  flex: none;
+  color: var(--fair-accent-strong);
+  font-weight: 700;
+}
+
+.list {
+  margin: 0;
   padding: 0;
   list-style: none;
 }
-.pick li {
-  list-style: none;
-}
 
-/* Whole row is the checkbox button (role="checkbox"): photo, name+price, check square. */
-.pk {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.option {
   width: 100%;
-  padding: 6px 10px 6px 6px;
-  background: var(--fair-surface);
-  border: 1.5px solid var(--fair-line-strong);
-  border-radius: 14px;
-  text-align: left;
-  color: inherit;
-  font-family: inherit;
-  cursor: pointer;
-  transition:
-    background-color var(--fair-dur-state) var(--fair-ease-enter),
-    border-color var(--fair-dur-state) var(--fair-ease-enter),
-    transform var(--fair-dur-feedback) var(--fair-ease-enter);
-}
-.pk:hover {
-  border-color: color-mix(in srgb, var(--fair-accent) 45%, var(--fair-line-strong));
-}
-.pk:active {
-  transform: scale(0.98);
-}
-.pk:focus-visible {
-  outline: 2px solid var(--fair-focus);
-  outline-offset: 2px;
+  padding: 8px 14px 8px 8px;
 }
 
-/* The photo is the same image and the same `fairVehiclePhotoStyle` focal crop as the brand row
-   (components/fair/brand/brand-model-row.tsx). */
 .photo {
-  width: 62px;
-  height: 42px;
+  position: relative;
+  width: 64px;
+  height: 44px;
   flex: none;
-  border-radius: 9px;
-}
-.noimg {
-  display: block;
-  background: var(--fair-surface-muted);
+  overflow: hidden;
+  border-radius: var(--fair-radius-sm);
+  background: var(--fair-surface-warm);
 }
 
 .info {
-  flex: 1;
+  display: grid;
   min-width: 0;
-  display: grid;
-  gap: 1px;
+  flex: 1;
+  gap: 2px;
 }
-.name {
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.2;
-  white-space: nowrap;
+
+.info strong {
   overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.price {
-  font-size: 11px;
+
+.info span {
   color: var(--fair-ink-muted);
-}
-
-/* The check square at the row's right edge; empty until selected. */
-.ck {
-  margin-left: auto;
-  flex: none;
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  border: 1.5px solid var(--fair-line-strong);
-  display: grid;
-  place-items: center;
-  transition:
-    background-color var(--fair-dur-state) var(--fair-ease-enter),
-    border-color var(--fair-dur-state) var(--fair-ease-enter);
-}
-.ck svg {
-  width: 14px;
-  height: 14px;
-  color: #fff;
-}
-
-/* Selected state (mockup .pk.on): accent border on the accent-soft tint, filled check square. */
-.on {
-  border-color: var(--fair-accent);
-  background: var(--fair-accent-soft);
-}
-.ckOn {
-  background: var(--fair-accent);
-  border-color: var(--fair-accent);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pk,
-  .ck {
-    transition: none;
-  }
-  .pk:hover,
-  .pk:active {
-    transform: none;
-  }
+  font-size: 13px;
+  font-weight: 560;
 }

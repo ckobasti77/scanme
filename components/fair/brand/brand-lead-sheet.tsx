@@ -22,9 +22,11 @@ import { submitBrandLeads } from "./submit-brand-leads";
 
 type OpenLeadForm = Extract<FairLeadFormView, { state: "open" }>;
 
-export function FairBrandLeadSheet({ kind, brandName, models, leadForms, preselectedIds, onClose, onPartialSent, onSent, dict }: {
+export function FairBrandLeadSheet({ kind, brandName, standLabel, models, leadForms, preselectedIds, onClose, onPartialSent, onSent, dict }: {
   kind: "testDrive" | "interest";
   brandName: string;
+  /** Stand label of the exhibitor: the header subtitle reads "<brand> · Štand <stand>". */
+  standLabel?: string;
   models: FairBrandPageModel[];
   leadForms: FairBrandPageData["leadForms"];
   preselectedIds: string[];
@@ -104,11 +106,13 @@ export function FairBrandLeadSheet({ kind, brandName, models, leadForms, presele
     setStatus("error");
   }
 
-  // The button keeps the mockup's fixed strings (sr/fair-brand.ts submit*):
-  // 1 -> submitOne, more -> submitFew/submitMany through the app's plural rule.
+  // Test drive keeps the mockup's fixed strings (sr/fair-brand.ts submit*): 1 -> submitOne,
+  // more -> submitFew/submitMany through the app's plural rule. Interest says what the model
+  // page's interest sheet says, for any count.
   const category = srPluralCategory(selectedIds.length);
   const submitText =
     status === "sending" ? dict.submitting
+      : kind === "interest" ? dict.submitInterest
       : category === "one" ? dict.submitOne
       : category === "few" ? dict.submitFew
       : dict.submitMany;
@@ -118,7 +122,7 @@ export function FairBrandLeadSheet({ kind, brandName, models, leadForms, presele
       variant="full"
       titleId={titleId}
       title={kind === "testDrive" ? dict.sheetTitle : modelDict.interestSheetTitle}
-      subtitle={brandName}
+      subtitle={standLabel ? fmt(dict.sheetSubtitle, { brand: brandName, location: fmt(dict.standLocation, { stand: standLabel }) }) : brandName}
       mark={brandName.slice(0, 1)}
       closable={status !== "sending"}
       closeLabel={dict.closeSheet}

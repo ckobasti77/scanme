@@ -1,126 +1,90 @@
-/* One model row of /sajam/<event>/brend/<brand> (docs/mockups/stranica-brenda-mockup.html
-   .mrow/.info/.pill). Sizes follow the card; every color comes from a --fair-* token, so the
-   row is orange at Auto Moto Fest and blue on every other fair. */
+/* One model row of /sajam/<event>/brend/<brand> (mockup .mrow): the garage model card
+   (fair-garage.module.css .modelCard / .modelTopline / h2 / .price) laid out as a row — photo
+   left, brand / name / price and the action on the right. Colors are --fair-* tokens. */
 .row {
   display: flex;
+  align-items: stretch;
   gap: 12px;
-  align-items: center;
-  padding: 9px;
+  padding: 10px;
+  overflow: hidden;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
-  border-radius: 18px;
-  box-shadow: var(--fair-shadow-1);
+  box-shadow: 0 12px 30px -26px var(--fair-shadow);
   color: inherit;
   text-decoration: none;
   transition:
-    box-shadow var(--fair-dur-state) var(--fair-ease-enter),
+    border-color var(--fair-dur-feedback) var(--fair-ease-enter),
     transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
-.row:hover {
-  box-shadow: var(--fair-shadow-2);
-}
-.row:active {
-  transform: scale(0.98);
-}
-.row:focus-visible {
-  outline: 2px solid var(--fair-focus);
-  outline-offset: 2px;
+
+@media (hover: hover) {
+  .row:hover {
+    border-color: var(--fair-line-strong);
+  }
 }
 
-/* The photo is the same image and the same `next/image` path as the model page; the row frame
-   keeps the vehicle's focal point (lib/fair-client/vehicle-photo.ts sets object-fit + position). */
-.photo {
-  width: 118px;
-  height: 88px;
-  flex: none;
-  border-radius: 12px;
+.row:active {
+  transform: translateY(1px);
 }
+
+.photo {
+  position: relative;
+  width: 112px;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--fair-radius-lg);
+  background: var(--fair-surface-warm);
+}
+
 .photoMark {
   display: grid;
+  height: 100%;
   place-items: center;
-  background: var(--fair-accent-soft);
-  color: var(--fair-accent-ink);
+  color: var(--fair-ink-muted);
   font-size: 34px;
-  font-weight: 900;
-  line-height: 1;
+  font-weight: 760;
+  letter-spacing: -0.06em;
 }
 
 .info {
-  flex: 1;
+  display: flex;
   min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-.eyebrow {
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--fair-accent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.name {
-  margin-top: 1px;
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.price {
-  margin-top: 1px;
-  color: var(--fair-ink-2);
-  font-size: 11.5px;
+  flex: 1;
+  flex-direction: column;
+  padding: 4px 2px 0 0;
 }
 
-/* The row's only action (mockup .pill): 1.5px full accent border on the soft tint, dark accent
-   ink inside — dark-on-soft per DESIGN_RULES §3.3. */
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  align-self: flex-start;
-  margin-top: 7px;
-  padding: 5px 9px;
-  border: 1.5px solid var(--fair-accent);
-  background: var(--fair-accent-soft);
-  color: var(--fair-accent-ink);
-  border-radius: 10px;
-  font-family: inherit;
-  font-size: 11.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background-color var(--fair-dur-state) var(--fair-ease-enter);
+.eyebrow {
+  overflow: hidden;
+  color: var(--fair-accent-strong);
+  font-size: 12px;
+  font-weight: 730;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
-.pill:hover {
-  background: color-mix(in srgb, var(--fair-accent) 20%, var(--fair-accent-soft));
+
+.name {
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--fair-ink);
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.pill:active {
-  transform: scale(0.97);
+
+.price {
+  margin: 6px 0 10px;
+  color: var(--fair-ink);
+  font-size: 14px;
+  font-weight: 720;
 }
-.pill:focus-visible {
-  outline: 2px solid var(--fair-focus);
-  outline-offset: 2px;
-}
-.pill svg {
-  width: 14px;
-  height: 14px;
-  flex: none;
-}
-/* Submitted state — mockup .pill.ok verbatim (#E9F3EC, #2E7D4F): success has no --fair-good
-   token; the mockup inlines these hexes. */
-.ok {
-  border-color: transparent;
-  background: #E9F3EC;
-  color: #2E7D4F;
-  cursor: default;
-}
-.ok:hover {
-  background: #E9F3EC;
-}
-.ok:active {
-  transform: none;
+
+.info > :global(.fair-action-grid) {
+  margin-top: auto;
 }

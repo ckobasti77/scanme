@@ -95,6 +95,7 @@ export const fairBrandSr = {
   // Drive sheet (mockup sheet 2).
   sheetTitle: "Probna vožnja",
   sheetSubtitle: "{brand} · {location}",
+  standLocation: "Štand {stand}",
   // Picker title per sheet kind; the number of models is not limited.
   sheetSelectModelsTestDrive: "Izaberite modele za probnu vožnju",
   sheetSelectModelsInterest: "Izaberite modele",
@@ -130,7 +131,10 @@ export const fairBrandSr = {
   submitOne: "Prijavi probnu vožnju",
   submitFew: "Prijavi probne vožnje",
   submitMany: "Prijavi probne vožnje",
-  submitting: "Šaljemo prijavu...",
+  // Interest: the model page's interest-sheet wording; "interesovanje" does not decline by count.
+  submitInterest: "Pošalji interesovanje",
+  // Same sending line as the model page's lead sheet (fair-model.ts leadSending).
+  submitting: "Šalje se…",
   cancel: "Odustani",
   closeSheet: "Zatvori",
   dismissSheetAria: "Zatvori probnu vožnju",

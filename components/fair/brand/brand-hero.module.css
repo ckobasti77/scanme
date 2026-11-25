@@ -1,168 +1,40 @@
-/* Brand header card (docs/mockups/stranica-brenda-mockup.html .bcard/.stamp/.btn): the
-   postcard hero of /sajam/<event>/brend/<brand>, in the Auto Moto Fest passport-card idiom
-   (shadow-2, radius-xl + nesting 24→12, dashed stamp). Colors are --fair-* tokens only. */
-.card {
-  position: relative;
-  padding: 18px 16px 16px;
-  background: var(--fair-surface);
-  border-radius: var(--fair-radius-xl);
-  box-shadow: var(--fair-shadow-2);
-}
-/* The grain rides inside the header card only (the mockup's .paper, inset 1px from the edge
-   so it never paints the rounded border off). */
-.card::before {
-  content: "";
-  position: absolute;
-  inset: 1px;
-  border-radius: 23px;
-  background: var(--fair-paper-tex), var(--fair-noise);
-  pointer-events: none;
-}
-.top {
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-.eyebrow {
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--fair-accent);
-}
-.name {
-  margin: 8px 0 0;
-  font-size: 44px;
-  font-weight: 900;
-  letter-spacing: -0.035em;
-  line-height: 1;
-  overflow-wrap: anywhere;
-}
+/* Brand header extras on top of the stamp passport sheet (passport/stamp-passport.module.css):
+   only what the passport header has no class for — the model line, the seal as a link, the
+   button spacing and the hint. Buttons are the model page's `.fair-action-grid`. */
 .sub {
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--fair-ink-muted);
   font-size: 13px;
   line-height: 1.4;
 }
-/* The stamp: a perforation mark, not a button (DNA §10). Dashed ring, muted ink, half-radius
-   label — links to the brand's passport page when the event has one. */
-/* Passport stamp per mockup .stamp — a print mark, so dashed: --fair-line-strong is the solid hairline. */
-.stamp {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 62px;
-  height: 62px;
-  padding: 0;
-  /* Stamp ring is dashed per mockup --line-strong #DCCFBC: the mockup draws the stamp ring dashed
-     and the sheet perforation dashed (both print marks), so it uses --fair-line-strong #EBE3DC, not
-     the --fair-line #E9E1D4 hairline used for solid separators. */
-  border: 2px dashed var(--fair-line-strong);
-  border-radius: 12px;
-  color: var(--fair-stamp);
-  font-size: 7.5px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  line-height: 1.3;
-  text-align: center;
-  text-transform: uppercase;
-}
-.stampLink {
+
+.seal {
+  border-radius: var(--fair-radius-round);
+  color: inherit;
   text-decoration: none;
 }
-.stampLink:hover {
-  border-color: var(--fair-accent);
-  color: var(--fair-accent-ink);
+
+@media (hover: hover) {
+  .seal:hover > span {
+    border-color: var(--fair-accent);
+    color: var(--fair-accent-strong);
+  }
 }
-.stamp:focus-visible {
-  outline: 2px solid var(--fair-focus);
-  outline-offset: 2px;
-}
-.btns {
-  position: relative;
-  display: grid;
-  gap: 10px;
+
+.actions {
   margin-top: 16px;
 }
-.btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  width: 100%;
-  height: 52px;
-  border-radius: 15px;
-  font-family: inherit;
-  font-size: 15.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition:
-    background-color var(--fair-dur-state) var(--fair-ease-enter),
-    border-color var(--fair-dur-state) var(--fair-ease-enter),
-    transform var(--fair-dur-feedback) var(--fair-ease-enter);
-}
-.btn:active {
-  transform: scale(0.97);
-}
-.btn:focus-visible {
-  outline: 2px solid var(--fair-focus);
-  outline-offset: 2px;
-}
-.btn svg {
-  width: 21px;
-  height: 21px;
-  flex: none;
-}
-/* The one accent CTA: white on fill + the accent-tinted lift shadow (DNA §3.3, §5). */
-.drive {
-  border: 0;
-  /* mockup .btn-or is literal white (#FFFFFF, --b-ink token): #fff on #E2602A is 3.92:1 — below
-     the 4.5:1 body text the card and DESIGN §3.1 require, and the --fair-accent-soft token
-     (#F29460) would be worse. --fair-accent-strong #BC4E1F gives 7.02:1 (large text 4.57:1) and
-     stays on the same hue, so --fair-ink-2 text (#2A2622) on the fill is the compliant read:
-     14.36:1 at 15.5px/700. Hover drops to --fair-accent (#E2602A, 13.41:1). */
-  background: var(--fair-accent-strong);
-  color: var(--fair-ink-2);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--fair-accent-strong) 28%, transparent);
-  margin-top: 16px;
-}
-.drive:hover {
-  background: var(--fair-accent);
-  box-shadow: 0 9px 22px color-mix(in srgb, var(--fair-accent) 30%, transparent);
-}
-/* Card surface + icon-only accent (DNA §3.3): the white button never fills with the accent.
-   --fair-surface-2 #F1EDE3 not #FFFDF8 (mockup literal): --fair-ink on #FFFDF8 is 15.09:1 but
-   --fair-ink on #F1EDE3 is 14.14:1 — the surface-2 token is the card's raised background, and
-   the icon-only accent affordance is already explicit (.interest svg --fair-accent below). */
-.interest {
-  border: var(--fair-border);
-  background: var(--fair-surface-2);
-  color: var(--fair-ink);
-}
-.interest:hover {
-  border-color: var(--fair-line-strong);
-  background: var(--fair-surface);
-}
-.interest svg {
-  color: var(--fair-accent);
-}
-.drive:focus-visible,
-.interest:focus-visible {
-  outline: 2px solid var(--fair-focus);
-  outline-offset: 2px;
-}
+
 .hint {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin-top: 11px;
+  margin: 12px 0 8px;
   color: var(--fair-ink-muted);
-  font-size: 11px;
+  font-size: 12px;
 }
+
 .hint svg {
   width: 14px;
   height: 14px;

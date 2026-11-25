@@ -1,22 +1,16 @@
 "use client";
 
+import Image from "next/image";
+import { Check } from "lucide-react";
+import { fairPhotoUnoptimized } from "@/lib/fair-client/photo-url";
 import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
 import styles from "./brand-model-picker.module.css";
 
-// White check inside the selected square — the same mark as the brand row's "Prijavljeno" pill.
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12.5l4.5 4.5L19 7.5" />
-    </svg>
-  );
-}
-
 /** Model picker of the brand lead sheet on /sajam/<event>/brend/<brand>: every packaged
- * model is a whole-row checkbox button — the photo is the same image pipeline as the brand row
- * (`fairPhotoUnoptimized` + `fairVehiclePhotoStyle`), price verbatim. Texts come in through
- * props (`label`, `countText`); no i18n is read here. `onToggle(id)` keeps the selection in the
- * parent. */
+ * model is one of the sheet's option rows (`.fair-survey-option`, the survey's selectable
+ * row) with the model photo through the app's pipeline and the price verbatim. Texts come in
+ * through props (`label`, `countText`); no i18n is read here. `onToggle(id)` keeps the
+ * selection in the parent. */
 export function FairBrandModelPicker({ models, selectedIds, onToggle, label, countText }: {
   models: { id: string; name: string; priceText: string; photoUrl?: string }[];
   selectedIds: string[];
@@ -27,12 +21,12 @@ export function FairBrandModelPicker({ models, selectedIds, onToggle, label, cou
   countText: string;
 }) {
   return (
-    <div>
+    <div className={styles.picker}>
       <div className={styles.head}>
-        <span className={styles.label}>{label}</span>
+        <span>{label}</span>
         <span className={styles.count}>{countText}</span>
       </div>
-      <ul role="list" className={styles.pick}>
+      <ul role="list" className={`fair-survey-options ${styles.list}`}>
         {models.map((model) => {
           const checked = selectedIds.includes(model.id);
           return (
@@ -41,31 +35,27 @@ export function FairBrandModelPicker({ models, selectedIds, onToggle, label, cou
                 type="button"
                 role="checkbox"
                 aria-checked={checked}
-                className={`${styles.pk} ${checked ? styles.on : ""}`}
+                className={`fair-survey-option ${styles.option}`}
                 onClick={() => onToggle(model.id)}
               >
-                {model.photoUrl ? (
-                  <img
-                    className={styles.photo}
-                    src={model.photoUrl}
-                    alt=""
-                    width={62}
-                    height={42}
-                    loading="lazy"
-                    // Same pipeline as brand-model-row.tsx: absolute URLs skip next/image
-                    // (off-domain exhibitor hosts 400 without it); focal crop on the vehicle.
-                    style={fairVehiclePhotoStyle(model.photoUrl)}
-                  />
-                ) : (
-                  // No photo: the empty block of the exact same size (mockup .pk .noimg).
-                  <span className={`${styles.photo} ${styles.noimg}`} aria-hidden="true" />
-                )}
-                <span className={styles.info}>
-                  <strong className={styles.name}>{model.name}</strong>
-                  <span className={styles.price}>{model.priceText}</span>
+                <span className={styles.photo}>
+                  {model.photoUrl ? (
+                    <Image
+                      fill
+                      sizes="64px"
+                      src={model.photoUrl}
+                      alt=""
+                      unoptimized={fairPhotoUnoptimized(model.photoUrl)}
+                      style={fairVehiclePhotoStyle(model.photoUrl)}
+                    />
+                  ) : null}
                 </span>
-                <span className={`${styles.ck} ${checked ? styles.ckOn : ""}`} aria-hidden="true">
-                  {checked ? <CheckIcon /> : null}
+                <span className={styles.info}>
+                  <strong>{model.name}</strong>
+                  <span>{model.priceText}</span>
+                </span>
+                <span className="fair-survey-option__dot" aria-hidden="true">
+                  <Check />
                 </span>
               </button>
             </li>

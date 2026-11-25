@@ -972,6 +972,7 @@ export interface FairBrandDict {
   // Drive sheet (the mockup's "Probna vožnja" drawer).
   sheetTitle: string;
   sheetSubtitle: string;
+  standLocation: string;
   sheetSelectModelsTestDrive: string;
   sheetSelectModelsInterest: string;
   selectedCount: FairBrandSelectedCount;
@@ -993,6 +994,7 @@ export interface FairBrandDict {
   submitOne: string;
   submitFew: string;
   submitMany: string;
+  submitInterest: string;
   submitting: string;
   cancel: string;
   closeSheet: string;

@@ -1226,8 +1226,41 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   gap: 8px;
 }
 
-.fair-action-grid[data-count="1"] {
+.fair-action-grid[data-count="1"],
+.fair-action-grid[data-layout="stack"] {
   grid-template-columns: 1fr;
+}
+
+/* Brand page model rows: the same action button at row size. */
+.fair-action-grid[data-size="compact"] button,
+.fair-action-grid[data-size="compact"] .fair-action-done {
+  height: 40px;
+  font-size: 13.5px;
+}
+
+/* A sent action in the button's place (brand page "Prijavljeno"): same box, the good tone. */
+.fair-action-done {
+  display: flex;
+  min-width: 0;
+  height: 48px;
+  padding: 0 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--fair-good) 28%, transparent);
+  border-radius: var(--fair-radius-md);
+  background: color-mix(in srgb, var(--fair-good) 9%, var(--fair-surface));
+  color: var(--fair-good);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fair-action-done svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  stroke-width: 2.4;
 }
 
 .fair-action-grid button {
@@ -2556,17 +2589,20 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   stroke-width: 3.4;
 }
 
-.fair-survey-option[aria-pressed="true"] {
+.fair-survey-option[aria-pressed="true"],
+.fair-survey-option[aria-checked="true"] {
   border-color: var(--fair-accent);
   background: var(--fair-accent-soft);
 }
 
-.fair-survey-option[aria-pressed="true"] .fair-survey-option__dot {
+.fair-survey-option[aria-pressed="true"] .fair-survey-option__dot,
+.fair-survey-option[aria-checked="true"] .fair-survey-option__dot {
   border-color: var(--fair-accent);
   background: var(--fair-accent);
 }
 
-.fair-survey-option[aria-pressed="true"] .fair-survey-option__dot svg {
+.fair-survey-option[aria-pressed="true"] .fair-survey-option__dot svg,
+.fair-survey-option[aria-checked="true"] .fair-survey-option__dot svg {
   opacity: 1;
 }
 
