@@ -4,6 +4,7 @@ import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, CarFront, Check, LockKeyhole, MapPin, RotateCcw } from "lucide-react";
+import { TbSteeringWheel } from "react-icons/tb";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
   FairPassportCatalogEntry,
@@ -39,6 +40,7 @@ import { FAIR_PASSPORT_SIM_SEEDED_PREFIX } from "@/lib/fair-passport-simulation"
 import { fairEventPresentation, fairEventThemeClass } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
 import type { FairPassportDict } from "@/lib/i18n/types";
+import { fairBrandSr } from "@/lib/i18n/sr/fair-brand";
 import { FairBrandMark } from "../garage/fair-brand-mark";
 import styles from "./fair-passport.module.css";
 import { NewStampCard } from "./new-stamp-card";
@@ -622,6 +624,20 @@ function PassportDetail({
           />
         </div>
       </section>
+
+      {/* Card 10: every visitor on a brand passport can reach the brand page
+          (all models + the test-drive flow), not only through the QR. The
+          copy comes from the brand surface so this entry says the same thing
+          as the brand page itself. */}
+      <Link
+        prefetch={false}
+        className={styles.brandCta}
+        aria-label={fmt(fairBrandSr.brandPageCtaAria, { brand })}
+        href={`/sajam/${event.publicSlug}/brend/${fairPassportBrandSlug(passport.brandName)}`}
+      >
+        <TbSteeringWheel aria-hidden="true" />
+        {fairBrandSr.brandPageCtaLabel}
+      </Link>
 
       <section
         className={styles.modelStack}

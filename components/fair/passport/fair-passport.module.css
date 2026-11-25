@@ -401,6 +401,48 @@
   transform: translateY(-50%);
 }
 
+/* Card 10: full-row white CTA under the passport header — all models and the
+   test-drive flow on the brand page. States follow the house rules: hover
+   only where a pointer hovers, a short press, the shared focus ring. */
+.brandCta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--fair-space-2);
+  margin-top: var(--fair-space-3);
+  min-height: 44px;
+  padding: var(--fair-space-3) var(--fair-space-4);
+  background: #ffffff;
+  border: 1px solid #dfe5e9;
+  border-radius: var(--fair-radius-xl);
+  color: var(--passport-ink);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter), transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+@media (hover: hover) {
+  .brandCta:hover {
+    background: color-mix(in srgb, var(--passport-blue) 5%, #fff);
+  }
+}
+
+.brandCta:active {
+  transform: scale(0.98);
+}
+
+.brandCta:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--passport-blue) 32%, transparent);
+  outline-offset: 3px;
+}
+
+.brandCta svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
 .modelStack {
   display: grid;
   gap: 7px;

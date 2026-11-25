@@ -84,6 +84,10 @@ export const fairBrandSr = {
   passportStampLabel: "Pasoš brenda",
   passportStampAria: "Pasoš brenda: {brand}",
   driveButton: "Prijavi probnu vožnju",
+  // Card 10: entry point from the brand passport to the brand page (all
+  // models + the test-drive flow). aria takes {brand} through fmt().
+  brandPageCtaLabel: "Svi modeli i probna vožnja",
+  brandPageCtaAria: "Svi modeli i probna vožnja: {brand}",
   hint: "Bez aplikacije i registracije",
   requestedPill: "Prijavljeno",
   // Drive sheet (mockup sheet 2).

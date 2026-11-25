@@ -551,13 +551,36 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   flex: 1;
 }
 
-.fair-model-identity__name > span {
+.fair-model-identity__name > span,
+.fair-model-identity__name > a {
   display: block;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.14em;
   opacity: 0.9;
   text-transform: uppercase;
+}
+
+/* Card 10: the eyebrow is a link to the brand page — same look, the underline
+   only appears on hover/focus (the shared underline-offset idiom). */
+.fair-model-identity__name > a {
+  color: inherit;
+  text-decoration: none;
+  text-decoration-color: var(--fair-line-strong);
+  text-underline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .fair-model-identity__name > a:hover {
+    text-decoration: underline;
+  }
+}
+
+.fair-model-identity__name > a:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+  border-radius: var(--fair-radius-sm, 6px);
+  text-decoration: underline;
 }
 
 .fair-model-identity h1 {

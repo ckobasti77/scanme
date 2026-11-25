@@ -11,6 +11,7 @@ import { fairPhotoUnoptimized } from "@/lib/fair-client/photo-url";
 import { fmt, type FairModelDict } from "@/lib/i18n";
 import { fairEventThemeClass } from "@/lib/fair-theme";
 import { FAIR_PRIVACY_PATH } from "@/lib/fair-contract";
+import { fairPassportBrandSlug } from "@/lib/fair-passport";
 import type { FairModelInteractions, FairModelStand } from "@/lib/fair-server/model-page";
 import type { FairCompareOption } from "@/lib/fair-server/brand-compare";
 import { FairEventShell } from "./event-shell";
@@ -281,7 +282,13 @@ export function FairModelPage({
           ) : null}
           <div className="fair-model-identity">
             <div className="fair-model-identity__name">
-              <span>{model.brandName}</span>
+              <Link
+                className="fair-model-identity__brand"
+                prefetch={false}
+                href={`/sajam/${model.eventSlug}/brend/${fairPassportBrandSlug(model.brandName)}`}
+              >
+                {model.brandName}
+              </Link>
               <ModelName>{model.displayName}</ModelName>
               {model.variant ? <p>{model.variant}</p> : null}
             </div>

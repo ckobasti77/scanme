@@ -960,6 +960,12 @@ export interface FairBrandDict {
   passportStampLabel: string;
   passportStampAria: string;
   driveButton: string;
+  // Card 10: the full-row CTA under a brand passport header, plus its aria
+  // line. The button itself lives on the passport page (fair-passport.tsx),
+  // the copy stays on this surface so every entry point to a brand page
+  // says the same thing.
+  brandPageCtaLabel: string;
+  brandPageCtaAria: string;
   hint: string;
   requestedPill: string;
   // Drive sheet (the mockup's "Probna vožnja" drawer).
