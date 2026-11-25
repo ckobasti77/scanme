@@ -3,6 +3,7 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { env, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { belgradeParts } from "../lib/belgrade-time";
+import { fairExhibitorRegistrationBySource, type FairExhibitorRegistrationConfig } from "../lib/fair-exhibitor-registration";
 import { fmt } from "../lib/i18n/format";
 import { leadEmailSr as dict } from "../lib/i18n/sr/lead-email";
 
@@ -36,14 +37,18 @@ type AmfVehicleItem = {
   package: "starter" | "advanced";
 };
 
-function parseAmfExhibitorSelection(raw: string | undefined): AmfVehicleItem[] | null {
+// Exhibitor registration from /sajam/[eventSlug]/prijava. The fair comes from
+// `offerSelection.source` (lib/fair-exhibitor-registration.ts), so Auto Expo
+// and older Auto Moto Fest rows each carry their own fair in subject and body.
+function parseExhibitorSelection(raw: string | undefined): { fair: FairExhibitorRegistrationConfig; vehicles: AmfVehicleItem[] } | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as {
       source?: unknown;
       vehicles?: Array<{ model?: unknown; package?: unknown }>;
     };
-    if (parsed?.source !== "amf-2026-exhibitor-registration" || !Array.isArray(parsed.vehicles)) {
+    const fair = fairExhibitorRegistrationBySource(parsed?.source);
+    if (!fair || !Array.isArray(parsed.vehicles)) {
       return null;
     }
     const vehicles = parsed.vehicles
@@ -54,15 +59,19 @@ function parseAmfExhibitorSelection(raw: string | undefined): AmfVehicleItem[] |
           (item.package === "starter" || item.package === "advanced"),
       )
       .map((item) => ({ model: item.model.trim(), package: item.package }));
-    return vehicles.length > 0 ? vehicles : null;
+    return vehicles.length > 0 ? { fair, vehicles } : null;
   } catch {
     return null;
   }
 }
 
 export function buildLeadEmail(lead: Doc<"leads">) {
-  const amfVehicles = parseAmfExhibitorSelection(lead.offerSelection);
-  if (amfVehicles) {
+  const exhibitor = parseExhibitorSelection(lead.offerSelection);
+  if (exhibitor) {
+    const { fair, vehicles: amfVehicles } = exhibitor;
+    const fairLine = [fair.name, fair.venue].filter(Boolean).join(" · ");
+    const heading = fmt(dict.amf.heading, { fair: fair.name });
+    const intro = fmt(dict.amf.intro, { fair: fair.name });
     const advancedCount = amfVehicles.filter((v) => v.package === "advanced").length;
     const starterCount = amfVehicles.filter((v) => v.package === "starter").length;
     const summaryText = fmt(dict.amf.summaryValue, {
@@ -80,6 +89,7 @@ export function buildLeadEmail(lead: Doc<"leads">) {
     );
 
     const rows: Array<[string, string]> = [
+      [dict.fields.amfFair, fairLine],
       [dict.fields.businessName, lead.businessName],
       [dict.fields.contactName, lead.contactName],
       [dict.fields.phone, lead.phone ?? dict.notProvided],
@@ -92,13 +102,14 @@ export function buildLeadEmail(lead: Doc<"leads">) {
     ];
 
     const text = [
-      dict.amf.heading,
+      heading,
       "",
       ...rows.map(([label, value]) => `${label}: ${value}`),
       ...(lead.email ? ["", dict.replyHint] : []),
     ].join("\n");
 
     const contactRows: Array<[string, string]> = [
+      [dict.fields.amfFair, fairLine],
       [dict.fields.businessName, lead.businessName],
       [dict.fields.contactName, lead.contactName],
       [dict.fields.phone, lead.phone ?? dict.notProvided],
@@ -125,10 +136,10 @@ export function buildLeadEmail(lead: Doc<"leads">) {
       })
       .join("");
 
-    const html = `<div style="font-family:Arial,sans-serif;color:#151713;max-width:640px"><h1 style="font-size:20px;margin:0 0 6px">${escapeHtml(dict.amf.heading)}</h1><p style="margin:0 0 16px;color:#5f6462">${escapeHtml(dict.amf.intro)}</p><table cellspacing="0" cellpadding="0" style="margin-bottom:18px">${htmlContactRows}</table><h2 style="font-size:15px;margin:16px 0 8px">${escapeHtml(dict.fields.amfVehicles)}</h2><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border:1px solid #ded4c3;background:#faf7ef"><thead><tr style="background:#f1eadc"><th align="left" style="padding:8px 10px;border-bottom:1px solid #ded4c3;font-size:12px;color:#5f6462">${escapeHtml(dict.fields.amfVehicleColNumber)}</th><th align="left" style="padding:8px 10px;border-bottom:1px solid #ded4c3;font-size:12px;color:#5f6462">${escapeHtml(dict.fields.amfVehicleColModel)}</th><th align="left" style="padding:8px 10px;border-bottom:1px solid #ded4c3;font-size:12px;color:#5f6462">${escapeHtml(dict.fields.amfVehicleColPackage)}</th><th align="left" style="padding:8px 10px;border-bottom:1px solid #ded4c3;font-size:12px;color:#5f6462">${escapeHtml(dict.fields.amfVehicleColPrice)}</th></tr></thead><tbody>${htmlVehicleRows}</tbody></table>${lead.email ? `<p style="color:#5f6462;margin-top:16px">${escapeHtml(dict.replyHint)}</p>` : ""}</div>`;
+    const html = `<div style="font-family:Arial,sans-serif;color:#151713;max-width:640px"><h1 style="font-size:20px;margin:0 0 6px">${escapeHtml(heading)}</h1><p style="margin:0 0 16px;color:#5f6462">${escapeHtml(intro)}</p><table cellspacing="0" cellpadding="0" style="margin-bottom:18px">${htmlContactRows}</table><h2 style="font-size:15px;margin:16px 0 8px">${escapeHtml(dict.fields.amfVehicles)}</h2><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border:1px solid #ded4c3;background:#faf7ef"><thead><tr style="background:#f1eadc"><th align="left" style="padding:8px 10px;border-bottom:1px solid #ded4c3;font-size:12px;color:#5f6462">${escapeHtml(dict.fields.amfVehicleColNumber)}</th><th align="left" style="padding:8px 10px;border-bottom:1px solid #ded4c3;font-size:12px;color:#5f6462">${escapeHtml(dict.fields.amfVehicleColModel)}</th><th align="left" style="padding:8px 10px;border-bottom:1px solid #ded4c3;font-size:12px;color:#5f6462">${escapeHtml(dict.fields.amfVehicleColPackage)}</th><th align="left" style="padding:8px 10px;border-bottom:1px solid #ded4c3;font-size:12px;color:#5f6462">${escapeHtml(dict.fields.amfVehicleColPrice)}</th></tr></thead><tbody>${htmlVehicleRows}</tbody></table>${lead.email ? `<p style="color:#5f6462;margin-top:16px">${escapeHtml(dict.replyHint)}</p>` : ""}</div>`;
 
     return {
-      subject: fmt(dict.amf.subject, { business: lead.businessName, count: amfVehicles.length }),
+      subject: fmt(dict.amf.subject, { tag: fair.emailTag, business: lead.businessName, count: amfVehicles.length }),
       text,
       html,
       ...(lead.email ? { replyTo: lead.email } : {}),

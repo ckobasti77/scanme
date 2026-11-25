@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMutation } from "convex/react";
 import { CheckCircle2, ArrowUpRight, LoaderCircle, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-motion";
 import { api } from "@/convex/_generated/api";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { fairNewSubmissionId } from "./lead-form-model";
 import { fmt } from "@/lib/i18n/format";
 import type { FairExhibitorRegistrationDict } from "@/lib/i18n/types";
+import type { FairExhibitorRegistrationConfig } from "@/lib/fair-exhibitor-registration";
 import { emptyExhibitorVehicle, exhibitorRegistrationMessage, exhibitorRegistrationSelection, type ExhibitorVehicleDraft } from "./exhibitor-registration-model";
 import styles from "./exhibitor-registration.module.css";
 
@@ -21,7 +22,7 @@ function VehicleReveal({ children, reducedMotion }: { children: React.ReactNode;
   </motion.div>;
 }
 
-export function ExhibitorRegistration({ dict }: { dict: FairExhibitorRegistrationDict }) {
+export function ExhibitorRegistration({ dict, fair }: { dict: FairExhibitorRegistrationDict; fair: FairExhibitorRegistrationConfig }) {
   const createLead = useMutation(api.leads.create);
   const startedAt = useRef(0);
   const submissionId = useRef<string | null>(null);
@@ -96,7 +97,7 @@ export function ExhibitorRegistration({ dict }: { dict: FairExhibitorRegistratio
       else if (input instanceof RadioNodeList) (input[0] as HTMLElement)?.focus();
       return;
     }
-    const offerSelection = JSON.stringify(exhibitorRegistrationSelection(vehicles));
+    const offerSelection = JSON.stringify(exhibitorRegistrationSelection(vehicles, fair));
     if (offerSelection.length > 10_000) { setError(dict.lengthError); return; }
     submissionId.current ??= fairNewSubmissionId();
     setStatus("pending");
@@ -104,8 +105,8 @@ export function ExhibitorRegistration({ dict }: { dict: FairExhibitorRegistratio
     try {
       await createLead({
         contactName: value("contactName"), businessName: value("businessName"),
-        businessType: dict.source, email: value("email"), phone: value("phone"), interest: "not_sure",
-        message: exhibitorRegistrationMessage(vehicles),
+        businessType: fmt(dict.source, { fair: fair.name }), email: value("email"), phone: value("phone"), interest: "not_sure",
+        message: exhibitorRegistrationMessage(vehicles, fair),
         offerSelection,
         submissionId: submissionId.current, formStartedAt: startedAt.current, website: value("website"),
       });
@@ -120,11 +121,13 @@ export function ExhibitorRegistration({ dict }: { dict: FairExhibitorRegistratio
     <header className={styles.header}>
       <div className={styles.headerTop}>
         <div className={styles.headerMeta}>
-          <p className={styles.brand}>{dict.event}</p>
-          <span className={styles.metaDot} aria-hidden="true">·</span>
-          <p className={styles.deadline}>{dict.deadline}</p>
+          <p className={styles.brand}>{fmt(dict.event, { fair: fair.name })}</p>
+          {[fair.venue, fair.deadline].filter(Boolean).map((item) => <Fragment key={item}>
+            <span className={styles.metaDot} aria-hidden="true">·</span>
+            <p className={styles.metaItem}>{item}</p>
+          </Fragment>)}
         </div>
-        <Link href="/sajam/demo-auto-moto-fest-2026">{dict.back}<ArrowUpRight size={16} aria-hidden="true" /></Link>
+        <Link href={fair.demoHref}>{dict.back}<ArrowUpRight size={16} aria-hidden="true" /></Link>
       </div>
       <div className={styles.headerMain}>
         <h1>{dict.title}</h1>

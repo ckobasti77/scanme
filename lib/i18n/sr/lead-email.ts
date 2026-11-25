@@ -23,6 +23,7 @@ export interface LeadEmailDict {
     interest: string;
     message: string;
     offerSelection: string;
+    amfFair: string;
     amfSummary: string;
     amfVehicles: string;
     amfVehicleColNumber: string;
@@ -78,6 +79,7 @@ export const leadEmailSr = {
     interest: "Zanima me",
     message: "Poruka",
     offerSelection: "Izbor iz ponude",
+    amfFair: "Sajam",
     amfSummary: "Pregled paketa",
     amfVehicles: "Prijavljena vozila",
     amfVehicleColNumber: "#",
@@ -89,9 +91,10 @@ export const leadEmailSr = {
     leadId: "ID upita",
   },
   amf: {
-    subject: "Prijava izlagača · AMF 2026 — {business} ({count})",
-    heading: "Prijava izlagača — Auto Moto Fest 2026",
-    intro: "Izlagač je poslao prijavu vozila i paketa kroz obrazac za Auto Moto Fest 2026.",
+    // {fair}/{tag}: name and short tag of the fair (lib/fair-exhibitor-registration.ts).
+    subject: "Prijava izlagača · {tag} — {business} ({count})",
+    heading: "Prijava izlagača — {fair}",
+    intro: "Izlagač je poslao prijavu vozila i paketa kroz obrazac za {fair}.",
     summaryValue: "Ukupno vozila: {total} (Napredni: {advanced} · Starter: {starter})",
     starterLabel: "Starter",
     starterPrice: "3.000 RSD",

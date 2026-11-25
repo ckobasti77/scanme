@@ -7,14 +7,16 @@ import { api } from "@/convex/_generated/api";
 import schema from "@/convex/schema";
 import { getDict } from "@/lib/i18n";
 import { ExhibitorRegistration } from "./exhibitor-registration";
-import { emptyExhibitorVehicle, exhibitorRegistrationSelection } from "./exhibitor-registration-model";
+import { emptyExhibitorVehicle, exhibitorRegistrationMessage, exhibitorRegistrationSelection } from "./exhibitor-registration-model";
+import { openFairExhibitorRegistration } from "@/lib/fair-exhibitor-registration";
 
 vi.mock("convex/react", () => ({ useMutation: () => vi.fn() }));
 const modules = import.meta.glob("../../convex/**/*.ts");
+const fair = openFairExhibitorRegistration("auto-expo-2026")!;
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 test("initial form has one model and its own unselected package, no bulk entry or catalogue", () => {
-  const html = renderToStaticMarkup(createElement(ExhibitorRegistration, { dict: getDict("fair-exhibitor-registration") }));
+  const html = renderToStaticMarkup(createElement(ExhibitorRegistration, { dict: getDict("fair-exhibitor-registration"), fair }));
   expect(html.match(/name="vehicle-model-/g)).toHaveLength(1);
   expect(html).toContain('name="vehicle-package-0"');
   expect(html).not.toContain("checked");
@@ -27,6 +29,19 @@ test("initial form has one model and its own unselected package, no bulk entry o
   expect(html).toContain("Unesite telefon ili email");
 });
 
+test("Auto Expo page copy: fair and venue, no deadline and no Auto Moto Fest", () => {
+  const html = renderToStaticMarkup(createElement(ExhibitorRegistration, { dict: getDict("fair-exhibitor-registration"), fair }));
+  expect(html).toContain("ScanMe × Auto Expo 2026");
+  expect(html).toContain("Šumadija sajam, Kragujevac");
+  expect(html).toContain("Prijava izlagača");
+  expect(html).toContain("Pogledajte demo aplikacije");
+  expect(html).toContain("3.000 RSD");
+  expect(html).toContain("5.000 RSD");
+  expect(html).toContain("Cene su po vozilu, za ceo sajam. Popust za više vozila potvrđujemo u dogovoru.");
+  expect(html).not.toMatch(/Prijave do|Auto Moto|AMF|Čair|Niš|oktob/i);
+  expect(exhibitorRegistrationMessage([{ id: 0, model: "TEST Model", package: "starter" }], fair)).toMatch(/^Sajam: Auto Expo 2026 · Šumadija sajam, Kragujevac\n/);
+});
+
 test("each vehicle keeps its own package; trailing or cleared empty rows are omitted", () => {
   const vehicles = [
     { id: 0, model: "  TEST Model A  ", package: "advanced" as const },
@@ -34,9 +49,9 @@ test("each vehicle keeps its own package; trailing or cleared empty rows are omi
     { id: 2, model: "TEST Model B", package: "starter" as const },
     emptyExhibitorVehicle(3),
   ];
-  const selection = exhibitorRegistrationSelection(vehicles);
+  const selection = exhibitorRegistrationSelection(vehicles, fair);
   expect(selection).toEqual({
-    source: "amf-2026-exhibitor-registration", eventSlug: "auto-moto-fest-2026",
+    source: "auto-expo-2026-exhibitor-registration", eventSlug: "auto-expo-2026",
     vehicles: [{ model: "TEST Model A", package: "advanced" }, { model: "TEST Model B", package: "starter" }],
   });
   expect(selection).not.toHaveProperty("package");
@@ -52,9 +67,9 @@ test("existing lead endpoint stores mixed packages and accepts retry without dup
     { id: 0, model: "TEST Model A", package: "advanced" },
     { id: 1, model: "TEST Model B", package: "starter" },
     emptyExhibitorVehicle(2),
-  ]);
+  ], fair);
   const args = {
-    contactName: "TEST Izlagač", businessName: "TEST Firma", businessType: "Izlagač · Auto Moto Fest 2026",
+    contactName: "TEST Izlagač", businessName: "TEST Firma", businessType: "Izlagač · Auto Expo 2026",
     email: "", phone: "+381 60 000 0000", interest: "not_sure" as const,
     offerSelection: JSON.stringify(selection), submissionId: "test-amf-mixed-packages-000001",
     formStartedAt: Date.now() - 2000, website: "",
