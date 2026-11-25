@@ -1,0 +1,215 @@
+/* Brand-page confirmation (card 06a, mockup sheet 3 .done): the success state FairBrandLeadSheet
+   flips to after a sent lead. Every color is a --fair-* token from app/sajam/fair-event.css
+   (.fair-event scope), so this card is orange at Auto Moto Fest and blue on every other fair. */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 26px 16px 16px;
+}
+
+/* The 74px accent circle with the white check, wrapped in the 10px accent-soft halo ring.
+   --fair-accent-soft is the token the sheet's selected chips use (brand-model-picker .on), so
+   the halo is the same orange tint the visitor already saw on their chosen models. */
+.mark {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border-radius: var(--fair-radius-round);
+  background: var(--fair-accent);
+  color: #fff;
+  box-shadow: 0 0 0 10px var(--fair-accent-soft);
+}
+.mark svg {
+  width: 38px;
+  height: 38px;
+  flex: none;
+}
+/* The check draws itself in 0.6s with the path's own pathLength={100} normalized to dash 100
+   (the passport hold-ring trick, components/fair/passport/fair-passport.tsx), so the dash values
+   are scale-stable against any future viewBox change — no recomputed getTotalLength on mount. */
+.draw {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: check-draw 0.6s var(--fair-ease-enter) forwards;
+}
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+.title {
+  margin: 22px 0 0;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--fair-ink);
+}
+
+.body {
+  margin: 12px 0 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--fair-ink-muted);
+}
+
+/* The sent-lead summary card: same .card surface and radius-xl idiom as brand-hero.module.css,
+   with the eyebrow as the picker's .label so the counted line declines identically. */
+.summary {
+  width: 100%;
+  max-width: 360px;
+  margin-top: 18px;
+  padding: 14px;
+  background: var(--fair-surface);
+  border-radius: 18px;
+  box-shadow: var(--fair-shadow-1);
+  text-align: left;
+}
+.eyebrow {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fair-ink-muted);
+}
+
+.models {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.models > li {
+  list-style: none;
+}
+.model {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 56x40 radius-8: the sheet's 62x42 crop scaled one step down (the same focal
+   fairVehiclePhotoStyle as the picker row — brand-model-picker.module.css .photo). */
+.photo {
+  width: 56px;
+  height: 40px;
+  flex: none;
+  object-fit: cover;
+  border-radius: var(--fair-radius-sm);
+}
+.photoMark {
+  display: grid;
+  place-items: center;
+  background: var(--fair-surface-muted);
+  color: var(--fair-ink-muted);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.modelInfo {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.modelName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fair-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.modelPrice {
+  font-size: 11.5px;
+  color: var(--fair-ink-muted);
+}
+
+/* The contact line sits under a top hairline (mockup .done .sep): --fair-line is the
+   separator token, --fair-line-strong is the checkbox/picker border weight. */
+.contact {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: var(--fair-border);
+  font-size: 12px;
+  color: var(--fair-ink-muted);
+}
+
+.actions {
+  width: 100%;
+  max-width: 360px;
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 52px;
+  border-radius: 15px;
+  font-family: inherit;
+  font-size: 15.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-state) var(--fair-ease-enter),
+    border-color var(--fair-dur-state) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--fair-focus);
+  outline-offset: 2px;
+}
+/* The primary dark button: --fair-ink fill with the --fair-accent-ink on-ink token for the
+   label; the hover lift is one step lightened through color-mix on the same token (there is no
+   lighter-ink step in app/sajam/fair-event.css, and the file's rule is tokens only). */
+.dark {
+  border: 0;
+  background: var(--fair-ink);
+  color: var(--fair-accent-ink);
+}
+.dark:hover {
+  background: color-mix(in srgb, var(--fair-ink) 88%, var(--fair-accent-ink));
+}
+/* The secondary button never fills with the accent (DNA §3.3): surface + strong hairline,
+   the same affordance as brand-hero.module.css .interest — hover darkens the surface one
+   step through color-mix on --fair-line, the separator token already in the card. */
+.light {
+  border: var(--fair-border-strong);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+}
+.light:hover {
+  border-color: var(--fair-line-strong);
+  background: color-mix(in srgb, var(--fair-surface) 92%, var(--fair-line));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+  .btn:active {
+    transform: none;
+  }
+}

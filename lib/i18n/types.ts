@@ -930,6 +930,11 @@ export type FairBrandModelsOnStandWord = (count: number) => string;
 // 5+ -> {n} izabrano, 11-14 as 5+.
 export type FairBrandSelectedCount = (count: number) => string;
 export type FairBrandSelectedCountWord = (count: number) => string;
+// The confirmation eyebrow (card 06a): "Probna vožnja · {n} modela" and
+// "Zainteresovan sam · {n} modela" — the counted half is sr's modelsLine, so both
+// kinds decline exactly like every other counted family on this surface; the kind
+// label before the separator stays natural case and the stylesheet uppercases it.
+export type FairBrandSuccessEyebrow = (count: number) => string;
 
 // stranica brenda — the public brand page /sajam/<event>/brend/<brand>
 // (docs/events/stranica-brenda/MAPA-KODA.md, mockup
@@ -985,8 +990,14 @@ export interface FairBrandDict {
   cancel: string;
   closeSheet: string;
   dismissSheetAria: string;
-  // Confirmation screen.
+  // Confirmation screen (card 06a). The eyebrow functions decline through sr's
+  // modelsLine; the body strings take {brand}. The legacy One/Few/Many + successEmail
+  // lines below are kept only to satisfy this interface — nothing renders them anymore.
   successTitle: string;
+  successEyebrowTestDrive: FairBrandSuccessEyebrow;
+  successEyebrowInterest: FairBrandSuccessEyebrow;
+  successBodyTestDrive: string;
+  successBodyInterest: string;
   successEyebrowOne: string;
   successEyebrowFew: string;
   successEyebrowMany: string;

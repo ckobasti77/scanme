@@ -127,8 +127,19 @@ export const fairBrandSr = {
   cancel: "Odustani",
   closeSheet: "Zatvori",
   dismissSheetAria: "Zatvori probnu vožnju",
-  // Confirmation screen (mockup sheet 3).
-  successTitle: "Prijava poslana",
+  // Confirmation screen (mockup sheet 3). Card 06a made the copy kind-picked: a test-drive
+  // lead promises the call about the test-drive slot, an interest lead the offer. The counted
+  // eyebrow resolves through modelsLine (the same three-form picker as every other counted
+  // family in this file); the kind label sits before the separator in natural case and the
+  // stylesheet uppercases it, exactly like the .lbl header row. The card's title is "Prijava
+  // je poslata" — the old "Prijava poslana" was corrected to match it.
+  successTitle: "Prijava je poslata",
+  successEyebrowTestDrive: (count: number) => `Probna vožnja · ${modelsLine(count)}`,
+  successEyebrowInterest: (count: number) => `Zainteresovan sam · ${modelsLine(count)}`,
+  successBodyTestDrive: "{brand} će vas kontaktirati da dogovorite termin probne vožnje.",
+  successBodyInterest: "{brand} će vas kontaktirati sa ponudom.",
+  // The mockup drew an email-confirmation row; the system never e-mails the visitor, so
+  // card 06a renders none of these legacy lines — they stay only to satisfy the interface.
   successEyebrowOne: "{count} model poslat prodavcu",
   successEyebrowFew: "{count} modela poslata prodavcu",
   successEyebrowMany: "{count} modela poslato prodavcu",
