@@ -1,6 +1,18 @@
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 import { fairPassportBrandSlug } from "../fair-passport";
 import { loadFairPassportPage } from "./passport-page";
-import type { FairPassportCatalogEntry, FairPublicModel } from "../fair-contract";
+import type { FairLeadFormView, FairPassportCatalogEntry, FairPublicModel } from "../fair-contract";
+
+// Same shape as the model page's `orNull` (lib/fair-server/model-page.ts:37, not exported): one
+// failed lead-form read hides that action, the brand page still renders without its forms.
+async function orNull<T>(read: Promise<T>): Promise<T | null> {
+  try {
+    return await read;
+  } catch {
+    return null;
+  }
+}
 
 /** Price and photo as the row renders them: `priceText` is shown verbatim, `photoUrl` is passed
  * raw so the row applies the model page's own pipeline (`fairPhotoUnoptimized` +
@@ -26,6 +38,9 @@ export type FairBrandPageData = {
   hasPassport: boolean;
   /** URL segment of this brand, same identity as `brandSlug` above — the stamp href. */
   brandSlug: string;
+  /** Lead forms per model (`model.id` key): what that model's rows open. Only non-null reads are
+   * stored, so a key appears only for models with at least one form; the static demo has none. */
+  leadForms: Record<string, { interest?: FairLeadFormView; testDrive?: FairLeadFormView }>;
 };
 
 /** Only paid-package models reach the page: `capabilities.ratingMode` is `"none"` for the
@@ -83,15 +98,19 @@ export function projectFairBrandPage(input: {
     // A passport entry that lists only models which aren't packaged here still counts as being in
     // the catalog: that list is the event's own passport copy, not our claim about their stock.
     hasPassport: !!entry,
+    // The pure projection cannot read forms; the live route fills this after projecting
+    // (`loadFairBrandPage`), the static demo route has no forms and keeps this empty.
+    leadForms: {},
   };
 }
 
 /** Live brand page: loads the event and brand rows the same way `app/sajam/[eventSlug]/pasosi`
- * does (`loadFairPassportPage`), then projects the brand out of the passport payload. */
+ * does (`loadFairPassportPage`), projects the brand out of the passport payload, then reads each
+ * packaged model's lead forms the same way the model page does (`loadFairModelInteractions`). */
 export async function loadFairBrandPage(publicSlug: string, brandSlug: string): Promise<FairBrandPageData | null> {
   const page = await loadFairPassportPage(publicSlug);
   if (!page) return null;
-  return projectFairBrandPage({
+  const data = projectFairBrandPage({
     eventId: page.event.id,
     eventName: page.event.title,
     eventSlug: publicSlug,
@@ -99,4 +118,15 @@ export async function loadFairBrandPage(publicSlug: string, brandSlug: string): 
     models: page.models,
     brandSlug,
   });
+  if (!data) return null;
+  await Promise.all(
+    data.models.map(async (model) => {
+      const [interest, testDrive] = await Promise.all([
+        orNull(fetchQuery(api.fairPublic.getLeadForm, { eventModelId: model.id, kind: "interest" })),
+        orNull(fetchQuery(api.fairPublic.getLeadForm, { eventModelId: model.id, kind: "test_drive" })),
+      ]);
+      data.leadForms[model.id] = { ...(interest ? { interest } : {}), ...(testDrive ? { testDrive } : {}) };
+    }),
+  );
+  return data;
 }
