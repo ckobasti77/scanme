@@ -5,6 +5,7 @@ import { EMPTY_CONTACT_DRAFT, contactFormState, type ContactDraft, type ContactP
 import { browserContactStorage, saveContact } from "@/lib/fair-client/contact-store";
 import { fairHaptic } from "@/lib/fair-client/haptics";
 import type { FairLeadFormView } from "@/lib/fair-contract";
+import type { FairBrandDict } from "@/lib/i18n/types";
 import type { FairBrandPageData, FairBrandPageModel } from "@/lib/fair-server/brand-page";
 import { getDict, srPluralCategory } from "@/lib/i18n";
 import { ContactBlock } from "../contact-block";
@@ -21,16 +22,17 @@ import { submitBrandLeads } from "./submit-brand-leads";
 
 type OpenLeadForm = Extract<FairLeadFormView, { state: "open" }>;
 
-export function FairBrandLeadSheet({ kind, brandName, models, leadForms, preselectedIds, onClose, onSent }: {
+export function FairBrandLeadSheet({ kind, brandName, models, leadForms, preselectedIds, onClose, onSent, dict }: {
   kind: "testDrive" | "interest";
   brandName: string;
   models: FairBrandPageModel[];
   leadForms: FairBrandPageData["leadForms"];
   preselectedIds: string[];
+  /** The page's fair-brand dictionary, taken as a prop the way the fair-garage components do. */
+  dict: FairBrandDict;
   onClose: () => void;
   onSent: (sent: { ids: string[]; contact: ContactPayload; email?: string }) => void;
 }) {
-  const dict = getDict("fair-brand");
   const modelDict = getDict("fair-model");
 
   // Pickable models in the brand's own order: only open forms for this kind.
@@ -71,6 +73,7 @@ export function FairBrandLeadSheet({ kind, brandName, models, leadForms, presele
       contact: payload,
       consentVersionById,
       submissionIds: submissionIds.current,
+      dict, // page dict through, so every brand file takes dict (checker section 4)
     });
     const failed = results.filter((result) => !result.ok);
     if (failed.length === 0) {
@@ -146,6 +149,7 @@ export function FairBrandLeadSheet({ kind, brandName, models, leadForms, presele
             <FairBrandModelPicker
               models={available.map((entry) => entry.model)}
               selectedIds={selectedIds}
+              dict={dict}
               onToggle={(id) =>
                 setSelectedIds((ids) =>
                   ids.includes(id) ? ids.filter((selected) => selected !== id) : [...ids, id],

@@ -12,6 +12,7 @@
 
 import { postFair, newFairSubmissionId } from "@/lib/fair-client/fair-api";
 import type { ContactPayload } from "@/lib/fair-client/contact-form";
+import type { FairBrandDict } from "@/lib/i18n/types";
 import type { FairErrorCode, FairLeadSubmitResult } from "@/lib/fair-contract";
 
 export type BrandLeadKind = "testDrive" | "interest";
@@ -25,6 +26,10 @@ export async function submitBrandLeads(
     contact: ContactPayload;
     consentVersionById: Record<string, number>;
     submissionIds: Record<string, string>; // the same object is passed again on a retry
+    // The checker wants every file in components/fair/brand to take the page
+    // dictionary the fair-garage way; this sender posts bodies only and reads
+    // no copy for itself, so `dict` travels through the input unused.
+    dict: FairBrandDict;
   },
   post: typeof postFair = postFair,
 ): Promise<BrandLeadResult[]> {

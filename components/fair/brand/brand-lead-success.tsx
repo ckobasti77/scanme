@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { fairPhotoUnoptimized } from "@/lib/fair-client/photo-url";
 import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
-import { fmt, getDict } from "@/lib/i18n";
+import { fmt } from "@/lib/i18n";
+import type { FairBrandDict } from "@/lib/i18n/types";
 import styles from "./brand-lead-success.module.css";
 
 // Brand-page confirmation (card 06a, mockup sheet 3): what the visitor sees after
@@ -12,7 +13,7 @@ import styles from "./brand-lead-success.module.css";
 // through modelsLine there); the sent models and the contact line are the caller's data,
 // verbatim. The mockup's "confirmation sent to your e-mail" row is NOT rendered — the
 // system never sends the visitor an email, so promising one on screen would lie.
-export function FairBrandLeadSuccess({ kind, brandName, models, contactLine, onAnother, onBack }: {
+export function FairBrandLeadSuccess({ kind, brandName, models, contactLine, onAnother, onBack, dict }: {
   kind: "testDrive" | "interest";
   brandName: string;
   /** The models this lead actually sent, in the brand's order. priceText is the string
@@ -22,8 +23,9 @@ export function FairBrandLeadSuccess({ kind, brandName, models, contactLine, onA
   contactLine: string;
   onAnother: () => void;
   onBack: () => void;
+  /** The page's fair-brand dictionary: eyebrow, body, back label, modelsLine. */
+  dict: FairBrandDict;
 }) {
-  const dict = getDict("fair-brand");
   const eyebrow = kind === "testDrive"
     ? dict.successEyebrowTestDrive(models.length)
     : dict.successEyebrowInterest(models.length);

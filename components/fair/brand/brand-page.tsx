@@ -70,6 +70,7 @@ export function FairBrandPage({ data }: { data: FairBrandPageData }) {
           brandName={data.brand.name}
           models={data.models.filter((model) => success.ids.includes(model.id))}
           contactLine={success.contactLine}
+          dict={dict}
           onAnother={() => {
             setSuccess(null);
             setSheet({ kind: "testDrive", preselectedIds: [] });
@@ -86,6 +87,7 @@ export function FairBrandPage({ data }: { data: FairBrandPageData }) {
           brandName={data.brand.name}
           models={data.models}
           leadForms={data.leadForms}
+          dict={dict}
           preselectedIds={sheet.preselectedIds}
           onClose={() => setSheet(null)}
           onSent={({ ids, contact }) => {

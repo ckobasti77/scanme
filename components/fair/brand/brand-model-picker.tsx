@@ -3,6 +3,7 @@
 import { fairPhotoUnoptimized } from "@/lib/fair-client/photo-url";
 import { fairVehiclePhotoStyle } from "@/lib/fair-client/vehicle-photo";
 import styles from "./brand-model-picker.module.css";
+import type { FairBrandDict } from "@/lib/i18n/types";
 
 // White check inside the selected square — the same mark as the brand row's "Prijavljeno" pill.
 function CheckIcon() {
@@ -18,7 +19,7 @@ function CheckIcon() {
  * (`fairPhotoUnoptimized` + `fairVehiclePhotoStyle`), price verbatim. Texts come in through
  * props (`label`, `countText`); no i18n is read here. `onToggle(id)` keeps the selection in the
  * parent (card 06 persists it across reloads). */
-export function FairBrandModelPicker({ models, selectedIds, onToggle, label, countText }: {
+export function FairBrandModelPicker({ models, selectedIds, onToggle, label, countText, dict }: {
   models: { id: string; name: string; priceText: string; photoUrl?: string }[];
   selectedIds: string[];
   onToggle: (id: string) => void;
@@ -26,6 +27,8 @@ export function FairBrandModelPicker({ models, selectedIds, onToggle, label, cou
   label: string;
   /** Counter right of the title, e.g. "2 izabrana". */
   countText: string;
+  /** The page's fair-brand dictionary, taken as a prop like the fair-garage components; the picker reads no copy itself. */
+  dict: FairBrandDict;
 }) {
   return (
     <div>
