@@ -1,0 +1,10 @@
+{
+  "actorEmail": "<ADMIN_EMAIL>",
+  "eventCode": "auto-expo-2026",
+  "consentText": "Saglasan/na sam da {izlagac} koristi moje ime i kontakt podatke da me kontaktira u vezi sa ovim modelom. Saglasnost mogu da povučem u svakom trenutku, kako je opisano u Politici privatnosti.",
+  "legalApprovedBy": "Aleksa Đorđević",
+  "configs": [
+    { "participationExternalKey": "auto-expo-2026-grand-motors", "leadKind": "interest", "contactRequirement": "phone" },
+    { "participationExternalKey": "auto-expo-2026-grand-motors", "leadKind": "test_drive", "contactRequirement": "phone" }
+  ]
+}

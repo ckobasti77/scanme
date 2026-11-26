@@ -740,6 +740,13 @@ Pre produkcije mora da bude dokazano najmanje sledeće:
 
 ## 20. Dnevnik izmena
 
+### 26. novembar 2026. (Auto Expo 2026 — rok brisanja, lid izlagaču mejlom)
+
+- **Odluka vlasnika (26. 11.):** novi lid ide izlagaču mejlom **automatski**, uključeno **po izlagaču** (`fairParticipations.leadNotifyEmails`, podrazumevano isključeno). Ovo zamenjuje raniju stavku 25. 11. „instant-mejl prijave izlagaču (ručno odobravanje slanja je ZAKLJUČANO)“. Ručna predaja iz inboxa ostaje za izlagače bez adresa.
+- **Odluka vlasnika:** lični podaci se čuvaju do 15. 12. 2026.; brisanje 16. 12. 2026. u 00:00. Elektro i AMF zadržavaju svoj raniji rok (16. 11.) i ostaju zatvoreni (`fairEventPiiOpen`).
+- **Auto Expo 2026** (Šumadija sajam, Kragujevac, 27–29. 11.; pet. i sub. 10–20, ned. 10–18): ScanMe nije partner sajma, samo Grand Motors (Ford, MG; VIVA COMPANY). Starter ima probnu vožnju kao na AMF-u. Saglasnost: isti tekst i `legalApprovedBy` kao AMF. Mapa je šematska (jedna „Hala“, bez broja štanda).
+- Detalji: [`docs/events/auto-expo-2026/IZVESTAJ.md`](../auto-expo-2026/IZVESTAJ.md), [`FRONTEND-DELTA-2026-11-26.md`](FRONTEND-DELTA-2026-11-26.md).
+
 ### 25. novembar 2026. (stranica brenda — frontend gotov, backend čeka odobrenje)
 
 - Živi frontend landing `/sajam/<event>/brend/<brand>` (obojeni QR sa A4 postera): hero sa CTAnim, lista modela u paketu, jedna forma za više modela — jedan POST `/api/fair/lead` po modelu, sequence sa idempotency ključem po modelu, retry samo neuspelih. Kontakt se pamti samo uz štiklu "Zapamti" i pun uspeh (`contact-store`).
