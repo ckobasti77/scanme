@@ -282,7 +282,8 @@ export function buildFairExhibitorLeadEmail(input: {
     ...(input.financing ? [[ex.labels.financing, reportDict.leadFinancings[input.financing]] as [string, string]] : []),
   ];
   const itemLine = (item: FairExhibitorLeadItem) => fmt(ex.itemLine, { model: oneLine(item.modelName), kind: kindText(item), time: fairReportDateTimeText(item.at) });
-  const intro = fmt(ex.intro, { exhibitor: oneLine(input.exhibitorName), event: oneLine(input.eventTitle) });
+  // "Grand Motors d.o.o." at the end of a sentence: one period, not two.
+  const intro = fmt(ex.intro, { exhibitor: oneLine(input.exhibitorName), event: oneLine(input.eventTitle) }).replace(/\.\.(?=\s|$)/g, ".");
   const consent = fmt(ex.consentNote, { exhibitor: oneLine(input.exhibitorName) });
   const notes = [consent, ...(input.email ? [ex.replyNote] : [])];
   const text = [

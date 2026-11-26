@@ -44,10 +44,14 @@ Grana `auto-expo-2026`, napravljena iz `stranica-brenda`, pa stranica brenda i Q
   - lid iz admin sesije;
   - lid pre otvaranja sajma (`fairIsPreEvent`, isto pravilo kao za follow-up), da probni lidovi pre 27. 11. u 10:00 ne odu izlagaču;
   - izlagača bez adresa.
+- **Primaoci se zapisuju u trenutku nastanka lida** (`fairEmailDeliveries.exhibitorRecipients`, dopuna 26. 11.). Mejl ide **samo na presek** te liste i trenutne liste izlagača:
+  - test lid nastao dok je na listi samo jovanm028 **nikad ne ide Jeleni**, čak i ako se lista promeni pre slanja;
+  - adresa uklonjena sa liste više ništa ne dobija, ni pri retry-ju;
+  - prazan presek daje `skipped/EXHIBITOR_NOTIFY_OFF`.
 - **`claimDelivery`** pri prvom preuzimanju:
-  - ponovo proverava `FAIR_LEADS_ENABLED` (`skipped/LEADS_DISABLED`), adrese izlagača (`skipped/EXHIBITOR_NOTIFY_OFF`) i da lid postoji (`failed/LEAD_MISSING`);
-  - pokuplja ostale lidove istog posetioca i izlagača čiji redovi još čekaju i nisu preuzeti (`take(50)` preko indeksa `visitorId`). Ti redovi postaju `skipped/EXHIBITOR_DELIVERY_MERGED`;
-  - zamrzava primaoce i spisak lidova u `exhibitorBatch`. Zato retry šalje isto telo istim primaocima sa istim `Idempotency-Key`;
+  - ponovo proverava `FAIR_LEADS_ENABLED` (`skipped/LEADS_DISABLED`), da lid postoji (`failed/LEAD_MISSING`) i da lid nije označen kao probni (`skipped/LEAD_MARKED_TEST`);
+  - pokuplja ostale lidove istog posetioca i izlagača čiji redovi još čekaju, nisu preuzeti i imaju **iste zapisane primaoce** (`take(50)` preko indeksa `visitorId`). Ti redovi postaju `skipped/EXHIBITOR_DELIVERY_MERGED`;
+  - zamrzava primaoce i spisak lidova u `exhibitorBatch`. Zato retry šalje isto telo istim primaocima sa istim `Idempotency-Key`. Ako je pre retry-ja neka od tih adresa skinuta sa liste, red se zatvara kao `EXHIBITOR_NOTIFY_OFF` i ostaje za ručnu predaju;
   - red koji je već preuzet nikad ne prima nove lidove. Kasniji lid zato dobija svoj mejl.
 - **Mejl:** srpski, u istom HTML stilu, tekstovi u `lib/i18n/sr/event-lead-email.ts` (`exhibitor`).
   - Naslov: „Novi lid · Auto Expo 2026 · Probna vožnja · Ford Kuga ST-Line — Ime Prezime“. Za više modela: dva modela i „+N“; za različite forme: „Više upita“.
@@ -55,7 +59,13 @@ Grana `auto-expo-2026`, napravljena iz `stranica-brenda`, pa stranica brenda i Q
   - `reply_to` je email posetioca. `sendFairResendEmail` sada prima i listu adresa; postojeći mejlovi su nepromenjeni.
 - **Posle uspešnog slanja** svi lidovi iz mejla dobijaju `status: "delivered"` i `deliveredAt`, isti patch kao ručno „Označi isporučeno“.
 - **Admin inbox:** red „Poslato izlagaču: …“ u listi i u detalju, i dugme „Ponovo pošalji izlagaču“ kad je slanje `failed`.
-- **Test mejl:** internal `fairEmailSender:sendExhibitorLeadTestEmail({ participationId, to? })` šalje TEST podatke i ništa ne upisuje.
+- **Test mejl:** internal `fairEmailSender:sendExhibitorLeadTestEmail({ participationId, to })` šalje TEST podatke **samo na `to`**. `to` je obavezan i nema rezervnog slanja na adrese izlagača. Ništa ne upisuje.
+- **Probni lid posle nastanka:** internal `fairSetup:markLeadAsTest({ leadId, actorEmail })`:
+  - postavlja `isAdminExcluded = true`, pa lid nestaje iz inbox-a, izvoza, brojača i dnevnog izveštaja izlagaču (svi filtriraju pri čitanju);
+  - zatvara njegove `queued` redove za izlagača i za follow-up kao `skipped/LEAD_MARKED_TEST`;
+  - upisuje audit `fair_lead_marked_test`;
+  - idempotentna je.
+- **Tačka posle „d.o.o.“:** uvod mejla izlagaču („… kontakt za Grand Motors d.o.o.“) i footer potvrde posetiocu više ne dupliraju tačku.
 - **Ispravka uz put:** potvrda posetiocu („Zainteresovan sam“) i potpis imali su fiksno „Sajam elektromobilnosti“, pa bi posetioci Auto Expo-a dobili pogrešan naziv. Sada je to `{event}`, naslov događaja.
 
 ### 3. Događaj `auto-expo-2026`
@@ -90,11 +100,11 @@ Grana `auto-expo-2026`, napravljena iz `stranica-brenda`, pa stranica brenda i Q
 
 - `npx tsc --noEmit`: čisto.
 - `npm run lint`: 0 grešaka. Četiri ranija upozorenja su u fajlovima koje nisam dirao.
-- `npx vitest run convex lib components app`: 14.616 testova prošlo.
-  - **Pada** `lib/admin-v1/event-sections.test.ts` (2 testa). To je postojeće stanje grane `stranica-brenda`: sekcija `brendovi-qr` je dodata bez izmene testa. Nije deo ovog zadatka i nisam ga menjao.
-  - `convex/fairLeads.test.ts` je jednom pao u punom paralelnom pokretanju (2 testa, pod opterećenjem). Posle toga je 3 puta prošao sam (64/64), a ceo `convex` je prošao.
-- `npm run check`: `lint`, `build` (Next build uspeo) i `harness:namespace` su prošli. `harness:check` **nije pokrenut do kraja**, jer na ovoj mašini nije instaliran Playwright Chromium (`npx playwright install` nije pokretan, to je preuzimanje). Treba ga pokrenuti tamo gde je browser instaliran.
-- Novi testovi za `exhibitor_delivery` (convex-test):
+- `npx vitest run convex lib components` (posle dopuna): **14.625 testova prošlo, 0 palo** (685 fajlova).
+  - `lib/admin-v1/event-sections.test.ts` je popravljen (dopuna 26. 11.): u očekivane sekcije je dodat `brendovi-qr` sa grane `stranica-brenda`.
+  - `convex/fairLeads.test.ts` je ranije jednom pao u punom paralelnom pokretanju (pod opterećenjem); u svim kasnijim pokretanjima prolazi (sada 76/76).
+- `npm run check` (pokrenut pre dopuna): `lint`, `build` (Next build uspeo) i `harness:namespace` su prošli. `harness:check` **nije pokrenut do kraja**, jer na ovoj mašini nije instaliran Playwright Chromium (`npx playwright install` nije pokretan, to je preuzimanje). Treba ga pokrenuti tamo gde je browser instaliran.
+- Novi testovi za `exhibitor_delivery` (convex-test), uz dopune: primaoci zapisani pri nastanku lida i slanje na presek (test lid sa samo ScanMe adresom ne ide izlagaču ni kad se lista promeni; uklonjena adresa ne dobija ništa, ni pri retry-ju), spajanje samo istih primalaca, `markLeadAsTest`, test mejl samo na `to`, „d.o.o.“ bez duple tačke, kao i:
   - isključeno po difoltu;
   - normalizacija adresa i limit od 3;
   - admin mutacija (samo admin, audit);
@@ -124,49 +134,52 @@ Grana `auto-expo-2026`, napravljena iz `stranica-brenda`, pa stranica brenda i Q
 2. **MG cene i verzije:** koju verziju i cenu Grand Motors stvarno izlaže (Luxury? akcija?). Sada stoji „od“ cena sa sajta.
 3. **`/sajam` preusmerenje:** sa Auto Expo-om u `EVENT_DEFINITIONS`, `/sajam` vodi na Auto Expo dok traje ili predstoji. Ako to ne želiš, javi.
 4. **Broj štanda i kategorija:** mapa je šematska. Kad stigne broj štanda ili plan, mapa se menja na pravu. Izlagač na mapi stoji pod „Bez kategorije“, jer import ne nosi kategoriju; to može da se postavi u adminu.
-5. **Testovi grane `stranica-brenda`:** `lib/admin-v1/event-sections.test.ts` treba dopuniti sa `brendovi-qr` (nije deo ovog zadatka).
 
 ## Redosled komandi za produkciju
 
-Komande su za Git Bash, iz korena repoa. `ADMIN` mora biti u `SCANME_ADMIN_EMAILS` i postojati u `users` na PROD-u. **Sve mora da se završi pre 27. 11. u 10:00**, jer se tada zamrzava skup pasoša.
+> **Jelena (jelena.milic@vivacompany.rs) ne sme da dobije nijedan test mejl ni test lid.** Do koraka B4 je jedina adresa na listi izlagača `jovanm028@gmail.com`. Test mejl ide samo na adresu iz `to`. Lid zapisuje primaoce u trenutku nastanka, pa probni lid sa listom `["jovanm028@gmail.com"]` nikad ne ide Jeleni.
+
+Komande su za Git Bash, iz korena repoa. `ADMIN` mora biti u `SCANME_ADMIN_EMAILS` i postojati u `users` na PROD-u.
+
+### A) Večeras, 26. 11. (sve pre 27. 11. u 10:00, jer se tada zamrzava skup pasoša)
 
 ```bash
 ADMIN=jovanm028@gmail.com
 P=docs/events/auto-expo-2026/intake/b1-payload.json
 
-# 0) Grana i provera
+# A1) Grana
 git push aleksa auto-expo-2026
 
-# 1) Convex PROD (prvo backend: šema je aditivna; AMF/Elektro ostaju zatvoreni zbog piiPurgeAt = 16. 11.)
+# A2) Convex PROD (prvo backend: šema je aditivna; AMF i Elektro ostaju zatvoreni zbog piiPurgeAt = 16. 11.)
 npx convex deploy
 
-# 2) Vercel (produkcija se gradi iz main; main je predak ove grane, pa ide fast-forward)
+# A3) Vercel (produkcija se gradi iz main; main je predak ove grane, pa ide fast-forward)
 git checkout main && git merge --ff-only auto-expo-2026 && git push aleksa main
 # sačekati da se Vercel produkcioni build završi
 
-# 3) Zatvoriti AMF i Elektro (druga brava; oba su sada "published")
+# A4) Zatvoriti AMF i Elektro (druga brava; oba su sada "published")
 npx convex run --prod fairSetup:setEventStatus "{\"eventCode\":\"auto-moto-fest-2026\",\"status\":\"ended\",\"actorEmail\":\"$ADMIN\"}"
 npx convex run --prod fairSetup:setEventStatus "{\"eventCode\":\"elektromobilnost-2026\",\"status\":\"ended\",\"actorEmail\":\"$ADMIN\"}"
 # UPOZORENJE: bootstrapEvent bez --event ponovo objavljuje Elektro; uvek navesti --event.
 
-# 4) Događaj Auto Expo 2026
+# A5) Događaj Auto Expo 2026
 node scripts/events/fair-setup-run.mjs bootstrapEvent --actor "$ADMIN" --event auto-expo-2026 --prod
 node scripts/events/fair-setup-run.mjs importDryRun --payload "$P" --prod          # STOP ako ima "error"; očekivano: samo FAIR_QR_MISSING i FAIR_PHOTO_MISSING (mg3)
 node scripts/events/fair-setup-run.mjs importCommit --payload "$P" --actor "$ADMIN" --prod
 node scripts/events/fair-setup-run.mjs publishEventModels --event auto-expo-2026 --actor "$ADMIN" --prod
 
-# 5) Lead forme i saglasnost (AMF tekst, legalApprovedBy = Aleksa Đorđević)
+# A6) Lead forme i saglasnost (AMF tekst, legalApprovedBy = Aleksa Đorđević)
 npx convex run --prod fairSetup:setupLeads "$(sed "s/<ADMIN_EMAIL>/$ADMIN/" docs/events/auto-expo-2026/intake/setup-leads.json | tr -d '\n')"
 # očekivano: consents 2, defaults 2, modelConfigs 10, skippedNotEntitled 0
 
-# 6) Test mejl izlagača na moju adresu, pa uključivanje Jeleninih adresa
-#    (prazna lista ništa ne uključuje, samo vraća participationId)
-npx convex run --prod fairSetup:setLeadNotifyEmails "{\"eventCode\":\"auto-expo-2026\",\"participationExternalKey\":\"auto-expo-2026-grand-motors\",\"emails\":[],\"actorEmail\":\"$ADMIN\"}"
-npx convex run --prod fairEmailSender:sendExhibitorLeadTestEmail '{"participationId":"<ID IZ PRETHODNE KOMANDE>","to":"jovanm028@gmail.com"}'
-# proveriti mejl u inboxu, pa:
-npx convex run --prod fairSetup:setLeadNotifyEmails "{\"eventCode\":\"auto-expo-2026\",\"participationExternalKey\":\"auto-expo-2026-grand-motors\",\"emails\":[\"jelena.milic@vivacompany.rs\"],\"actorEmail\":\"$ADMIN\"}"
+# A7) Lista izlagača = SAMO moja adresa (vraća i participationId)
+npx convex run --prod fairSetup:setLeadNotifyEmails "{\"eventCode\":\"auto-expo-2026\",\"participationExternalKey\":\"auto-expo-2026-grand-motors\",\"emails\":[\"jovanm028@gmail.com\"],\"actorEmail\":\"$ADMIN\"}"
 
-# 7) Provere
+# A8) Test mejl izlagača — `to` je obavezan, ide samo na moju adresu
+npx convex run --prod fairEmailSender:sendExhibitorLeadTestEmail '{"participationId":"<ID IZ A7>","to":"jovanm028@gmail.com"}'
+# proveriti mejl u inboxu jovanm028 (naslov počinje sa "TEST: Novi lid · Auto Expo 2026")
+
+# A9) Provere
 curl -s -i -X POST https://www.scanme.rs/api/fair/visitor -H "Origin: https://www.scanme.rs" -H "Content-Type: application/json" -d '{}' | head -1
 #   očekivano: HTTP 200 sa Set-Cookie (bilo je 503 VISITOR_UNAVAILABLE)
 curl -s -o /dev/null -w "%{http_code}\n" -X POST https://www.scanme.rs/api/fair/lead -H "Origin: https://www.scanme.rs" -H "Content-Type: application/json" -d '{}'
@@ -176,4 +189,24 @@ for u in /sajam/auto-expo-2026 /sajam/auto-expo-2026/brend/ford /sajam/auto-expo
 #   očekivano: 200 svuda; /sajam/privatnost prikazuje "16. decembra 2026."
 ```
 
-Posle 10:00 27. 11.: jedan probni lid sa telefona preko štampanog QR-a (stranica brenda). Za 90 s u adminu treba da piše „Poslato izlagaču: poslata“, a lid treba da bude „Isporučeno“. Probni lid pre 10:00 izlagaču namerno ne ide (pravilo „pre otvaranja“).
+Lid ostavljen večeras ne pravi red za izlagača (pravilo „pre otvaranja“), pa probni lid ima smisla tek posle 10:00.
+
+### B) 27. 11. posle 10:00
+
+1. **B1 — probni lid.** Sa telefona, **ne iz admin sesije** (ne biti prijavljen kao admin u tom browseru), skenirati štampani QR poster brenda i ostaviti lid sa imenom **„TEST ScanMe“** (jedan ili više modela). Lista izlagača je i dalje samo `["jovanm028@gmail.com"]`.
+2. **B2 — čekanje.** Posle oko 90 s stiže mejl „Novi lid · Auto Expo 2026 · …“ na jovanm028. U adminu (Događaji → Auto Expo 2026 → Leadovi) lid ima „Poslato izlagaču: poslata“ i „Isporučeno“. Iz detalja lida ili sa liste uzeti njegov `leadId`; to je ID u URL-u detalja, a može i ovako:
+   ```bash
+   npx convex data fairLeads --prod --limit 5 --order desc
+   ```
+3. **B3 — označiti kao probni:**
+   ```bash
+   npx convex run --prod fairSetup:markLeadAsTest "{\"leadId\":\"<LEAD ID>\",\"actorEmail\":\"$ADMIN\"}"
+   # očekivano: result "updated"; lid nestaje iz inbox-a, izvoza, brojača i dnevnog izveštaja
+   ```
+   Ako je lid bio za više modela, B3 ponoviti za svaki `leadId` „TEST ScanMe“.
+4. **B4 — TEK ONDA uključiti Jelenu:**
+   ```bash
+   npx convex run --prod fairSetup:setLeadNotifyEmails "{\"eventCode\":\"auto-expo-2026\",\"participationExternalKey\":\"auto-expo-2026-grand-motors\",\"emails\":[\"jelena.milic@vivacompany.rs\"],\"actorEmail\":\"$ADMIN\"}"
+   ```
+
+> **Upozorenje: posle uključivanja Jelene testirati samo iz admin sesije.** Lid iz admin sesije se nikad ne šalje izlagaču. Probni lid sa telefona bez admin prijave otišao bi Jeleni. Ako se to ipak desi, odmah ga označiti preko `markLeadAsTest` (zatvara ga ako još čeka 90 s; ako je već poslat, mejl se ne može povući).

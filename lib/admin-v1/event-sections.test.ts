@@ -22,8 +22,9 @@ import {
 
 // N2 (odluka vlasnika 8. 10.): + `povezi`, „Poveži nalepnicu“ on the fair floor.
 // SAJAM SUPER Korak 4: + `analitika` (Sajam group).
+// Stranica brenda (25. 11.): + `brendovi-qr` (A4 QR poster po brendu, Katalog group).
 const REQUIRED = [
-  "pregled", "povezi", "modeli", "qr", "izlagaci", "import",
+  "pregled", "povezi", "modeli", "qr", "brendovi-qr", "izlagaci", "import",
   "interakcije", "analitika",
   "leadovi", "leadovi/follow-up", "leadovi/podesavanja",
   "sponzorisano", "izvestaji", "brisanje",

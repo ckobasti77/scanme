@@ -29,7 +29,7 @@ import {
 } from "../lib/fair-contract";
 import { fairLeadFormView, fairLeadSubmitResultView } from "./lib/fairValidators";
 import { FAIR_EMAIL_MAX_ATTEMPTS, FAIR_EXHIBITOR_EMAIL_DELAY_MS, fairFollowUpAt, fairFollowUpScheduleFor } from "./lib/fairLeads";
-import { buildFairLeadEmail, fairPublicBaseUrl, sendFairResendEmail, type FairLeadEmailMessage } from "./lib/fairEmails";
+import { buildFairExhibitorLeadEmail, buildFairLeadEmail, fairPublicBaseUrl, sendFairResendEmail, type FairLeadEmailMessage } from "./lib/fairEmails";
 import * as fairLeadsModule from "./fairLeads";
 import * as fairEmailsModule from "./fairEmails";
 import * as fairEmailSenderModule from "./fairEmailSender";
@@ -1468,19 +1468,135 @@ describe("Exhibitor lead email (exhibitor_delivery)", () => {
     expect(fairEventPiiOpen({ piiPurgeAt: Number.MAX_SAFE_INTEGER }, FAIR_PII_PURGE_AT_MS)).toBe(false);
   });
 
-  test("sendExhibitorLeadTestEmail sends TEST data to the given address (or the configured ones) and writes nothing", async () => {
+  test("sendExhibitorLeadTestEmail sends TEST data ONLY to the given address, never to the configured ones, and writes nothing", async () => {
     const f = await setup();
+    await notify(f, NOTIFY);
     vi.useRealTimers();
-    expect(await f.t.action(internal.fairEmailSender.sendExhibitorLeadTestEmail, { participationId: f.a.participationId })).toMatchObject({ ok: false, error: "EXHIBITOR_NOTIFY_OFF" });
     expect(await f.t.action(internal.fairEmailSender.sendExhibitorLeadTestEmail, { participationId: f.a.participationId, to: "nije adresa" })).toMatchObject({ ok: false, error: "INVALID_INPUT" });
     const result = await f.t.action(internal.fairEmailSender.sendExhibitorLeadTestEmail, { participationId: f.a.participationId, to: "Proba@Example.invalid" });
     expect(result).toMatchObject({ ok: true, recipients: 1 });
     expect(calls).toHaveLength(1);
     expect(calls[0].body.to).toEqual(["proba@example.invalid"]);
+    expect(JSON.stringify(calls[0].body)).not.toContain("izlagac-a.example.invalid");
     expect(calls[0].body.subject).toMatch(/^TEST: Novi lid · TEST elektromobilnost · /);
     expect(calls[0].body.text).toContain("TEST poruka");
     expect(await rows(f, "fairLeads")).toHaveLength(0);
     expect(await rows(f, "fairEmailDeliveries")).toHaveLength(0);
+  });
+
+  test("recipients are those on the list when the lead was taken: a test lead taken with only ScanMe on the list never reaches an exhibitor address added later", async () => {
+    const f = await setup();
+    const SCANME = ["test@scanme.example.invalid"];
+    const EXHIBITOR = ["prodaja@izlagac-a.example.invalid"];
+    await notify(f, SCANME);
+    await submit(f, visitor(), f.models.starter);
+    const [row] = await exhibitorRows(f);
+    expect(row.exhibitorRecipients).toEqual(SCANME);
+    // The list is switched to the exhibitor before the send.
+    await notify(f, EXHIBITOR);
+    await runExhibitorEmails(f);
+    expect(exhibitorCalls()).toHaveLength(0);
+    expect(await deliveryRow(f, row._id)).toMatchObject({ status: "skipped", lastError: "EXHIBITOR_NOTIFY_OFF" });
+    // The same with ScanMe still on it: only the intersection gets the email.
+    await notify(f, [...SCANME, ...EXHIBITOR]);
+    await submit(f, visitor(), f.models.advanced);
+    await notify(f, [...EXHIBITOR, ...SCANME]);
+    await runExhibitorEmails(f);
+    expect(exhibitorCalls()).toHaveLength(1);
+    expect(exhibitorCalls()[0].body.to).toEqual([...SCANME, ...EXHIBITOR]);
+    await notify(f, SCANME);
+    await submit(f, visitor(), f.models.starter);
+    await notify(f, [...SCANME, ...EXHIBITOR]);
+    await runExhibitorEmails(f);
+    expect(exhibitorCalls()).toHaveLength(2);
+    expect(exhibitorCalls()[1].body.to).toEqual(SCANME);
+  });
+
+  test("an address removed after the lead was taken gets nothing (first send and retry)", async () => {
+    const f = await setup();
+    await notify(f, NOTIFY);
+    await submit(f, visitor(), f.models.starter);
+    await notify(f, [NOTIFY[0]]);
+    await runExhibitorEmails(f);
+    expect(exhibitorCalls()).toHaveLength(1);
+    expect(exhibitorCalls()[0].body.to).toEqual([NOTIFY[0]]);
+
+    // Retry: the frozen recipients lose an address before the retry → nothing more is sent.
+    calls = [];
+    await notify(f, NOTIFY);
+    await submit(f, visitor(), f.models.advanced);
+    await runDueNow(f);
+    const before = calls.length;
+    respond = (call) => (call === before + 1 ? new Response("unavailable", { status: 503 }) : Response.json({ id: `re_test_message_${call}` }));
+    await runExhibitorEmails(f);
+    const retried = (await exhibitorRows(f)).find((row) => row.status === "queued")!;
+    expect(retried).toMatchObject({ attemptCount: 1, exhibitorBatch: { to: NOTIFY } });
+    await notify(f, [NOTIFY[0]]);
+    await f.t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(exhibitorCalls()).toHaveLength(1);
+    expect(await deliveryRow(f, retried._id)).toMatchObject({ status: "skipped", lastError: "EXHIBITOR_NOTIFY_OFF" });
+  });
+
+  test("merging joins only rows taken for the same recipients", async () => {
+    const f = await setup();
+    const hash = visitor();
+    await notify(f, [NOTIFY[0]]);
+    await submit(f, hash, f.models.starter);
+    await notify(f, NOTIFY);
+    await submit(f, hash, f.models.advanced);
+    await submit(f, hash, f.models.advanced, { kind: "test_drive", phone: PHONE });
+    await runExhibitorEmails(f);
+    const sent = exhibitorCalls();
+    expect(sent).toHaveLength(2);
+    const one = sent.find((call) => call.body.to.length === 1)!;
+    const both = sent.find((call) => call.body.to.length === 2)!;
+    expect(one.body.to).toEqual([NOTIFY[0]]);
+    expect(one.body.text).toContain("test-volta-x1");
+    expect(one.body.text).not.toContain("test-volta-x2");
+    expect(both.body.to).toEqual(NOTIFY);
+    expect(both.body.text).toContain("TEST test-volta-x2 — Zainteresovan sam");
+    expect(both.body.text).toContain("TEST test-volta-x2 — Probna vožnja");
+    expect((await exhibitorRows(f)).map((row) => `${row.status}:${row.lastError ?? ""}`).sort()).toEqual(["sent:", "sent:", "skipped:EXHIBITOR_DELIVERY_MERGED"]);
+  });
+
+  test("markLeadAsTest: the lead leaves the inbox and counts, its queued exhibitor and follow-up emails close, audited, idempotent", async () => {
+    const f = await setup();
+    await notify(f, NOTIFY);
+    await submit(f, visitor(), f.models.advanced, { contactName: "TEST ScanMe" });
+    const [lead] = await rows(f, "fairLeads");
+    const listed = () => f.admin.query(api.fairLeadsInbox.listEventLeads, { eventId: f.eventId, paginationOpts: { numItems: 20, cursor: null } });
+    expect((await listed()).page).toHaveLength(1);
+    expect(await f.t.mutation(internal.fairSetup.markLeadAsTest, { leadId: lead._id, actorEmail: ADMIN_EMAIL })).toEqual({ result: "updated", closedDeliveries: 2 });
+    expect(await f.t.run(async (ctx) => ctx.db.get(lead._id))).toMatchObject({ isAdminExcluded: true });
+    const closed = (await rows(f, "fairEmailDeliveries")).filter((row) => row.kind !== "immediate_confirmation");
+    expect(closed.map((row) => `${row.kind}:${row.status}:${row.lastError}`).sort()).toEqual([
+      "exhibitor_delivery:skipped:LEAD_MARKED_TEST", "post_event_follow_up:skipped:LEAD_MARKED_TEST",
+    ]);
+    expect((await listed()).page).toHaveLength(0);
+    const exported = await f.admin.query(api.fairLeadsAdmin.exportLeads, { eventId: f.eventId, participationId: f.a.participationId, paginationOpts: { numItems: 20, cursor: null } });
+    expect(exported.page).toHaveLength(0);
+    await runExhibitorEmails(f);
+    expect(exhibitorCalls()).toHaveLength(0);
+    expect((await rows(f, "adminAuditLog")).filter((row) => row.action === "fair_lead_marked_test")).toHaveLength(1);
+    expect(await f.t.mutation(internal.fairSetup.markLeadAsTest, { leadId: lead._id, actorEmail: ADMIN_EMAIL })).toEqual({ result: "unchanged", closedDeliveries: 0 });
+    await expect(f.t.mutation(internal.fairSetup.markLeadAsTest, { leadId: lead._id, actorEmail: "nije-admin@example.invalid" })).rejects.toThrow("fair_setup_actor_not_admin");
+  });
+
+  test("an exhibitor name ending in a period is not followed by a second one (\"d.o.o.\")", () => {
+    const email = buildFairExhibitorLeadEmail({
+      eventTitle: "Auto Expo 2026", exhibitorName: "Grand Motors d.o.o.", contactName: "TEST ScanMe", phone: PHONE_E164,
+      items: [{ modelName: "Ford Kuga ST-Line", kind: "test_drive", survey: false, at: DAY1 }],
+    });
+    expect(email.text).toContain("ostavio kontakt za Grand Motors d.o.o.\n");
+    expect(email.text).not.toContain("d.o.o..");
+    expect(email.html).not.toContain("d.o.o..");
+    const confirmation = buildFairLeadEmail({
+      kind: "immediate_confirmation", dedupeKey: "k", recipient: EMAIL, leadKind: "interest", contactName: "TEST ScanMe", modelName: "Kuga",
+      brandName: "Ford", exhibitorName: "Grand Motors d.o.o.", eventTitle: "Auto Expo 2026", modelPath: "/sajam/auto-expo-2026/model/ford-kuga", followUpScheduled: false,
+    }, "https://scanme.rs");
+    expect(confirmation.text).toContain("Vaše podatke dobija samo Grand Motors d.o.o. Saglasnost");
+    expect(confirmation.text).not.toContain("d.o.o..");
+    expect(confirmation.html).not.toContain("d.o.o..");
   });
 
   test("normalizeFairLeadNotifyEmails", () => {

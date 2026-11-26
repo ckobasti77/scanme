@@ -16,3 +16,7 @@
 - **Garaža:** `EVENT_DEFINITIONS` u `lib/fair-server/garage-page.ts` dobija `auto-expo-2026` (inače `/garaza`, `/deli`, `/poredjenje` vraćaju 404). Posledica: `/sajam` preusmerava na Auto Expo dok je to aktuelni događaj.
 - **Paket:** `testDriveEvents` = `["auto-moto-fest-2026", "auto-expo-2026"]` (Starter ima probnu vožnju i na Auto Expo-u).
 - **Potvrda posetiocu:** tekst „Zainteresovan sam“ i potpis sada nose naziv događaja (`{event}`) umesto fiksnog „Sajam elektromobilnosti“.
+- **Dopune (26. 11., uveče):**
+  - `fairEmailDeliveries.exhibitorRecipients?: string[]` — primaoci zapisani kada je lid nastao; slanje ide samo na presek sa trenutnom `leadNotifyEmails`. Spajanje samo redova sa istim primaocima.
+  - `fairEmailSender.sendExhibitorLeadTestEmail({ participationId, to })` — `to` je obavezan, bez slanja na adrese izlagača; `fairEmails.exhibitorTestContext` više ne vraća adrese.
+  - `fairSetup.markLeadAsTest({ leadId, actorEmail })` (internal) — `isAdminExcluded = true`, zatvara `queued` redove za izlagača i follow-up kao `skipped/LEAD_MARKED_TEST` (novi kod greške, labela u `deliveryErrors`), audit `fair_lead_marked_test`.

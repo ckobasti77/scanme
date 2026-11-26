@@ -4844,6 +4844,12 @@ export default defineSchema({
     // (merged rows are skipped/EXHIBITOR_DELIVERY_MERGED). A retry renders the
     // same message for the same recipients under the same Idempotency-Key.
     exhibitorBatch: v.optional(v.object({ to: v.array(v.string()), leadIds: v.array(v.id("fairLeads")) })),
+    // 26 Nov 2026 (owner, dopune): the exhibitor's addresses at the moment the
+    // lead was taken. The email goes only to the intersection of this list and
+    // the exhibitor's CURRENT list, so a test lead taken while only ScanMe was
+    // on the list never reaches an address added later, and a removed address
+    // gets nothing.
+    exhibitorRecipients: v.optional(v.array(v.string())),
     visitorId: v.optional(v.id("fairVisitors")),
     eventId: v.optional(v.id("fairEvents")),
     modelCount: v.optional(v.number()),

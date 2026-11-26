@@ -237,14 +237,14 @@ export const claimDelivery = internalMutation({
 
 /**
  * 26 Nov 2026: what sendExhibitorLeadTestEmail needs — the event, the
- * exhibitor, its configured addresses and up to three published model names.
- * No visitor data.
+ * exhibitor and up to three published model names. No visitor data and never
+ * the exhibitor's addresses (a test email goes only to the given `to`).
  */
 export const exhibitorTestContext = internalQuery({
   args: { participationId: v.id("fairParticipations") },
   returns: v.union(
     v.null(),
-    v.object({ eventTitle: v.string(), exhibitorName: v.string(), leadNotifyEmails: v.array(v.string()), modelNames: v.array(v.string()) }),
+    v.object({ eventTitle: v.string(), exhibitorName: v.string(), modelNames: v.array(v.string()) }),
   ),
   handler: async (ctx, args) => {
     const participation = await ctx.db.get(args.participationId);
@@ -260,7 +260,7 @@ export const exhibitorTestContext = internalQuery({
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .slice(0, 3)
       .map(fairModelFullName);
-    return { eventTitle: event.title, exhibitorName, leadNotifyEmails: participation.leadNotifyEmails ?? [], modelNames };
+    return { eventTitle: event.title, exhibitorName, modelNames };
   },
 });
 
@@ -294,6 +294,10 @@ export const markSent = internalMutation({
  * never merged into, so a later lead gets its own email. Returns null after
  * closing the row when nothing is to be sent.
  */
+function sameEmailSet(a: readonly string[], b: readonly string[]) {
+  return a.length === b.length && a.every((email) => b.includes(email));
+}
+
 async function claimExhibitorDelivery(ctx: MutationCtx, delivery: Doc<"fairEmailDeliveries">, now: number): Promise<FairExhibitorEmailMessage | null> {
   const close = async (status: "skipped" | "failed", lastError: FairEmailDeliveryError) => {
     await ctx.db.patch(delivery._id, { status, lastError, claimedAt: undefined, updatedAt: now });
@@ -305,10 +309,19 @@ async function claimExhibitorDelivery(ctx: MutationCtx, delivery: Doc<"fairEmail
   const event = lead ? await ctx.db.get(lead.eventId) : null;
   const exhibitorName = lead ? await fairExhibitorName(ctx, lead.participationId) : null;
   if (!lead || !participation || !event || !exhibitorName) return close("failed", "LEAD_MISSING");
+  // A lead marked as a test after it was taken never reaches the exhibitor.
+  if (lead.isAdminExcluded) return close("skipped", "LEAD_MARKED_TEST");
 
+  // Owner (dopune 26. 11.): only the addresses that were on the list when the
+  // lead was taken AND are on it now.
+  const current = participation.leadNotifyEmails ?? [];
+  const recorded = delivery.exhibitorRecipients ?? [];
   let batch = delivery.exhibitorBatch;
-  if (!batch) {
-    const to = participation.leadNotifyEmails ?? [];
+  if (batch) {
+    // Retry: the frozen recipients (same Idempotency-Key); an address removed since gets nothing.
+    if (batch.to.some((email) => !current.includes(email))) return close("skipped", "EXHIBITOR_NOTIFY_OFF");
+  } else {
+    const to = recorded.filter((email) => current.includes(email));
     if (!to.length) return close("skipped", "EXHIBITOR_NOTIFY_OFF");
     const leadIds = [lead._id];
     const visitorLeads = await ctx.db
@@ -319,6 +332,8 @@ async function claimExhibitorDelivery(ctx: MutationCtx, delivery: Doc<"fairEmail
       if (row._id === lead._id || row.participationId !== lead.participationId || row.isAdminExcluded) continue;
       const sibling = await fairLeadDelivery(ctx, row._id, "exhibitor_delivery");
       if (!sibling || sibling.status !== "queued" || sibling.attemptCount > 0 || sibling.claimedAt !== undefined) continue;
+      // Merged only with rows taken for the same recipients.
+      if (!sameEmailSet(sibling.exhibitorRecipients ?? [], recorded)) continue;
       await ctx.db.patch(sibling._id, { status: "skipped", lastError: "EXHIBITOR_DELIVERY_MERGED", updatedAt: now });
       leadIds.push(row._id);
     }

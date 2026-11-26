@@ -13,7 +13,7 @@ import { fairScanCountKey, readFairCount } from "./lib/fairCountShards";
 import { fairAnalyticsCutoff, fairDayCountFrom } from "./lib/fairPreEvent";
 import { applyDestination, prepareDestination, syncChannel } from "./lib/accessOperations";
 import { fairContactRequirement, fairEventStatus, fairLeadKind, fairModelHighlight } from "./lib/fairValidators";
-import { writeFairLeadNotifyEmails } from "./lib/fairLeads";
+import { fairLeadDelivery, writeFairLeadNotifyEmails } from "./lib/fairLeads";
 import type { Doc } from "./_generated/dataModel";
 import { createEventOnlyClient } from "./fairAdmin";
 import { commitFairImport, fairImportPayload, planFairImport } from "./fairImport";
@@ -782,6 +782,46 @@ export const setLeadNotifyEmails = internalMutation({
       });
     }
     return { participationId: participation._id, emails, result };
+  },
+});
+
+/**
+ * 26 Nov 2026 (owner, dopune): turns a real-looking lead into a test lead
+ * after the fact (the on-site test from a phone, not from an admin session):
+ * `isAdminExcluded = true`, so it leaves the inbox, the exports, the counts
+ * and the exhibitor's daily report (they all filter it at read time), and its
+ * queued exhibitor and follow-up emails close as skipped/LEAD_MARKED_TEST.
+ * Already sent emails stay as they were. Idempotent.
+ */
+export const markLeadAsTest = internalMutation({
+  args: { leadId: v.id("fairLeads"), actorEmail: v.string() },
+  returns: v.object({ result: v.union(v.literal("updated"), v.literal("unchanged")), closedDeliveries: v.number() }),
+  handler: async (ctx, args) => {
+    const actorUserId = await setupActor(ctx, args.actorEmail);
+    const lead = await ctx.db.get(args.leadId);
+    if (!lead) throw new Error("fair_setup_lead_missing");
+    const now = Date.now();
+    let closedDeliveries = 0;
+    for (const kind of ["exhibitor_delivery", "post_event_follow_up"] as const) {
+      const row = await fairLeadDelivery(ctx, lead._id, kind);
+      if (row && row.status === "queued") {
+        await ctx.db.patch(row._id, { status: "skipped", lastError: "LEAD_MARKED_TEST", claimedAt: undefined, updatedAt: now });
+        closedDeliveries += 1;
+      }
+    }
+    const result = lead.isAdminExcluded === true ? "unchanged" as const : "updated" as const;
+    if (result === "updated") await ctx.db.patch(lead._id, { isAdminExcluded: true });
+    if (result === "updated" || closedDeliveries > 0) {
+      const participation = await ctx.db.get(lead.participationId);
+      await writeAdminAudit(ctx, {
+        actorUserId,
+        ...(participation ? { accountId: participation.accountId, businessId: participation.businessId } : {}),
+        action: "fair_lead_marked_test",
+        detail: { eventId: lead.eventId, leadId: lead._id, closedDeliveries },
+        now,
+      });
+    }
+    return { result, closedDeliveries };
   },
 });
 

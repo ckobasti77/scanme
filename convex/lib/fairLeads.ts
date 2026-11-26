@@ -192,7 +192,16 @@ export function normalizeFairLeadContact(
  */
 export async function queueFairLeadEmail(
   ctx: MutationCtx,
-  input: { leadId: Id<"fairLeads">; kind: FairLeadEmailKind; recipient: string; scheduledFor: number; now: number; skipped?: FairEmailDeliveryError },
+  input: {
+    leadId: Id<"fairLeads">;
+    kind: FairLeadEmailKind;
+    recipient: string;
+    scheduledFor: number;
+    now: number;
+    skipped?: FairEmailDeliveryError;
+    /** exhibitor_delivery only: the exhibitor's addresses when the lead was taken. */
+    exhibitorRecipients?: string[];
+  },
 ): Promise<Id<"fairEmailDeliveries">> {
   const dedupeKey = fairLeadEmailDedupeKey(input.leadId, input.kind);
   const existing = await ctx.db
@@ -209,6 +218,7 @@ export async function queueFairLeadEmail(
     scheduledFor: input.scheduledFor,
     attemptCount: 0,
     ...(input.skipped ? { lastError: input.skipped } : {}),
+    ...(input.exhibitorRecipients ? { exhibitorRecipients: input.exhibitorRecipients } : {}),
     createdAt: input.now,
     updatedAt: input.now,
   });

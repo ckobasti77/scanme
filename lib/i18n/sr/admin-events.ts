@@ -1244,6 +1244,7 @@ export const adminEventsSr = {
     GARAGE_EMAIL_MISSING: "Poruka garaže više ne postoji.",
     EXHIBITOR_NOTIFY_OFF: "Izlagač više nema adresu za nove leadove; poruka nije poslata.",
     EXHIBITOR_DELIVERY_MERGED: "Poslato izlagaču u istoj poruci sa drugim leadom ovog posetioca.",
+    LEAD_MARKED_TEST: "Lead je označen kao probni; poruka nije poslata.",
   },
   suppress: "Obustavi follow-up",
   suppressConfirm: "Posetilac je odgovorom tražio da ne dobije follow-up. Poruka se neće poslati.",

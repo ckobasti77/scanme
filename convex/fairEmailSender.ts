@@ -144,24 +144,19 @@ export const sendDevTestEmail = internalAction({
 /**
  * 26 Nov 2026: proof of the exhibitor's new-lead email before it is switched
  * on. Renders the email with TEST data (three models of the exhibitor, a TEST
- * visitor) and sends it to `to`, or else to the exhibitor's configured
- * addresses. Writes nothing (no lead, no outbox row). Internal: `npx convex run`.
+ * visitor) and sends it ONLY to `to` — required, never the exhibitor's
+ * configured addresses (owner: the exhibitor never gets a test email).
+ * Writes nothing (no lead, no outbox row). Internal: `npx convex run`.
  */
 export const sendExhibitorLeadTestEmail = internalAction({
-  args: { participationId: v.id("fairParticipations"), to: v.optional(v.string()) },
+  args: { participationId: v.id("fairParticipations"), to: v.string() },
   returns: v.object({ ok: v.boolean(), recipients: v.number(), providerMessageId: v.optional(v.string()), error: v.optional(v.string()) }),
   handler: async (ctx, args) => {
     const context = await ctx.runQuery(internal.fairEmails.exhibitorTestContext, { participationId: args.participationId });
     if (!context) return { ok: false, recipients: 0, error: "LEAD_MISSING" };
-    let to: string[];
-    if (args.to !== undefined) {
-      const one = normalizeFairLeadEmail(args.to);
-      if (!one) return { ok: false, recipients: 0, error: "INVALID_INPUT" };
-      to = [one];
-    } else {
-      to = context.leadNotifyEmails;
-    }
-    if (!to.length) return { ok: false, recipients: 0, error: "EXHIBITOR_NOTIFY_OFF" };
+    const one = normalizeFairLeadEmail(args.to);
+    if (!one) return { ok: false, recipients: 0, error: "INVALID_INPUT" };
+    const to = [one];
     const config = fairResendConfig(env);
     if (!config) return { ok: false, recipients: to.length, error: "RESEND_NOT_CONFIGURED" };
     const now = Date.now();

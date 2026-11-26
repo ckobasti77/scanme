@@ -879,6 +879,8 @@ export const FAIR_EMAIL_DELIVERY_ERRORS = [
   "EXHIBITOR_NOTIFY_OFF",
   // 26 Nov 2026 — exhibitor_delivery: this lead went out in one email with the visitor's other leads of the exhibitor
   "EXHIBITOR_DELIVERY_MERGED",
+  // 26 Nov 2026 — the lead was marked as a test lead (fairSetup.markLeadAsTest): nothing goes to the exhibitor
+  "LEAD_MARKED_TEST",
 ] as const;
 export type FairEmailDeliveryError = (typeof FAIR_EMAIL_DELIVERY_ERRORS)[number];
 

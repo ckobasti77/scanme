@@ -245,6 +245,7 @@ export const submitLead = mutation({
     if (notifyEmails.length > 0 && !adminExcluded && !fairIsPreEvent(now, event)) {
       await queueFairLeadEmail(ctx, {
         leadId, kind: "exhibitor_delivery", recipient: notifyEmails.join(", "), scheduledFor: now + FAIR_EXHIBITOR_EMAIL_DELAY_MS, now,
+        exhibitorRecipients: [...notifyEmails],
       });
     }
 
