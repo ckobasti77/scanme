@@ -1,3 +1,4 @@
+import { AUTO_EXPO_2026_MAP } from "./auto-expo-2026";
 import { AUTO_MOTO_FEST_2026_MAP } from "./auto-moto-fest-2026";
 import { ELEKTROMOBILNOST_2026_MAP } from "./elektromobilnost-2026";
 import { fairMapLocationTakesStands, type FairMapGeometry, type FairMapKey, type FairMapLocation, type FairMapZoneId } from "./types";
@@ -17,6 +18,7 @@ export * from "./progress";
 export const FAIR_MAP_GEOMETRIES: Readonly<Record<FairMapKey, FairMapGeometry>> = {
   "elektromobilnost-2026": ELEKTROMOBILNOST_2026_MAP,
   "auto-moto-fest-2026": AUTO_MOTO_FEST_2026_MAP,
+  "auto-expo-2026": AUTO_EXPO_2026_MAP,
 };
 
 /** Geometry of a fair event by its code; a DEV `test-<code>` event uses the real map. */

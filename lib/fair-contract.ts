@@ -192,20 +192,31 @@ export const FAIR_RATING_MIN = 1;
 export const FAIR_RATING_MAX = 5;
 export const FAIR_RATING_STEP = 0.5;
 /**
- * PII purge moment for both events: 16 November 2026 at 00:00 Europe/Belgrade
- * (CET, UTC+1) = 2026-11-15T23:00:00Z. MASTER §13 says "16. novembra"; the
- * start of that day is the conservative reading — open question in
- * FAIR-BACKEND-CONTRACT.md. Purge/cookie expiry use this one value.
+ * PII purge moment: 16 December 2026 at 00:00 Europe/Belgrade (CET, UTC+1)
+ * = 2026-12-15T23:00:00Z (owner, 26. 11. 2026: data is kept until 15. 12.,
+ * so Auto Expo 2026 of 27–29. 11. can collect leads). It was 16 December
+ * until then. Purge/cookie expiry use this one value; an event created
+ * before the move keeps its own earlier `fairEvents.piiPurgeAt`, and
+ * `fairEventPiiOpen` honours the earlier of the two.
  */
-export const FAIR_PII_PURGE_AT_MS = Date.UTC(2026, 10, 15, 23, 0, 0);
+export const FAIR_PII_PURGE_AT_MS = Date.UTC(2026, 11, 15, 23, 0, 0);
+/**
+ * True while an event may still create visitor-linkable rows (leads, scans
+ * with a visitor, shares, garage emails): before the global purge AND before
+ * the event's own `piiPurgeAt`. Events created before the 26. 11. move (Elektro,
+ * AMF) keep 16. 11. there, so moving the global date never reopens them.
+ */
+export function fairEventPiiOpen(event: { piiPurgeAt: number }, now: number): boolean {
+  return now < Math.min(FAIR_PII_PURGE_AT_MS, event.piiPurgeAt);
+}
 /**
  * Admin UX A8 — every lead is handed to its exhibitor by the end of
- * 15 November 2026 Europe/Belgrade (MASTER §13): the last millisecond before
- * the purge. Shown as the deadline next to the undelivered leads.
+ * 15 December 2026 Europe/Belgrade: the last millisecond before the purge.
+ * Shown as the deadline next to the undelivered leads.
  */
 export const FAIR_LEAD_DELIVERY_DEADLINE_MS = FAIR_PII_PURGE_AT_MS - 1;
 /**
- * B7: the 16 Nov purge deletes these categories IN THIS ORDER (HANDOFF §5.6,
+ * B7: the 16 Dec purge deletes these categories IN THIS ORDER (HANDOFF §5.6,
  * MASTER §13). A row is only deleted after every row that points at it is
  * gone: outbox → leads (contact, consent snapshot, suppression) → the
  * visitor-linkable raw rows → fairVisitors last. Anonymous aggregates
@@ -714,6 +725,25 @@ export function isFairLeadEmail(value: string): boolean {
   return normalizeFairLeadEmail(value) !== null;
 }
 
+/** 26 Nov 2026: at most this many addresses get an exhibitor's new leads by email. */
+export const FAIR_LEAD_NOTIFY_EMAILS_MAX = 3;
+
+/**
+ * The exhibitor's lead-notification addresses: trimmed, lower case, without
+ * duplicates, each a valid email (no comma can slip in). `[]` = off; null =
+ * an invalid address or more than FAIR_LEAD_NOTIFY_EMAILS_MAX.
+ */
+export function normalizeFairLeadNotifyEmails(list: readonly string[]): string[] | null {
+  const out: string[] = [];
+  for (const raw of list) {
+    if (!raw.trim()) continue;
+    const email = normalizeFairLeadEmail(raw);
+    if (!email) return null;
+    if (!out.includes(email)) out.push(email);
+  }
+  return out.length <= FAIR_LEAD_NOTIFY_EMAILS_MAX ? out : null;
+}
+
 /**
  * E.164 (`+381641234567`) or null. Separators (space ( ) . / -) are dropped;
  * `+…` and `00…` are international, a leading 0 is the Serbian trunk prefix
@@ -845,6 +875,10 @@ export const FAIR_EMAIL_DELIVERY_ERRORS = [
   "RECIPIENT_CAP",
   // AMF 1 Nov 2026 — a garage email row without its message (already removed)
   "GARAGE_EMAIL_MISSING",
+  // 26 Nov 2026 — exhibitor_delivery: the exhibitor has no lead-notification address any more (off)
+  "EXHIBITOR_NOTIFY_OFF",
+  // 26 Nov 2026 — exhibitor_delivery: this lead went out in one email with the visitor's other leads of the exhibitor
+  "EXHIBITOR_DELIVERY_MERGED",
 ] as const;
 export type FairEmailDeliveryError = (typeof FAIR_EMAIL_DELIVERY_ERRORS)[number];
 
@@ -1159,7 +1193,7 @@ export function fairAdminLinkPath(eventSlug: string, cardCode: string): string {
 // tones, numbers and links; the admin builds every sentence in lib/i18n.
 // -----------------------------------------------------------------------------
 
-/** pre = before the opening; sajam = opening → close; posle = close → 16 Nov purge; obrisano = after the purge moment. */
+/** pre = before the opening; sajam = opening → close; posle = close → 16 Dec purge; obrisano = after the purge moment. */
 export const FAIR_DASHBOARD_PHASES = ["pre", "sajam", "posle", "obrisano"] as const;
 export type FairDashboardPhase = (typeof FAIR_DASHBOARD_PHASES)[number];
 

@@ -23,14 +23,14 @@ const message = (extra: Partial<FairLeadEmailMessage> = {}): FairLeadEmailMessag
 
 const FOOTER_MODEL =
   "Ovu poruku ste dobili jer ste na sajmu ostavili kontakt za JMEV EWIND. Vaše podatke dobija samo CUBI d.o.o. Saglasnost možete povući u svakom trenutku odgovorom na ovaj mejl. Politika privatnosti: https://www.scanme.rs/sajam/privatnost";
-const CLOSING = "Pozdrav,\nScanMe tim, Sajam elektromobilnosti";
+const CLOSING = "Pozdrav,\nScanMe tim, Sajam elektromobilnosti 2026";
 
 describe("visitor confirmation emails (9 Oct 2026)", () => {
   test("Zainteresovan sam", () => {
     const email = buildFairLeadEmail(message(), BASE);
     expect(email.subject).toBe("Zabeležili smo vaše interesovanje za JMEV EWIND");
     expect(email.text).toBe([
-      "Zdravo Marko,\nhvala što ste na Sajmu elektromobilnosti pogledali JMEV EWIND. Vaše interesovanje smo prosledili JMEV timu. Javiće vam se sa ponudom i odgovorima na sva pitanja koja imate.",
+      "Zdravo Marko,\nhvala što ste na događaju Sajam elektromobilnosti 2026 pogledali JMEV EWIND. Vaše interesovanje smo prosledili JMEV timu. Javiće vam se sa ponudom i odgovorima na sva pitanja koja imate.",
       "Model i specifikacije možete ponovo da pogledate ovde: https://www.scanme.rs/sajam/elektromobilnost-2026/model/jmev-ewind",
       CLOSING,
       "—",

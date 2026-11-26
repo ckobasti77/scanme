@@ -56,7 +56,7 @@ describe("A10 Pregled view", () => {
     for (const text of [
       d.rules.question_missing_today.title, "Starter i Napredni modeli nemaju objavljeno pitanje Glasa publike za TEST dan 2.",
       d.open.interakcije, `aria-label="${d.open.izvestaji}: ${d.rules.reports_pending_review.title}"`,
-      "Rok za predaju izlagačima je 15. 11. 2026. (preostalo dana: 36).", "Hitno 4 · uskoro 2 · info 3",
+      "Rok za predaju izlagačima je 15. 12. 2026. (preostalo dana: 66).", "Hitno 4 · uskoro 2 · info 3",
     ]) {
       expect(html).toContain(text);
     }
@@ -72,7 +72,7 @@ describe("A10 Pregled view", () => {
       expect(d.rules[rule].body.length).toBeGreaterThan(10);
     }
     const action: Action = { rule: "leads_undelivered", tone: "uskoro", count: 3, section: "leadovi", query: { isporuka: "ne" }, deadlineAt: FAIR_LEAD_DELIVERY_DEADLINE_MS };
-    expect(render({ ...previewDashboard("posle"), actions: [action] })).toContain("(preostalo dana: 26)");
+    expect(render({ ...previewDashboard("posle"), actions: [action] })).toContain("(preostalo dana: 56)");
   });
 
   test("empty list: „Sve je spremno“ with a short summary and no items", () => {
@@ -124,7 +124,7 @@ describe("A10 Pregled view", () => {
     expect(sajam).toMatch(/<li aria-current="date"[^>]*><span>TEST dan 2<\/span>/);
 
     const posle = render(previewDashboard("posle"));
-    for (const text of [d.phase.posle, d.deadline.lead_delivery, "15. 11. 2026. 23:59", d.rules.pii_purge_countdown.title, "26 d", "16. 11. 2026. u 00:00."]) expect(posle).toContain(text);
+    for (const text of [d.phase.posle, d.deadline.lead_delivery, "15. 12. 2026. 23:59", d.rules.pii_purge_countdown.title, "56 d", "16. 12. 2026. u 00:00."]) expect(posle).toContain(text);
     // The deletion is the only info item, so it comes last.
     expect(rulesInOrder(posle).at(-1)).toBe("pii_purge_countdown");
   });

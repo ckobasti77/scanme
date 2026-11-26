@@ -45,7 +45,17 @@ export function fairFollowUpEnabled(): boolean {
   return env.FAIR_FOLLOWUP_ENABLED === "true";
 }
 
-export type FairLeadEmailKind = "immediate_confirmation" | "post_event_follow_up";
+export type FairLeadEmailKind = "immediate_confirmation" | "post_event_follow_up" | "exhibitor_delivery";
+
+/**
+ * 26 Nov 2026 (owner): a new lead goes to the exhibitor's addresses
+ * (`fairParticipations.leadNotifyEmails`) by email this long after the submit,
+ * so the brand page's one-lead-per-model sequence of a visitor lands in ONE
+ * email (claimDelivery merges the visitor's still-unclaimed rows).
+ */
+export const FAIR_EXHIBITOR_EMAIL_DELAY_MS = 90 * 1000;
+/** Bounded read of one visitor's leads when the exhibitor email is merged. */
+export const FAIR_EXHIBITOR_BATCH_SCAN = 50;
 
 /** Follow-up window after the relevant fair (MASTER §8, DATA-INTAKE §6.7): 24–48 h. */
 export const FAIR_FOLLOW_UP_MIN_DELAY_MS = 24 * 60 * 60 * 1000;
@@ -91,7 +101,7 @@ export function fairFollowUpScheduleFor(eventEndsAt: number, now: number): numbe
   return now <= eventEndsAt + FAIR_FOLLOW_UP_MAX_DELAY_MS ? now : null;
 }
 
-/** Stable outbox key = Resend `Idempotency-Key`: one confirmation and one follow-up per lead. */
+/** Stable outbox key = Resend `Idempotency-Key`: one confirmation, one follow-up and one exhibitor email per lead. */
 export function fairLeadEmailDedupeKey(leadId: Id<"fairLeads">, kind: FairLeadEmailKind): string {
   return `fair-lead/${leadId}/${kind}`;
 }
@@ -216,4 +226,20 @@ export async function fairLeadDelivery(ctx: Ctx, leadId: Id<"fairLeads">, kind: 
     .query("fairEmailDeliveries")
     .withIndex("by_leadId_and_kind", (q) => q.eq("leadId", leadId).eq("kind", kind))
     .first();
+}
+
+/**
+ * 26 Nov 2026: stores the exhibitor's lead-notification addresses (already
+ * normalized by normalizeFairLeadNotifyEmails); `[]` clears the field (off).
+ */
+export async function writeFairLeadNotifyEmails(
+  ctx: MutationCtx,
+  participation: Doc<"fairParticipations">,
+  emails: string[],
+  now: number,
+): Promise<"updated" | "unchanged"> {
+  const current = participation.leadNotifyEmails ?? [];
+  if (current.length === emails.length && current.every((email, index) => email === emails[index])) return "unchanged";
+  await ctx.db.patch(participation._id, { leadNotifyEmails: emails.length ? emails : undefined, updatedAt: now });
+  return "updated";
 }

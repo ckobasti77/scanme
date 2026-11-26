@@ -537,6 +537,8 @@ export interface FairGarageDict {
   electromobilityDates: string;
   autoMotoTitle: string;
   autoMotoDates: string;
+  autoExpoTitle: string;
+  autoExpoDates: string;
   eventUpcoming: string;
   savedCount: string;
   compareSelect: string;
@@ -5827,6 +5829,8 @@ export interface AdminEventsDict {
   leadNoPhone: string;
   confirmationLabel: string;
   followUpLabel: string;
+  /** 26 Nov 2026 — `{status}` of the email to the exhibitor. */
+  exhibitorLabel: string;
   followUpPlanned: string;
   deliveryNone: string;
   deliveryStatus: Record<FairEmailDeliveryStatus, string>;
@@ -5839,6 +5843,7 @@ export interface AdminEventsDict {
   followUpSuppressedBadge: string;
   retryConfirmation: string;
   retryFollowUp: string;
+  retryExhibitor: string;
   retryDone: string;
   // Admin UX A8 — lead inbox, follow-up per exhibitor, consent settings
   leadInbox: AdminEventsLeadInboxDict;
@@ -5930,7 +5935,7 @@ export interface AdminEventsDict {
   reportStatus: Record<FairReportStatus, string>;
   reportsFormats: Record<FairReportFormat, string>;
   reportBuildErrors: Record<"BUILD_FAILED" | "REPORT_CONTEXT_MISSING", string>;
-  // B7 — Brisanje podataka (16 Nov 2026 purge: preview, dry run, audit)
+  // B7 — Brisanje podataka (16 Dec 2026 purge: preview, dry run, audit)
   tabRetention: string;
   retentionSubtitle: string;
   retentionUnavailable: string;
@@ -6728,6 +6733,28 @@ export interface EventLeadEmailDict {
   signature: string;
   devTestSubject: string;
   devTestBody: string;
+  /** 26 Nov 2026 — the exhibitor's new-lead email (outbox kind exhibitor_delivery). */
+  exhibitor: {
+    /** `{event}`, `{kind}`, `{models}`, `{name}`. */
+    subject: string;
+    /** `{count}` = how many more models than the two named in the subject. */
+    moreModels: string;
+    kindSurvey: string;
+    kindMixed: string;
+    /** `{exhibitor}`, `{event}`. */
+    intro: string;
+    /** `{model}`, `{kind}`, `{time}`. */
+    itemLine: string;
+    labels: { event: string; models: string; name: string; email: string; phone: string; purchaseTiming: string; financing: string };
+    noValue: string;
+    /** `{exhibitor}`. */
+    consentNote: string;
+    replyNote: string;
+    footer: string;
+    testNote: string;
+    testSubjectPrefix: string;
+    testContactName: string;
+  };
 }
 
 // event-report — B6 exhibitor daily report, organizer aggregate and PII lead

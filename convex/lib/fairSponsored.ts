@@ -281,7 +281,7 @@ export async function syncFairSponsoredSnapshot(
 
 // -----------------------------------------------------------------------------
 // Garage sponsored conversions (fairMetricCountShards, anonymous; they survive
-// the 16 Nov purge of fairSponsoredEvents.visitorId):
+// the 16 Dec purge of fairSponsoredEvents.visitorId):
 //   sponsored_<kind>:model:<eventModelId>                — all time
 //   sponsored_<kind>:model:<eventModelId>:2026-10-09     — Belgrade day
 //   sponsored_<kind>:model:<eventModelId>:2026-10-09T14  — Belgrade hour

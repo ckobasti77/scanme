@@ -32,7 +32,7 @@ import { fairAnalyticsCutoff } from "./lib/fairPreEvent";
 //   by the package of the lead's model. Never the visitor id or hash.
 // - markLeadsDelivered: received → delivered (one lead list or a whole
 //   exhibitor, ≤200 per call with hasMore), audited. Delivery itself happens
-//   outside the system over the agreed safe channel (P0.2), by 15 Nov.
+//   outside the system over the agreed safe channel (P0.2), by 15 Dec.
 // =============================================================================
 
 /** At most this many leads per inbox page. */
@@ -65,12 +65,19 @@ const inboxRow = {
   followUpSuppressed: v.boolean(),
   confirmation: deliveryView,
   followUp: deliveryView,
+  // 26 Nov 2026: the email to the exhibitor (absent when the exhibitor's lead email is off).
+  exhibitor: v.optional(deliveryView),
 };
 
-async function deliverySummary(ctx: QueryCtx, leadId: Id<"fairLeads">, kind: "immediate_confirmation" | "post_event_follow_up") {
+async function deliverySummary(ctx: QueryCtx, leadId: Id<"fairLeads">, kind: "immediate_confirmation" | "post_event_follow_up" | "exhibitor_delivery") {
   const row = await fairLeadDelivery(ctx, leadId, kind);
   if (!row) return null;
   return { deliveryId: row._id, status: row.status, scheduledFor: row.scheduledFor, attemptCount: row.attemptCount, ...(row.lastError ? { lastError: row.lastError } : {}) };
+}
+
+async function exhibitorSummary(ctx: QueryCtx, leadId: Id<"fairLeads">) {
+  const exhibitor = await deliverySummary(ctx, leadId, "exhibitor_delivery");
+  return exhibitor ? { exhibitor } : {};
 }
 
 async function rowOf(ctx: QueryCtx, lead: Doc<"fairLeads">) {
@@ -88,6 +95,7 @@ async function rowOf(ctx: QueryCtx, lead: Doc<"fairLeads">) {
     followUpSuppressed: lead.followUpSuppressed,
     confirmation: await deliverySummary(ctx, lead._id, "immediate_confirmation"),
     followUp: await deliverySummary(ctx, lead._id, "post_event_follow_up"),
+    ...await exhibitorSummary(ctx, lead._id),
   };
 }
 
@@ -218,7 +226,7 @@ export const getLeadDetail = query({
 });
 
 /**
- * Records that leads were handed to their exhibitor (MASTER §13: by 15 Nov):
+ * Records that leads were handed to their exhibitor (MASTER §13: by 15 Dec):
  * the given leads, or every received lead of one exhibitor, received →
  * delivered with `deliveredAt`. At most DELIVER_BATCH_MAX per call; `hasMore`
  * says to call again. Leads of another event are refused. Audited.

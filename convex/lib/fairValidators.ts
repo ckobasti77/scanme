@@ -190,7 +190,7 @@ export const fairShareChannel = v.union(
 // MASTER §4.6 — optional on stored rows; absent means "standard".
 export const fairClientSegment = v.union(v.literal("standard"), v.literal("event_only"));
 
-// B7 — the 16 Nov PII purge (FAIR_PURGE_CATEGORIES in lib/fair-contract.ts,
+// B7 — the 16 Dec PII purge (FAIR_PURGE_CATEGORIES in lib/fair-contract.ts,
 // same order). The audit row holds only these enums, times and row counts.
 export const fairPurgeCategory = v.union(
   v.literal("email_deliveries"),

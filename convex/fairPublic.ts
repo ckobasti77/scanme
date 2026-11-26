@@ -533,7 +533,8 @@ export const getLeadForm = query({
       ...base,
       state: "open",
       contactRequirement: config.contactRequirement,
-      ...(event?.code === "auto-moto-fest-2026" && config.contactRequirement === "phone" ? { collectOptionalEmail: true } : {}),
+      // 26 Nov 2026: Auto Expo too — the visitor's email is the Reply-To of the exhibitor's lead email.
+      ...((event?.code === "auto-moto-fest-2026" || event?.code === "auto-expo-2026") && config.contactRequirement === "phone" ? { collectOptionalEmail: true } : {}),
       ...(config.preferredContact ? { preferredContact: config.preferredContact } : {}),
       consent: { version: consent.version, text: fairRenderConsentText(consent.text, exhibitorName) },
       ...(modelChoices ? { modelChoices } : {}),

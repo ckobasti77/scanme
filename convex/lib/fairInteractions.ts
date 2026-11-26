@@ -2,12 +2,12 @@ import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
-  FAIR_PII_PURGE_AT_MS,
   FAIR_PUBLIC_VOTE_THRESHOLD,
   FAIR_RATING_DIMENSIONS,
   FAIR_SURVEY_FREE_TEXT_MAX,
   FAIR_SURVEY_FREE_TEXT_VALUE,
   FAIR_SURVEY_WRITE_IN_VALUE,
+  fairEventPiiOpen,
   isFairRatingValue,
   isFairVisitorHash,
   type FairAudienceResultView,
@@ -38,7 +38,7 @@ import { upsertFairVisitor } from "./fairScans";
 // token).
 //
 // Aggregates live in fairMetricCountShards (anonymous; they survive the
-// 16 Nov purge). Rating count/sum is read ONLY by admin/report projections
+// 16 Dec purge). Rating count/sum is read ONLY by admin/report projections
 // (JOVAN-DELTA §1); public and visitor reads never touch those keys.
 // =============================================================================
 
@@ -88,7 +88,7 @@ export async function findFairVisitor(ctx: Ctx, visitorHash: string): Promise<Do
  * `draft`, `ended` and `archived` events refuse new interactions.
  */
 export function fairEventAcceptsInteractions(event: Doc<"fairEvents">, now: number): boolean {
-  return (event.status === "published" || event.status === "live") && now < FAIR_PII_PURGE_AT_MS;
+  return (event.status === "published" || event.status === "live") && fairEventPiiOpen(event, now);
 }
 
 /** The published model and its event, or a stable error. `id` arrives as a string from the gateway. */

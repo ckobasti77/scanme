@@ -126,7 +126,7 @@ const POSLE: EventDashboardData = {
     act("follow_up_text_missing", "hitno", 1, "leadovi/follow-up", { izlagac: "p-c" }),
     act("reports_pending_review", "hitno", 1, "izvestaji", { status: "ceka-odobrenje" }),
     act("leads_undelivered", "uskoro", 23, "leadovi", { isporuka: "ne" }, FAIR_LEAD_DELIVERY_DEADLINE_MS),
-    act("pii_purge_countdown", "info", 26, "brisanje"),
+    act("pii_purge_countdown", "info", 56, "brisanje"),
   ]),
   kpis: {
     models: modelsKpi(34),

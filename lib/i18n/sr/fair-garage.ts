@@ -17,6 +17,8 @@ export const fairGarageSr = {
   electromobilityDates: "9-11. oktobar",
   autoMotoTitle: "Auto Moto Fest",
   autoMotoDates: "30. oktobar-1. novembar",
+  autoExpoTitle: "Auto Expo",
+  autoExpoDates: "27-29. novembar",
   eventUpcoming: "Od 30. oktobra",
   savedCount: "Sačuvano: {count}",
   compareSelect: "Izaberi za poređenje",

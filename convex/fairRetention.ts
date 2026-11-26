@@ -7,7 +7,7 @@ import { requireAdmin } from "./lib/access";
 import { fairPurgeCategory, fairPurgeCategoryProgress, fairPurgeMode, fairPurgeRunStatus, fairPurgeTrigger } from "./lib/fairValidators";
 
 // =============================================================================
-// Sajam automobila 2026 — B7 retention: the 16 Nov 2026 PII purge
+// Sajam automobila 2026 — B7 retention: the 16 Dec 2026 PII purge
 // (BACKEND-HANDOFF §5.6, MASTER §13, V2 §9).
 //
 // - Starts by itself: the "fair pii purge" cron calls purgeTick every 15 min;
@@ -223,7 +223,7 @@ export const purgeContinue = internalMutation({
 });
 
 /**
- * The cron entry (every 15 min). Before 16 Nov 00:00 (Belgrade) it never
+ * The cron entry (every 15 min). Before 16 Dec 00:00 (Belgrade) it never
  * deletes. From then on it starts the execute run, resumes it if its
  * continuation was lost, and — once done — starts a new run if any PII row
  * appeared afterwards (e.g. a report email queued by hand), so the purge

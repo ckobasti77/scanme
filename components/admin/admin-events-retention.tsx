@@ -28,7 +28,7 @@ import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 // (V2 §11 "retention preview i audit bez PII u logu"). Presentational only;
 // data and the dry-run action come from brisanje-section.tsx
 // (convex/fairRetention.ts). There is deliberately no delete button: the
-// purge starts by itself on 16 Nov 2026 (MASTER §13). Admin UX A9 adds the
+// purge starts by itself on 16 Dec 2026 (MASTER §13). Admin UX A9 adds the
 // countdown, the state of the last dry run and what stays after the purge
 // (FAIR-BACKEND-CONTRACT §23.2).
 

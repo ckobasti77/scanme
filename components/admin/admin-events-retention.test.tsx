@@ -56,7 +56,7 @@ describe("A9 Brisanje podataka: countdown, last dry run, what stays", () => {
   const plan = adminEventsSr.retentionPlan;
   const DAY = 86_400_000;
 
-  test("the countdown to 16 Nov (Belgrade midnight) in whole days, the last day and after the date", () => {
+  test("the countdown to 16 Dec (Belgrade midnight) in whole days, the last day and after the date", () => {
     expect(retentionDaysLeft(FAIR_PII_PURGE_AT_MS, FAIR_PII_PURGE_AT_MS - 38 * DAY - 1)).toBe(38);
     expect(retentionDaysLeft(FAIR_PII_PURGE_AT_MS, FAIR_PII_PURGE_AT_MS - 1)).toBe(0);
     expect(retentionDaysLeft(FAIR_PII_PURGE_AT_MS, FAIR_PII_PURGE_AT_MS)).toBeNull();

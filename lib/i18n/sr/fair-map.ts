@@ -12,6 +12,7 @@ export const fairMapSr = {
   events: {
     "elektromobilnost-2026": "Sajam elektromobilnosti",
     "auto-moto-fest-2026": "Auto Moto Fest",
+    "auto-expo-2026": "Auto Expo",
   },
   zones: {
     hala: "Hala",

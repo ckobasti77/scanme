@@ -4348,7 +4348,7 @@ export default defineSchema({
   // stay the authority for clients, brands and QR identities — these tables
   // link to them and never copy them (no fairExhibitors, no parallel QR).
   // Convex indexes do not enforce uniqueness: every "unique" below is an
-  // upsert rule of the owning mutation. (PII) marks rows the 16 Nov 2026
+  // upsert rule of the owning mutation. (PII) marks rows the 16 Dec 2026
   // purge (B7) hard-deletes.
   // ===========================================================================
 
@@ -4363,7 +4363,8 @@ export default defineSchema({
     endsAt: v.number(),
     status: fairEventStatus,
     garagePriority: v.number(),
-    // Locked to 16 Nov 2026 for both events (FAIR_PII_PURGE_AT_MS).
+    // FAIR_PII_PURGE_AT_MS at creation, never changed: 16 Nov 2026 for Elektro and
+    // AMF, 16 Dec 2026 for events created after 26 Nov (fairEventPiiOpen).
     piiPurgeAt: v.number(),
     minimumPublicVoteCount: v.number(),
     // Always false in V1 (all public fair routes are noindex).
@@ -4410,6 +4411,10 @@ export default defineSchema({
     primaryContactId: v.optional(v.id("accountContacts")),
     reportRecipientEmail: v.optional(v.string()),
     leadDeliveryNote: v.optional(v.string()),
+    // 26 Nov 2026 (owner): the exhibitor's addresses that get each new lead by
+    // email right away (outbox kind exhibitor_delivery). Absent = off; at most
+    // FAIR_LEAD_NOTIFY_EMAILS_MAX. Exhibitor business contacts, not visitor PII.
+    leadNotifyEmails: v.optional(v.array(v.string())),
     // N3: the exhibitor's one map-filter category (NOC-KONTEKST §3).
     category: v.optional(fairExhibitorCategory),
     // N3: the zone the organizer names for an exhibitor that has no stand on
@@ -4765,7 +4770,7 @@ export default defineSchema({
     suppressedAt: v.optional(v.number()),
     suppressedByUserId: v.optional(v.id("users")),
     createdAt: v.number(),
-    purgeAt: v.number(), // 16 Nov 2026 (FAIR_PII_PURGE_AT_MS)
+    purgeAt: v.number(), // 16 Dec 2026 (FAIR_PII_PURGE_AT_MS)
   })
     // unique: submissionId (idempotency key)
     .index("by_submissionId", ["submissionId"])
@@ -4834,6 +4839,11 @@ export default defineSchema({
     // itself and the rendered message live only in `garageEmail` until the
     // send is final (sent or failed), then they are removed.
     garageEmail: v.optional(v.object({ to: v.string(), subject: v.string(), text: v.string(), html: v.string() })),
+    // 26 Nov 2026 (kind exhibitor_delivery): frozen at the first claim — the
+    // exhibitor addresses and the visitor's leads this one email carries
+    // (merged rows are skipped/EXHIBITOR_DELIVERY_MERGED). A retry renders the
+    // same message for the same recipients under the same Idempotency-Key.
+    exhibitorBatch: v.optional(v.object({ to: v.array(v.string()), leadIds: v.array(v.id("fairLeads")) })),
     visitorId: v.optional(v.id("fairVisitors")),
     eventId: v.optional(v.id("fairEvents")),
     modelCount: v.optional(v.number()),
@@ -5039,7 +5049,7 @@ export default defineSchema({
     .index("by_eventModelId_and_occurredAt", ["eventModelId", "occurredAt"])
     .index("by_shareCollectionId_and_occurredAt", ["shareCollectionId", "occurredAt"]),
 
-  // §5.6 — B7 operational audit of the 16 Nov PII purge and of its dry runs
+  // §5.6 — B7 operational audit of the 16 Dec PII purge and of its dry runs
   // (convex/fairRetention.ts). Only start, end, category, row counts and
   // status: never a visitor, lead, contact or any other row identifier.
   // `position`/`cursorCreationTime` let a retried or stalled run continue

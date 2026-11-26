@@ -211,7 +211,7 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // visitor (fairVisitors._id — one row per visitorHash), never per IP: the
   // whole hall can sit behind one NAT, so an IP key would let visitors throttle
   // each other. Keyed by the row id rather than the hash so that, once the
-  // 16 Nov purge deletes fairVisitors, nothing in the limiter's state still
+  // 16 Dec purge deletes fairVisitors, nothing in the limiter's state still
   // maps back to a cookie. The arithmetic: one physical scan (aim the camera,
   // follow the 302, load the model page) takes a person ≥3 s, so ~20/min is a
   // hard human ceiling; a full tour is ~100 models over hours (≈2/min). One

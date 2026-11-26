@@ -20,6 +20,7 @@ import {
 } from "./lib/fairInteractions";
 import { requireFairGateway } from "./lib/fairGateway";
 import {
+  FAIR_EXHIBITOR_EMAIL_DELAY_MS,
   fairActiveConsent,
   fairExhibitorName,
   fairFollowUpEnabled,
@@ -234,6 +235,17 @@ export const submitLead = mutation({
         await queueFairLeadEmail(ctx, { leadId, kind: "post_event_follow_up", recipient, scheduledFor: followUpAt, now });
         followUpScheduled = true;
       }
+    }
+
+    // 26 Nov 2026 (owner): the exhibitor gets the lead by email when it has
+    // lead-notification addresses — not for an admin-session test lead and
+    // not before the opening (the same rule as the follow-up). The delay lets
+    // the brand page's other models of this visitor join the same email.
+    const notifyEmails = (await ctx.db.get(target.participationId))?.leadNotifyEmails ?? [];
+    if (notifyEmails.length > 0 && !adminExcluded && !fairIsPreEvent(now, event)) {
+      await queueFairLeadEmail(ctx, {
+        leadId, kind: "exhibitor_delivery", recipient: notifyEmails.join(", "), scheduledFor: now + FAIR_EXHIBITOR_EMAIL_DELAY_MS, now,
+      });
     }
 
     return {

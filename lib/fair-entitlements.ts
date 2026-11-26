@@ -51,7 +51,8 @@ export const FAIR_ENTITLEMENT_CATALOG: Readonly<
     testDrive: false,
     // Owner decision, 30 Oct: AMF Starter includes test drive. Keep the
     // earlier event's forms and report projections unchanged.
-    testDriveEvents: ["auto-moto-fest-2026"],
+    // Owner, 26 Nov 2026: the same on Auto Expo 2026.
+    testDriveEvents: ["auto-moto-fest-2026", "auto-expo-2026"],
     survey: false,
     postEventFollowUp: false,
     sponsoredMapRotation: false,

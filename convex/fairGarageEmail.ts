@@ -9,6 +9,7 @@ import {
   FAIR_GARAGE_EMAIL_VISITOR_WINDOW_MS,
   FAIR_GARAGE_MAX_MODELS,
   FAIR_PII_PURGE_AT_MS,
+  fairEventPiiOpen,
   isFairSubmissionId,
   isFairVisitorHash,
   normalizeFairLeadEmail,
@@ -30,7 +31,7 @@ import { rateLimiter } from "./lib/rateLimits";
 // outbox row until the send is final (markSent / final markFailed remove
 // them). What stays is the send log — address HMAC (`recipient`), time,
 // model count, visitor — used for the limits and the admin count, deleted
-// with the outbox by the 16 Nov 2026 purge. Never shown to exhibitors, leads,
+// with the outbox by the 16 Dec 2026 purge. Never shown to exhibitors, leads,
 // analytics or reports.
 //
 // Limits: 3 per visitor per hour, 3 per address per day (exact, bounded
@@ -84,7 +85,7 @@ export const requestGarageEmail = mutation({
 
     const eventId = ctx.db.normalizeId("fairEvents", args.eventId);
     const event = eventId ? await ctx.db.get(eventId) : null;
-    if (!event || event.status === "draft" || now >= FAIR_PII_PURGE_AT_MS) fairInteractionError("EVENT_NOT_ACTIVE");
+    if (!event || event.status === "draft" || !fairEventPiiOpen(event, now)) fairInteractionError("EVENT_NOT_ACTIVE");
 
     // Only published models of this event, once each, at most the garage maximum.
     const models: Doc<"fairEventModels">[] = [];

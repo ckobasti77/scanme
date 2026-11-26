@@ -64,13 +64,13 @@ describe("visitor hash", () => {
 });
 
 describe("visitor cookie", () => {
-  test("is HttpOnly; Secure; SameSite=Lax; Path=/ and expires no later than 16 Nov 2026 (Belgrade)", () => {
+  test("is HttpOnly; Secure; SameSite=Lax; Path=/ and expires no later than 16 Dec 2026 (Belgrade)", () => {
     const header = fairVisitorCookieHeader("t".repeat(43), NOW)!;
     const parts = header.split("; ");
     expect(parts[0]).toBe(`${FAIR_VISITOR_COOKIE_NAME}=${"t".repeat(43)}`);
     expect(parts).toEqual(expect.arrayContaining(["Path=/", "HttpOnly", "Secure", "SameSite=Lax"]));
     expect(parts).toContain(`Expires=${new Date(FAIR_PII_PURGE_AT_MS).toUTCString()}`);
-    expect(new Date(FAIR_PII_PURGE_AT_MS).toISOString()).toBe("2026-11-15T23:00:00.000Z");
+    expect(new Date(FAIR_PII_PURGE_AT_MS).toISOString()).toBe("2026-12-15T23:00:00.000Z");
     const maxAge = Number(parts.find((part) => part.startsWith("Max-Age="))!.slice("Max-Age=".length));
     expect(NOW + maxAge * 1000).toBeLessThanOrEqual(FAIR_PII_PURGE_AT_MS);
     expect(parts.some((part) => part.startsWith("Domain="))).toBe(false);

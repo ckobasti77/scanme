@@ -76,7 +76,7 @@ describe("fair sharing and traffic", () => {
     expect(await f.t.run((ctx) => ctx.db.query("cardScanEvents").collect())).toHaveLength(0);
   });
 
-  test("the 16 November retention run removes raw traffic and shared collections", async () => {
+  test("the 16 December retention run removes raw traffic and shared collections", async () => {
     const f = await setup();
     const collection = await f.t.mutation(api.fairSharing.createShareCollection, { ...AUTH, eventModelIds: [f.first], codeHash: "d".repeat(64), requestId: "test-share-003" });
     await f.t.mutation(api.fairSharing.recordTraffic, { ...AUTH, kind: "share_open", requestId: "test-traffic-004", shareCollectionId: collection.collectionId });

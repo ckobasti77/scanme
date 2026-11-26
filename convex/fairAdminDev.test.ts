@@ -111,7 +111,7 @@ async function insertLead(f: Fixture, visitorHash: string, isAdminExcluded: bool
     return ctx.db.insert("fairLeads", {
       submissionId: `test-lead-${visitorHash.slice(0, 8)}`, kind: "interest", visitorId, eventId: f.eventId, eventModelId: f.x1, participationId: f.participationId,
       contactName: "TEST Posetilac", email: "test@example.invalid", consentAccepted: true, consentVersion: 1, consentTextSnapshot: "TEST",
-      consentedAt: DAY1, status: "received", followUpSuppressed: false, createdAt: DAY1, purgeAt: Date.parse("2026-11-16T00:00:00+01:00"),
+      consentedAt: DAY1, status: "received", followUpSuppressed: false, createdAt: DAY1, purgeAt: Date.parse("2026-12-16T00:00:00+01:00"),
       ...(isAdminExcluded ? { isAdminExcluded: true } : {}),
     });
   });

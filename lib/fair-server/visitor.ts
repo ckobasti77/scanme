@@ -20,7 +20,7 @@ import { FAIR_GATEWAY_SECRET_MIN_LENGTH, FAIR_PII_PURGE_AT_MS } from "@/lib/fair
 //      never readable by client JS (HttpOnly).
 //
 // Cookie: `HttpOnly; Secure; SameSite=Lax; Path=/`, expiring at
-// FAIR_PII_PURGE_AT_MS (16 Nov 2026 00:00 Europe/Belgrade) — after the purge
+// FAIR_PII_PURGE_AT_MS (16 Dec 2026 00:00 Europe/Belgrade) — after the purge
 // its random value links to nothing. Host-only unless FAIR_COOKIE_DOMAIN is
 // set (e.g. `.scanme.rs`); the domain is a deploy-time choice, not code.
 //

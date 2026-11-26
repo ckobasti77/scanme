@@ -3,6 +3,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import {
   FAIR_PII_PURGE_AT_MS,
+  fairEventPiiOpen,
   FAIR_SHARE_COLLECTION_MAX_MODELS,
   isFairSubmissionId,
   isFairVisitorHash,
@@ -112,7 +113,7 @@ export const createShareCollection = mutation({
       fairInteractionError("INVALID_INPUT", { field: "eventModelIds" });
     }
     const event = await ctx.db.get(eventId);
-    if (!event || event.status === "draft" || now >= FAIR_PII_PURGE_AT_MS) {
+    if (!event || event.status === "draft" || !fairEventPiiOpen(event, now)) {
       fairInteractionError("EVENT_NOT_ACTIVE");
     }
 

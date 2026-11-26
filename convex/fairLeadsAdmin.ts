@@ -10,6 +10,7 @@ import {
   type FairLeadConfigSource,
   type FairLeadKind,
   type FairPreferredContact,
+  normalizeFairLeadNotifyEmails,
 } from "../lib/fair-contract";
 import { getFairEntitlements } from "../lib/fair-entitlements";
 import { requireAdmin } from "./lib/access";
@@ -24,6 +25,7 @@ import {
   fairLeadsEnabled,
   fairParticipationLeadDefault,
   scheduleFairEmailSend,
+  writeFairLeadNotifyEmails,
 } from "./lib/fairLeads";
 import {
   fairConsentStatus,
@@ -501,6 +503,36 @@ export const upsertParticipationLeadDefault = mutation({
       updatedAt: now,
     });
     return { defaultId, result: "created" as const };
+  },
+});
+
+/**
+ * 26 Nov 2026 (owner): the exhibitor's addresses that get each new lead by
+ * email right away (outbox kind exhibitor_delivery). `[]` switches it off.
+ * At most FAIR_LEAD_NOTIFY_EMAILS_MAX valid addresses (INVALID_INPUT otherwise).
+ */
+export const setLeadNotifyEmails = mutation({
+  args: { participationId: v.id("fairParticipations"), emails: v.array(v.string()) },
+  returns: v.object({ emails: v.array(v.string()), result: v.union(v.literal("updated"), v.literal("unchanged")) }),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const now = Date.now();
+    const participation = await ctx.db.get(args.participationId);
+    if (!participation) fairAdminError("FAIR_LINK_NOT_FOUND", { field: "participationId" });
+    const emails = normalizeFairLeadNotifyEmails(args.emails);
+    if (!emails) fairAdminError("INVALID_INPUT", { field: "emails" });
+    const result = await writeFairLeadNotifyEmails(ctx, participation, emails, now);
+    if (result === "updated") {
+      await writeAdminAudit(ctx, {
+        actorUserId: admin._id,
+        accountId: participation.accountId,
+        businessId: participation.businessId,
+        action: "fair_lead_notify_emails_set",
+        detail: { eventId: participation.eventId, participationId: participation._id, count: emails.length },
+        now,
+      });
+    }
+    return { emails, result };
   },
 });
 

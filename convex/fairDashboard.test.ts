@@ -157,7 +157,7 @@ describe("A10 dashboard phases", () => {
       expect(rules(after)).not.toContain(rule);
     }
     expect(action(after, "leads_undelivered")).toMatchObject({ tone: "uskoro", count: 1, deadlineAt: FAIR_LEAD_DELIVERY_DEADLINE_MS });
-    expect(action(after, "pii_purge_countdown")).toMatchObject({ tone: "info", count: 26, section: "brisanje" });
+    expect(action(after, "pii_purge_countdown")).toMatchObject({ tone: "info", count: 56, section: "brisanje" });
 
     const purged = await f.dash(FAIR_PII_PURGE_AT_MS + 3_600_000);
     expect(purged.actions).toEqual([]);
@@ -265,7 +265,7 @@ describe("A10 dashboard rules (A0-IZVESTAJ §6)", () => {
     expect(action(d, "sponsored_out_of_date")).toMatchObject({ count: 1 });
   });
 
-  test("leads: forms without consent, the K3 switches, undelivered leads until 15 Nov, follow-up text", async () => {
+  test("leads: forms without consent, the K3 switches, undelivered leads until 15 Dec, follow-up text", async () => {
     const f = await setup();
     const fairDay = at("2026-10-10T10:00:00+02:00");
     await f.t.run(async (ctx) => {
@@ -297,8 +297,8 @@ describe("A10 dashboard rules (A0-IZVESTAJ §6)", () => {
     expect(action(d, "follow_up_text_missing")).toEqual({ rule: "follow_up_text_missing", tone: "uskoro", count: 1, section: "leadovi/follow-up", query: { izlagac: f.b } });
     expect(d.kpis.leads).toEqual({ newToday: 1, undelivered: 1, total: 2, capped: false });
 
-    // After the fair: undelivered leads become urgent 3 days before 15 Nov; the follow-up text only where there are leads.
-    expect(action(await f.dash(at("2026-11-13T10:00:00+01:00")), "leads_undelivered")).toMatchObject({ tone: "hitno", count: 1 });
+    // After the fair: undelivered leads become urgent 3 days before 15 Dec; the follow-up text only where there are leads.
+    expect(action(await f.dash(at("2026-12-13T10:00:00+01:00")), "leads_undelivered")).toMatchObject({ tone: "hitno", count: 1 });
     await f.t.run(async (ctx) => {
       const active = (await ctx.db.query("fairExhibitorFollowUpTemplates").withIndex("by_eventId_and_status", (q) => q.eq("eventId", f.eventId).eq("status", "active")).unique())!;
       await ctx.db.patch(active._id, { status: "retired" });
@@ -355,11 +355,11 @@ describe("A10 dashboard rules (A0-IZVESTAJ §6)", () => {
     expect(rules(d)).not.toContain("passport_hidden");
   });
 
-  test("days until the 16 Nov purge: info, uskoro in the last week", async () => {
+  test("days until the 16 Dec purge: info, uskoro in the last week", async () => {
     const f = await setup();
-    expect(action(await f.dash(at("2026-10-20T10:00:00+02:00")), "pii_purge_countdown")).toEqual({ rule: "pii_purge_countdown", tone: "info", count: 26, section: "brisanje", query: {} });
-    expect(action(await f.dash(at("2026-11-10T10:00:00+01:00")), "pii_purge_countdown")).toMatchObject({ tone: "uskoro", count: 5 });
-    expect(action(await f.dash(at("2026-11-15T20:00:00+01:00")), "pii_purge_countdown")).toMatchObject({ tone: "uskoro", count: 0 });
+    expect(action(await f.dash(at("2026-10-20T10:00:00+02:00")), "pii_purge_countdown")).toEqual({ rule: "pii_purge_countdown", tone: "info", count: 56, section: "brisanje", query: {} });
+    expect(action(await f.dash(at("2026-12-10T10:00:00+01:00")), "pii_purge_countdown")).toMatchObject({ tone: "uskoro", count: 5 });
+    expect(action(await f.dash(at("2026-12-15T20:00:00+01:00")), "pii_purge_countdown")).toMatchObject({ tone: "uskoro", count: 0 });
   });
 });
 

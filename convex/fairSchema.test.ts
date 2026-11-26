@@ -852,7 +852,7 @@ describe("contract types and Convex validators never drift", () => {
     expectTypeOf<Doc<"fairParticipations">["mapZoneId"]>().toEqualTypeOf<FairMapZoneIdValue | undefined>();
   });
 
-  test("the PII purge instant is 16 Nov 2026 00:00 in Europe/Belgrade", () => {
-    expect(new Date(FAIR_PII_PURGE_AT_MS).toISOString()).toBe("2026-11-15T23:00:00.000Z");
+  test("the PII purge instant is 16 Dec 2026 00:00 in Europe/Belgrade", () => {
+    expect(new Date(FAIR_PII_PURGE_AT_MS).toISOString()).toBe("2026-12-15T23:00:00.000Z");
   });
 });

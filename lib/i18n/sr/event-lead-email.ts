@@ -8,13 +8,15 @@ import type { EventLeadEmailDict } from "../types";
 // "Probna vožnja" and a survey with a contact left — word for word. {brand} =
 // brand display name, {model} = model name without the brand, {exhibitor} =
 // the exhibitor's legal name, {url} = the public model page / privacy page.
-// The stand is never shown. Exhibitors get no automatic email.
+// The stand is never shown. 26 Nov 2026: {event} = the event title (the
+// copy named "Sajam elektromobilnosti" for every fair). `exhibitor` is the
+// exhibitor's new-lead email (on per exhibitor, fairParticipations.leadNotifyEmails).
 export const eventLeadEmailSr = {
   greeting: "Zdravo {name},",
   greetingWithoutName: "Zdravo,",
   interestSubject: "Zabeležili smo vaše interesovanje za {brand} {model}",
   interestBody:
-    "hvala što ste na Sajmu elektromobilnosti pogledali {brand} {model}. Vaše interesovanje smo prosledili {brand} timu. Javiće vam se sa ponudom i odgovorima na sva pitanja koja imate.",
+    "hvala što ste na događaju {event} pogledali {brand} {model}. Vaše interesovanje smo prosledili {brand} timu. Javiće vam se sa ponudom i odgovorima na sva pitanja koja imate.",
   interestModelLink: "Model i specifikacije možete ponovo da pogledate ovde: {url}",
   testDriveSubject: "Zahtev za probnu vožnju: {brand} {model}",
   testDriveBody:
@@ -24,7 +26,7 @@ export const eventLeadEmailSr = {
   surveyBody:
     "hvala što ste odvojili minut za {brand} anketu. Vaši odgovori pomažu {brand} timu da bolje razume šta je posetiocima zaista važno.",
   surveyContactNote: "Pošto ste ostavili kontakt, {brand} tim vam može poslati ponudu za model koji vam se dopao.",
-  closing: "Pozdrav,\nScanMe tim, Sajam elektromobilnosti",
+  closing: "Pozdrav,\nScanMe tim, {event}",
   /** `{subject}` = "{brand} {model}" (survey: "{brand}"), `{exhibitor}`, `{url}` = the privacy page. */
   footer:
     "Ovu poruku ste dobili jer ste na sajmu ostavili kontakt za {subject}. Vaše podatke dobija samo {exhibitor}. Saglasnost možete povući u svakom trenutku odgovorom na ovaj mejl. Politika privatnosti: {url}",
@@ -47,4 +49,28 @@ export const eventLeadEmailSr = {
   devTestSubject: "TEST: sajamski email sa DEV okruženja",
   devTestBody:
     "Ovo je probna poruka sa DEV okruženja ScanMe-a. Ako je vidite, slanje sajamskih emailova preko Resend-a radi.",
+  exhibitor: {
+    subject: "Novi lid · {event} · {kind} · {models} — {name}",
+    moreModels: "+{count}",
+    kindSurvey: "Iz ankete",
+    kindMixed: "Više upita",
+    intro: "Posetilac je na događaju {event} ostavio kontakt za {exhibitor}.",
+    itemLine: "{model} — {kind}, {time}",
+    labels: {
+      event: "Događaj",
+      models: "Modeli",
+      name: "Ime",
+      email: "Email",
+      phone: "Telefon",
+      purchaseTiming: "Kupovina",
+      financing: "Finansiranje",
+    },
+    noValue: "nije ostavljen",
+    consentNote: "Posetilac je dao saglasnost da ga {exhibitor} kontaktira u vezi sa navedenim modelima. Podatke koristite samo za taj kontakt.",
+    replyNote: "Odgovor na ovaj mejl ide direktno posetiocu.",
+    footer: "Ovu poruku šalje ScanMe, jer su ove adrese prijavljene za prijem novih lidova sa sajma.",
+    testNote: "TEST poruka: podaci ispod su izmišljeni, nijedan posetilac nije ostavio ovaj kontakt.",
+    testSubjectPrefix: "TEST: ",
+    testContactName: "TEST Posetilac",
+  },
 } as const satisfies EventLeadEmailDict;

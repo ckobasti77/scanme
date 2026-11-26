@@ -1,9 +1,10 @@
 import { v, type Infer } from "convex/values";
-import { fairLeadNameRisk, type FairEmailDeliveryError } from "../../lib/fair-contract";
+import { fairLeadNameRisk, type FairEmailDeliveryError, type FairLeadFinancing, type FairLeadKind, type FairLeadPurchaseTiming } from "../../lib/fair-contract";
 import { fmt, fmt as fmtRaw } from "../../lib/i18n/format";
 import { eventLeadEmailSr as dict } from "../../lib/i18n/sr/event-lead-email";
 import { eventReportSr as reportDict } from "../../lib/i18n/sr/event-report";
 import { fairLeadKind } from "./fairValidators";
+import { fairReportDateTimeText } from "./fairReportFiles";
 
 // =============================================================================
 // Sajam automobila 2026 — B4 email composition and the Resend seam
@@ -68,6 +69,24 @@ export const fairGarageEmailMessage = v.object({
   text: v.string(),
   html: v.string(),
 });
+
+/**
+ * 26 Nov 2026: what claimDelivery hands to the sender for an
+ * `exhibitor_delivery` row (internal only — it carries the visitor's contact).
+ * Rendered in the claim from the frozen batch, so a retry sends the same message.
+ */
+export const fairExhibitorEmailMessage = v.object({
+  dedupeKey: v.string(),
+  to: v.array(v.string()),
+  replyTo: v.optional(v.string()),
+  subject: v.string(),
+  text: v.string(),
+  html: v.string(),
+});
+export type FairExhibitorEmailMessage = Infer<typeof fairExhibitorEmailMessage>;
+
+/** One lead of the exhibitor email: the model (with variant), the form and when it was left. */
+export type FairExhibitorLeadItem = { modelName: string; kind: FairLeadKind; survey: boolean; at: number };
 
 /** A Resend attachment: base64 file content. */
 export type FairEmailAttachment = { filename: string; content: string };
@@ -158,7 +177,7 @@ function linkHtml(url: string) {
 function buildFairVisitorConfirmation(message: FairLeadEmailMessage, baseUrl: string): FairOutgoingEmail {
   const brand = oneLine(message.brandName ?? "");
   const model = fairModelNameWithoutBrand(message.modelName, brand);
-  const names = { brand, model };
+  const names = { brand, model, event: oneLine(message.eventTitle) };
   // An empty value never leaves a double space behind.
   const fmt = (template: string, values: Record<string, string>) => fmtRaw(template, values).replace(/ {2,}/g, " ").replace(/ ([.,:])/g, "$1").replace(/\.\.(?=\s|$)/g, ".");
   const modelUrl = `${baseUrl}${message.modelPath}`;
@@ -181,14 +200,15 @@ function buildFairVisitorConfirmation(message: FairLeadEmailMessage, baseUrl: st
     url: privacyUrl,
   });
 
-  const text = [`${greeting}\n${body[0].text}`, ...body.slice(1).map((part) => part.text), dict.closing, "—", footer].join("\n\n");
+  const closing = fmt(dict.closing, names);
+  const text = [`${greeting}\n${body[0].text}`, ...body.slice(1).map((part) => part.text), closing, "—", footer].join("\n\n");
   const paragraph = (part: { text: string; link?: string }) =>
     part.link ? `<p>${escapeHtml(part.text.slice(0, part.text.length - part.link.length))}${linkHtml(part.link)}</p>` : `<p>${escapeHtml(part.text)}</p>`;
   const footerHtml = `${escapeHtml(footer.slice(0, footer.length - privacyUrl.length))}${linkHtml(privacyUrl)}`;
   const html = `<div style="font-family:Arial,sans-serif;color:#151713;line-height:1.5">`
     + `<p>${escapeHtml(greeting)}<br>${escapeHtml(body[0].text)}</p>`
     + body.slice(1).map(paragraph).join("")
-    + `<p>${escapeHtml(dict.closing).replace(/\n/g, "<br>")}</p>`
+    + `<p>${escapeHtml(closing).replace(/\n/g, "<br>")}</p>`
     + `<hr style="border:none;border-top:1px solid #e3e5df;margin:24px 0 12px">`
     + `<p style="color:#6b7068;font-size:12px">${footerHtml}</p>`
     + `</div>`;
@@ -223,6 +243,70 @@ export function buildFairReportEmail(input: { eventTitle: string; dayLabel: stri
   };
 }
 
+/**
+ * 26 Nov 2026 (owner): the exhibitor's new-lead email. One email per visitor
+ * and exhibitor batch: every model with its form and time (Europe/Belgrade),
+ * then the visitor's contact and answers. Every value is HTML-escaped; the
+ * visitor's email is the Reply-To (set by the sender), so the exhibitor
+ * answers the visitor directly.
+ */
+export function buildFairExhibitorLeadEmail(input: {
+  eventTitle: string;
+  exhibitorName: string;
+  contactName: string;
+  email?: string;
+  phone?: string;
+  purchaseTiming?: FairLeadPurchaseTiming;
+  financing?: FairLeadFinancing;
+  items: FairExhibitorLeadItem[];
+  test?: boolean;
+}): FairOutgoingEmail {
+  const ex = dict.exhibitor;
+  const kindText = (item: FairExhibitorLeadItem) => (item.survey ? ex.kindSurvey : reportDict.leadKinds[item.kind]);
+  const kinds = [...new Set(input.items.map(kindText))];
+  const names = input.items.map((item) => oneLine(item.modelName));
+  const shown = names.slice(0, 2).join(", ");
+  const models = names.length > 2 ? `${shown} ${fmt(ex.moreModels, { count: String(names.length - 2) })}` : shown;
+  const subject = fmt(ex.subject, {
+    event: oneLine(input.eventTitle),
+    kind: kinds.length === 1 ? kinds[0]! : ex.kindMixed,
+    models,
+    name: oneLine(input.contactName),
+  });
+  const rows: [string, string][] = [
+    [ex.labels.event, oneLine(input.eventTitle)],
+    [ex.labels.name, oneLine(input.contactName)],
+    [ex.labels.email, input.email ?? ex.noValue],
+    [ex.labels.phone, input.phone ?? ex.noValue],
+    ...(input.purchaseTiming ? [[ex.labels.purchaseTiming, reportDict.leadPurchaseTimings[input.purchaseTiming]] as [string, string]] : []),
+    ...(input.financing ? [[ex.labels.financing, reportDict.leadFinancings[input.financing]] as [string, string]] : []),
+  ];
+  const itemLine = (item: FairExhibitorLeadItem) => fmt(ex.itemLine, { model: oneLine(item.modelName), kind: kindText(item), time: fairReportDateTimeText(item.at) });
+  const intro = fmt(ex.intro, { exhibitor: oneLine(input.exhibitorName), event: oneLine(input.eventTitle) });
+  const consent = fmt(ex.consentNote, { exhibitor: oneLine(input.exhibitorName) });
+  const notes = [consent, ...(input.email ? [ex.replyNote] : [])];
+  const text = [
+    ...(input.test ? [ex.testNote] : []),
+    intro,
+    `${ex.labels.models}:\n${input.items.map((item) => `- ${itemLine(item)}`).join("\n")}`,
+    rows.map(([label, value]) => `${label}: ${value}`).join("\n"),
+    ...notes,
+    "—",
+    ex.footer,
+  ].join("\n\n");
+  const cell = "padding:4px 12px 4px 0;vertical-align:top";
+  const html = `<div style="font-family:Arial,sans-serif;color:#151713;line-height:1.5">`
+    + (input.test ? `<p><strong>${escapeHtml(ex.testNote)}</strong></p>` : "")
+    + `<p>${escapeHtml(intro)}</p>`
+    + `<p><strong>${escapeHtml(ex.labels.models)}</strong></p><ul>${input.items.map((item) => `<li>${escapeHtml(itemLine(item))}</li>`).join("")}</ul>`
+    + `<table style="border-collapse:collapse">${rows.map(([label, value]) => `<tr><td style="${cell};color:#6b7068">${escapeHtml(label)}</td><td style="${cell}">${escapeHtml(value)}</td></tr>`).join("")}</table>`
+    + notes.map((note) => `<p>${escapeHtml(note)}</p>`).join("")
+    + `<hr style="border:none;border-top:1px solid #e3e5df;margin:24px 0 12px">`
+    + `<p style="color:#6b7068;font-size:12px">${escapeHtml(ex.footer)}</p>`
+    + `</div>`;
+  return { subject: oneLine(`${input.test ? ex.testSubjectPrefix : ""}${subject}`), text, html };
+}
+
 export function buildFairDevTestEmail(baseUrl: string): FairOutgoingEmail {
   return compose(dict.devTestSubject, [dict.devTestBody], `${baseUrl}/`);
 }
@@ -234,7 +318,7 @@ export function buildFairDevTestEmail(baseUrl: string): FairOutgoingEmail {
  */
 export async function sendFairResendEmail(
   email: FairOutgoingEmail,
-  options: FairResendConfig & { to: string; idempotencyKey: string; attachments?: FairEmailAttachment[] },
+  options: FairResendConfig & { to: string | readonly string[]; idempotencyKey: string; attachments?: FairEmailAttachment[] },
   fetchImpl: typeof fetch,
 ): Promise<FairResendOutcome> {
   let response: Response;
@@ -248,7 +332,7 @@ export async function sendFairResendEmail(
       },
       body: JSON.stringify({
         from: options.from,
-        to: [options.to],
+        to: typeof options.to === "string" ? [options.to] : [...options.to],
         subject: email.subject,
         text: email.text,
         html: email.html,

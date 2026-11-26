@@ -1,9 +1,19 @@
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { internalMutation, type MutationCtx } from "./_generated/server";
-import { FAIR_PII_PURGE_AT_MS, fairModelPath } from "../lib/fair-contract";
-import { buildFairReportEmail, fairGarageEmailMessage, fairLeadEmailMessage, fairReportEmailMessage, type FairLeadEmailMessage } from "./lib/fairEmails";
+import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import { FAIR_PII_PURGE_AT_MS, fairModelPath, type FairEmailDeliveryError } from "../lib/fair-contract";
+import {
+  buildFairExhibitorLeadEmail,
+  buildFairReportEmail,
+  fairExhibitorEmailMessage,
+  fairGarageEmailMessage,
+  fairLeadEmailMessage,
+  fairReportEmailMessage,
+  type FairExhibitorEmailMessage,
+  type FairExhibitorLeadItem,
+  type FairLeadEmailMessage,
+} from "./lib/fairEmails";
 import { fairDailyReportFileName, fairReportDateText } from "./lib/fairReportFiles";
 import { fairFollowUpValues, renderFairFollowUp } from "./lib/fairFollowUp";
 import { fairPairFollowUpFacts, fairPairLeads } from "./lib/fairLeadActivity";
@@ -12,6 +22,7 @@ import {
   FAIR_EMAIL_MAX_ATTEMPTS,
   FAIR_EMAIL_RETRY_DELAYS_MS,
   FAIR_EMAIL_STALE_MS,
+  FAIR_EXHIBITOR_BATCH_SCAN,
   fairActiveExhibitorFollowUp,
   fairActiveFollowUpTemplate,
   fairExhibitorName,
@@ -69,6 +80,7 @@ export const claimDelivery = internalMutation({
     v.object({ action: v.literal("send"), message: fairLeadEmailMessage }),
     v.object({ action: v.literal("send_report"), report: fairReportEmailMessage }),
     v.object({ action: v.literal("send_garage"), email: fairGarageEmailMessage }),
+    v.object({ action: v.literal("send_exhibitor"), email: fairExhibitorEmailMessage }),
   ),
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -116,6 +128,10 @@ export const claimDelivery = internalMutation({
           fileName: fairDailyReportFileName(run.dataset, run.format),
         },
       };
+    }
+    if (delivery.kind === "exhibitor_delivery") {
+      const email = await claimExhibitorDelivery(ctx, delivery, now);
+      return email ? { action: "send_exhibitor" as const, email } : skip;
     }
     if (delivery.kind !== "immediate_confirmation" && delivery.kind !== "post_event_follow_up") return skip;
     // K3: the hard switches, again, immediately before delivery. A switch that
@@ -219,6 +235,35 @@ export const claimDelivery = internalMutation({
   },
 });
 
+/**
+ * 26 Nov 2026: what sendExhibitorLeadTestEmail needs — the event, the
+ * exhibitor, its configured addresses and up to three published model names.
+ * No visitor data.
+ */
+export const exhibitorTestContext = internalQuery({
+  args: { participationId: v.id("fairParticipations") },
+  returns: v.union(
+    v.null(),
+    v.object({ eventTitle: v.string(), exhibitorName: v.string(), leadNotifyEmails: v.array(v.string()), modelNames: v.array(v.string()) }),
+  ),
+  handler: async (ctx, args) => {
+    const participation = await ctx.db.get(args.participationId);
+    const event = participation ? await ctx.db.get(participation.eventId) : null;
+    const exhibitorName = participation ? await fairExhibitorName(ctx, participation._id) : null;
+    if (!participation || !event || !exhibitorName) return null;
+    const models = await ctx.db
+      .query("fairEventModels")
+      .withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id))
+      .take(200);
+    const modelNames = models
+      .filter((row) => row.participationId === participation._id && row.status === "published")
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .slice(0, 3)
+      .map(fairModelFullName);
+    return { eventTitle: event.title, exhibitorName, leadNotifyEmails: participation.leadNotifyEmails ?? [], modelNames };
+  },
+});
+
 export const markSent = internalMutation({
   args: { ...deliveryArgs, providerMessageId: v.string() },
   returns: v.null(),
@@ -230,9 +275,85 @@ export const markSent = internalMutation({
     await ctx.db.patch(delivery._id, { status: "sent", providerMessageId: args.providerMessageId, lastError: undefined, claimedAt: undefined, garageEmail: undefined, updatedAt: now });
     const run = delivery.reportRunId ? await ctx.db.get(delivery.reportRunId) : null;
     if (run) await ctx.db.patch(run._id, { status: "sent", providerMessageId: args.providerMessageId, error: undefined, updatedAt: now });
+    // 26 Nov 2026: the leads that went to the exhibitor are delivered (same patch as the inbox's manual mark).
+    for (const leadId of delivery.exhibitorBatch?.leadIds ?? []) {
+      const lead = await ctx.db.get(leadId);
+      if (lead && lead.status !== "delivered") await ctx.db.patch(lead._id, { status: "delivered", deliveredAt: now });
+    }
     return null;
   },
 });
+
+/**
+ * 26 Nov 2026 (owner): claims an `exhibitor_delivery` row. The first claim
+ * freezes the batch — the exhibitor's CURRENT addresses and every lead of the
+ * same visitor and exhibitor whose own row is still queued and never claimed
+ * (those rows close as skipped/EXHIBITOR_DELIVERY_MERGED) — so one email
+ * carries the brand page's several models. A retry re-renders the frozen batch
+ * (same recipients, same body, same Idempotency-Key). A row already claimed is
+ * never merged into, so a later lead gets its own email. Returns null after
+ * closing the row when nothing is to be sent.
+ */
+async function claimExhibitorDelivery(ctx: MutationCtx, delivery: Doc<"fairEmailDeliveries">, now: number): Promise<FairExhibitorEmailMessage | null> {
+  const close = async (status: "skipped" | "failed", lastError: FairEmailDeliveryError) => {
+    await ctx.db.patch(delivery._id, { status, lastError, claimedAt: undefined, updatedAt: now });
+    return null;
+  };
+  if (!fairLeadsEnabled()) return close("skipped", "LEADS_DISABLED");
+  const lead = delivery.leadId ? await ctx.db.get(delivery.leadId) : null;
+  const participation = lead ? await ctx.db.get(lead.participationId) : null;
+  const event = lead ? await ctx.db.get(lead.eventId) : null;
+  const exhibitorName = lead ? await fairExhibitorName(ctx, lead.participationId) : null;
+  if (!lead || !participation || !event || !exhibitorName) return close("failed", "LEAD_MISSING");
+
+  let batch = delivery.exhibitorBatch;
+  if (!batch) {
+    const to = participation.leadNotifyEmails ?? [];
+    if (!to.length) return close("skipped", "EXHIBITOR_NOTIFY_OFF");
+    const leadIds = [lead._id];
+    const visitorLeads = await ctx.db
+      .query("fairLeads")
+      .withIndex("by_visitorId_and_eventModelId_and_kind", (q) => q.eq("visitorId", lead.visitorId))
+      .take(FAIR_EXHIBITOR_BATCH_SCAN);
+    for (const row of visitorLeads) {
+      if (row._id === lead._id || row.participationId !== lead.participationId || row.isAdminExcluded) continue;
+      const sibling = await fairLeadDelivery(ctx, row._id, "exhibitor_delivery");
+      if (!sibling || sibling.status !== "queued" || sibling.attemptCount > 0 || sibling.claimedAt !== undefined) continue;
+      await ctx.db.patch(sibling._id, { status: "skipped", lastError: "EXHIBITOR_DELIVERY_MERGED", updatedAt: now });
+      leadIds.push(row._id);
+    }
+    batch = { to, leadIds };
+  }
+
+  const leads: Doc<"fairLeads">[] = [];
+  for (const id of batch.leadIds) {
+    const row = await ctx.db.get(id);
+    if (!row) return close("failed", "LEAD_MISSING");
+    leads.push(row);
+  }
+  leads.sort((a, b) => a.createdAt - b.createdAt);
+  const items: FairExhibitorLeadItem[] = [];
+  for (const row of leads) {
+    const model = await ctx.db.get(row.eventModelId);
+    items.push({ modelName: model ? fairModelFullName(model) : "", kind: row.kind, survey: row.origin === "survey", at: row.createdAt });
+  }
+  // The visitor's contact as last left; answers from the newest lead that has them.
+  const latest = leads[leads.length - 1]!;
+  const purchaseTiming = [...leads].reverse().find((row) => row.purchaseTiming)?.purchaseTiming;
+  const financing = [...leads].reverse().find((row) => row.financing)?.financing;
+  const email = buildFairExhibitorLeadEmail({
+    eventTitle: event.title,
+    exhibitorName,
+    contactName: latest.contactName,
+    ...(latest.email ? { email: latest.email } : {}),
+    ...(latest.phone ? { phone: latest.phone } : {}),
+    ...(purchaseTiming ? { purchaseTiming } : {}),
+    ...(financing ? { financing } : {}),
+    items,
+  });
+  await ctx.db.patch(delivery._id, { attemptCount: delivery.attemptCount + 1, claimedAt: now, exhibitorBatch: batch, recipient: batch.to.join(", "), updatedAt: now });
+  return { dedupeKey: delivery.dedupeKey, to: batch.to, ...(latest.email ? { replyTo: latest.email } : {}), ...email };
+}
 
 /**
  * A retryable failure re-queues the same row (same dedupeKey → same
@@ -309,7 +430,7 @@ export const requeueStaleDeliveries = internalMutation({
 const PURGE_BATCH_MAX = 200;
 
 /**
- * Lead/email part of the 16 Nov 2026 PII purge (MASTER §13, HANDOFF §5.6) —
+ * Lead/email part of the 16 Dec 2026 PII purge (MASTER §13, HANDOFF §5.6) —
  * the seam B7 composes into the scheduled, audited purge. One bounded batch:
  * outbox rows first (they carry recipients and point at leads), leads only
  * once no outbox row is left, so no orphan remains. Leads hold the contact,

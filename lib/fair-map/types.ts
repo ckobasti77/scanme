@@ -10,7 +10,7 @@
 import type { FairMapZoneIdValue } from "../fair-contract";
 
 /** Base event code of a geometry (DATA-INTAKE §1). `test-<key>` events use the same map. */
-export type FairMapKey = "elektromobilnost-2026" | "auto-moto-fest-2026";
+export type FairMapKey = "elektromobilnost-2026" | "auto-moto-fest-2026" | "auto-expo-2026";
 
 /**
  * The zones a map draws: only Hala and Ispred hale (owner, 9. 10. 2026: there
@@ -96,6 +96,11 @@ export type FairMapGeometry = {
   sourcePage: string;
   /** Day the organizer images were downloaded. */
   capturedOn: string;
+  /**
+   * 26 Nov 2026: no organizer floor plan — each zone is one open area
+   * (kind "area"), never invented stand boxes (Auto Expo 2026).
+   */
+  schematic?: true;
   zones: readonly FairMapZone[];
 };
 

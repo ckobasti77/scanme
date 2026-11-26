@@ -83,7 +83,7 @@ describe("POST /api/fair/visitor bootstrap", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     const cookie = response.headers.get("set-cookie")!;
-    expect(cookie).toMatch(/^scanme_fair_visitor=[A-Za-z0-9_-]{43}; Path=\/; Expires=Sun, 15 Nov 2026 23:00:00 GMT; Max-Age=\d+; HttpOnly; Secure; SameSite=Lax$/);
+    expect(cookie).toMatch(/^scanme_fair_visitor=[A-Za-z0-9_-]{43}; Path=\/; Expires=Tue, 15 Dec 2026 23:00:00 GMT; Max-Age=\d+; HttpOnly; Secure; SameSite=Lax$/);
     const token = /^scanme_fair_visitor=([^;]+);/.exec(cookie)![1];
     const text = await response.text();
     expect(JSON.parse(text)).toEqual({ ok: true });

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { AUTO_EXPO_2026_MAP } from "./auto-expo-2026";
 import { AUTO_MOTO_FEST_2026_MAP } from "./auto-moto-fest-2026";
 import { ELEKTROMOBILNOST_2026_MAP } from "./elektromobilnost-2026";
 import { FAIR_MAP_GEOMETRIES, fairMapEventSlugCandidates, fairMapForEventCode, fairMapLabelPoint, fairMapLocationById, isFairMapStandLocation } from "./index";
@@ -37,7 +38,8 @@ describe.each(geometries)("map geometry $key", (geometry) => {
   const shapes = geometry.zones.flatMap((zone) => [...zone.locations, ...zone.landmarks].map((shape) => ({ zone, shape })));
 
   test("starts with the hall and the area in front of it; each zone has its organizer image at its real pixel size", () => {
-    expect(geometry.zones.slice(0, 2).map((zone) => zone.id)).toEqual(["hala", "ispred"]);
+    // 26 Nov 2026: a schematic map (no organizer plan) has the hall only.
+    expect(geometry.zones.slice(0, 2).map((zone) => zone.id)).toEqual(geometry.schematic ? ["hala"] : ["hala", "ispred"]);
     for (const zone of geometry.zones) {
       expect(zone.image.src).toMatch(/^\/sajam\/mape\/[a-z-]+\.jpg$/);
       expect(jpegSize(join(process.cwd(), "public", zone.image.src)), zone.image.src).toEqual({ width: zone.image.width, height: zone.image.height });
@@ -66,11 +68,10 @@ describe.each(geometries)("map geometry $key", (geometry) => {
     }
   });
 
-  test("has exactly one ScanMe location: a placeholder is never a stand location, an organizer-confirmed one takes stands", () => {
+  test("has exactly one ScanMe location (none on a schematic map): a placeholder is never a stand location, an organizer-confirmed one takes stands", () => {
     const scanme = locations.filter(({ location }) => location.kind === "scanme");
-    expect(scanme).toHaveLength(1);
-    const [{ location }] = scanme;
-    expect(isFairMapStandLocation(geometry.key, location.id)).toBe(location.placement === "organizer");
+    expect(scanme).toHaveLength(geometry.schematic ? 0 : 1);
+    for (const { location } of scanme) expect(isFairMapStandLocation(geometry.key, location.id)).toBe(location.placement === "organizer");
   });
 
   test("everything but ScanMe is traced from the organizer image; boxes of a split stand carry their group's label", () => {
@@ -180,6 +181,31 @@ describe("Auto Moto Fest 2026 geometry stays as it was (N3 changes only the Elek
       ["ispred", ["ispred-12", "ispred-13", "ispred-14", "ispred-15", "ispred-16", "ispred-17", "ispred-18", "ispred-19", "ispred-20", "ispred-21", "ispred-22", "ispred-s1-s2", "ispred-s3", "ispred-s4", "ispred-s5", "ispred-s6", "scanme"]],
     ]);
     expect(AUTO_MOTO_FEST_2026_MAP.zones[1].locations.at(-1)).toMatchObject({ id: "scanme", kind: "scanme", placement: "placeholder" });
+  });
+});
+
+describe("Auto Expo 2026 — schematic map (owner, 26. 11.: no organizer plan, no stand number)", () => {
+  test("one zone with one open area that takes the stands; nothing traced, no layout invented", () => {
+    expect(AUTO_EXPO_2026_MAP.schematic).toBe(true);
+    expect(AUTO_EXPO_2026_MAP.zones.map((zone) => [zone.id, zone.locations.map((row) => [row.id, row.kind, row.placement])])).toEqual([["hala", [["hala", "area", "organizer"]]]]);
+    for (const zone of AUTO_EXPO_2026_MAP.zones) {
+      expect(zone.groups ?? []).toEqual([]);
+      expect(zone.landmarks).toEqual([]);
+      expect(zone.locations.every((row) => row.areaM2 === undefined && row.badge === undefined)).toBe(true);
+    }
+    expect(fairMapForEventCode("auto-expo-2026")?.key).toBe("auto-expo-2026");
+    expect(isFairMapStandLocation("auto-expo-2026", "hala")).toBe(true);
+    expect(isFairMapStandLocation("test-auto-expo-2026", "hala")).toBe(true);
+    expect(isFairMapStandLocation("auto-expo-2026", "hala-1")).toBe(false);
+  });
+
+  test("every schematic map stays schematic: open areas only, one per zone", () => {
+    for (const geometry of geometries.filter((row) => row.schematic)) {
+      for (const zone of geometry.zones) {
+        expect(zone.locations).toHaveLength(1);
+        expect(zone.locations[0]).toMatchObject({ id: zone.id, kind: "area", placement: "organizer" });
+      }
+    }
   });
 });
 

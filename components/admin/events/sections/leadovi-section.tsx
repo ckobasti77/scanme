@@ -45,7 +45,7 @@ function deliveryOf(row: Delivery): InboxDelivery {
 
 type ListedLead = {
   leadId: string; createdAt: number; kind: InboxLead["kind"]; eventModelId: string; participationId: string; contactName: string; email?: string; phone?: string;
-  status: "received" | "delivered"; deliveredAt?: number; followUpSuppressed: boolean; confirmation: Delivery; followUp: Delivery;
+  status: "received" | "delivered"; deliveredAt?: number; followUpSuppressed: boolean; confirmation: Delivery; followUp: Delivery; exhibitor?: Delivery;
 };
 
 function inboxLead(row: ListedLead): InboxLead {
@@ -63,6 +63,7 @@ function inboxLead(row: ListedLead): InboxLead {
     followUpSuppressed: row.followUpSuppressed,
     confirmation: deliveryOf(row.confirmation),
     followUp: deliveryOf(row.followUp),
+    ...(row.exhibitor !== undefined ? { exhibitor: deliveryOf(row.exhibitor) } : {}),
   };
 }
 

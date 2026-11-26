@@ -20,12 +20,15 @@ import schema from "./schema";
 import type { FairLeadFormView, FairLeadSubmitResult } from "../lib/fair-contract";
 import {
   FAIR_LEAD_CONFIRMATIONS_PER_RECIPIENT,
+  FAIR_PII_PURGE_AT_MS,
+  fairEventPiiOpen,
+  normalizeFairLeadNotifyEmails,
   normalizeFairLeadEmail,
   normalizeFairLeadName,
   normalizeFairLeadPhone,
 } from "../lib/fair-contract";
 import { fairLeadFormView, fairLeadSubmitResultView } from "./lib/fairValidators";
-import { FAIR_EMAIL_MAX_ATTEMPTS, fairFollowUpAt, fairFollowUpScheduleFor } from "./lib/fairLeads";
+import { FAIR_EMAIL_MAX_ATTEMPTS, FAIR_EXHIBITOR_EMAIL_DELAY_MS, fairFollowUpAt, fairFollowUpScheduleFor } from "./lib/fairLeads";
 import { buildFairLeadEmail, fairPublicBaseUrl, sendFairResendEmail, type FairLeadEmailMessage } from "./lib/fairEmails";
 import * as fairLeadsModule from "./fairLeads";
 import * as fairEmailsModule from "./fairEmails";
@@ -41,7 +44,7 @@ const BEFORE_OPENING = Date.parse("2026-10-08T12:00:00+02:00");
 const DAY1 = Date.parse("2026-10-09T10:00:00+02:00");
 const EVENT_ENDS = Date.parse("2026-10-12T00:00:00+02:00");
 const FOLLOW_UP_AT = Date.parse("2026-10-13T10:00:00+02:00");
-const PURGE_AT = Date.parse("2026-11-16T00:00:00+01:00");
+const PURGE_AT = Date.parse("2026-12-16T00:00:00+01:00");
 const ADMIN_EMAIL = "fair-admin@scanme.test";
 const ISSUER = "https://fair-b4.test";
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
@@ -1052,11 +1055,11 @@ describe("Visitor confirmation content (9 Oct 2026 copy)", () => {
     expect(testDrive.body.text).toBe([
       "Zdravo TEST,\nprimili smo vaš zahtev za probnu vožnju modela TEST Volta TEST test-volta-x2 i prosledili ga TEST Volta timu. Kontaktiraće vas da zajedno dogovorite dan i vreme.",
       "Za vožnju ponesite vozačku dozvolu. Uživajte!",
-      "Pozdrav,\nScanMe tim, Sajam elektromobilnosti",
+      "Pozdrav,\nScanMe tim, TEST elektromobilnost",
       "—",
       "Ovu poruku ste dobili jer ste na sajmu ostavili kontakt za TEST Volta TEST test-volta-x2. Vaše podatke dobija samo TEST izlagač TA. Saglasnost možete povući u svakom trenutku odgovorom na ovaj mejl. Politika privatnosti: https://scanme.rs/sajam/privatnost",
     ].join("\n\n"));
-    expect(interest.body.text).toContain("hvala što ste na Sajmu elektromobilnosti pogledali TEST Volta TEST test-volta-x1. Vaše interesovanje smo prosledili TEST Volta timu.");
+    expect(interest.body.text).toContain("hvala što ste na događaju TEST elektromobilnost pogledali TEST Volta TEST test-volta-x1. Vaše interesovanje smo prosledili TEST Volta timu.");
     expect(interest.body.text).toContain("Model i specifikacije možete ponovo da pogledate ovde: https://scanme.rs/sajam/test-elektromobilnost-2026/model/");
     for (const call of [testDrive, interest]) {
       expect(call.body.text).not.toMatch(/štand|TEST hala/i);
@@ -1128,10 +1131,12 @@ describe("B4 PII boundary: public functions never return contacts (HANDOFF §7, 
     expect(visibility(fairLeadsModule)).toEqual({ submitLead: "public" });
     expect(visibility(fairEmailsModule)).toEqual({
       claimDelivery: "internal", markSent: "internal", markFailed: "internal", purgeLeadPiiBatch: "internal",
+      // 26 Nov 2026: context of the exhibitor test email (no visitor data).
+      exhibitorTestContext: "internal",
       // N5: the 5-minute outbox sweep (cron only).
       requeueStaleDeliveries: "internal",
     });
-    expect(visibility(fairEmailSenderModule)).toEqual({ sendDelivery: "internal", sendDevTestEmail: "internal" });
+    expect(visibility(fairEmailSenderModule)).toEqual({ sendDelivery: "internal", sendDevTestEmail: "internal", sendExhibitorLeadTestEmail: "internal" });
     // Admin functions are public endpoints guarded by requireAdmin (tested above).
     expect(Object.values(visibility(fairLeadsAdminModule)).every((value) => value === "public")).toBe(true);
   });
@@ -1283,5 +1288,215 @@ describe("pre-event leads (JOVAN-DELTA 2026-10-08b)", () => {
     expect(exported.page.map((row) => row.createdAt)).toEqual([DAY1]);
     expect((await f.admin.query(api.fairLeadsInbox.listEventLeads, { eventId: f.eventId, paginationOpts: page })).page).toHaveLength(1);
     expect((await f.admin.query(api.fairLeadsInbox.listEventLeads, { eventId: f.eventId, includePreEvent: true, paginationOpts: page })).page).toHaveLength(2);
+  });
+});
+
+// =============================================================================
+// 26 Nov 2026 (owner) — the exhibitor gets each new lead by email (outbox kind
+// exhibitor_delivery), on per exhibitor; the brand page's models of one
+// visitor go out in ONE email; Reply-To is the visitor.
+// =============================================================================
+
+describe("Exhibitor lead email (exhibitor_delivery)", () => {
+  const NOTIFY = ["prodaja@izlagac-a.example.invalid", "vlasnik@izlagac-a.example.invalid"];
+  const notify = (f: Fixture, emails: string[]) =>
+    f.t.mutation(internal.fairSetup.setLeadNotifyEmails, { eventCode: "test-elektromobilnost-2026", participationExternalKey: "test-em-a", emails, actorEmail: ADMIN_EMAIL });
+  const exhibitorRows = async (f: Fixture) => (await rows(f, "fairEmailDeliveries")).filter((row) => row.kind === "exhibitor_delivery");
+  const exhibitorCalls = () => calls.filter((call) => call.body.subject.includes("Novi lid"));
+  async function runExhibitorEmails(f: Fixture) {
+    vi.advanceTimersByTime(FAIR_EXHIBITOR_EMAIL_DELAY_MS + 1);
+    await f.t.finishInProgressScheduledFunctions();
+  }
+
+  test("off by default: a lead queues no exhibitor email", async () => {
+    const f = await setup();
+    await submit(f, visitor(), f.models.starter);
+    expect(await exhibitorRows(f)).toHaveLength(0);
+  });
+
+  test("addresses are normalized; more than 3 or an invalid one is refused; [] switches it off", async () => {
+    const f = await setup();
+    expect(await notify(f, [" Prodaja@Izlagac-A.example.invalid ", "prodaja@izlagac-a.example.invalid", ""])).toMatchObject({ emails: ["prodaja@izlagac-a.example.invalid"], result: "updated" });
+    expect(await notify(f, ["prodaja@izlagac-a.example.invalid"])).toMatchObject({ result: "unchanged" });
+    await expect(notify(f, ["a@x.example", "b@x.example", "c@x.example", "d@x.example"])).rejects.toThrow("fair_setup_lead_notify_emails_invalid");
+    await expect(notify(f, ["a@x.example, b@x.example"])).rejects.toThrow("fair_setup_lead_notify_emails_invalid");
+    expect(await notify(f, [])).toMatchObject({ emails: [], result: "updated" });
+    const participation = await f.t.run(async (ctx) => ctx.db.get(f.a.participationId));
+    expect(participation?.leadNotifyEmails).toBeUndefined();
+    expect((await rows(f, "adminAuditLog")).filter((row) => row.action === "fair_lead_notify_emails_set")).toHaveLength(2);
+  });
+
+  test("admin mutation: only an admin, validated, audited", async () => {
+    const f = await setup();
+    await expect(f.member.mutation(api.fairLeadsAdmin.setLeadNotifyEmails, { participationId: f.a.participationId, emails: NOTIFY })).rejects.toThrow();
+    await expectCode(f.admin.mutation(api.fairLeadsAdmin.setLeadNotifyEmails, { participationId: f.a.participationId, emails: ["nije-adresa"] }), "INVALID_INPUT");
+    expect(await f.admin.mutation(api.fairLeadsAdmin.setLeadNotifyEmails, { participationId: f.a.participationId, emails: NOTIFY })).toEqual({ emails: NOTIFY, result: "updated" });
+    const participation = await f.t.run(async (ctx) => ctx.db.get(f.a.participationId));
+    expect(participation?.leadNotifyEmails).toEqual(NOTIFY);
+    expect((await rows(f, "adminAuditLog")).filter((row) => row.action === "fair_lead_notify_emails_set")).toHaveLength(1);
+  });
+
+  test("on: one email 90 s later to every address, Reply-To = visitor, lead delivered", async () => {
+    const f = await setup();
+    await notify(f, NOTIFY);
+    await submit(f, visitor(), f.models.advanced, { kind: "test_drive", phone: PHONE });
+    const [row] = await exhibitorRows(f);
+    expect(row).toMatchObject({ status: "queued", scheduledFor: DAY1 + FAIR_EXHIBITOR_EMAIL_DELAY_MS, recipient: NOTIFY.join(", "), attemptCount: 0 });
+    expect(row.dedupeKey).toBe(`fair-lead/${row.leadId}/exhibitor_delivery`);
+    await runDueNow(f);
+    expect(exhibitorCalls()).toHaveLength(0);
+    await runExhibitorEmails(f);
+    const [call] = exhibitorCalls();
+    expect(exhibitorCalls()).toHaveLength(1);
+    expect(call.body.to).toEqual(NOTIFY);
+    expect(call.body.reply_to).toBe(EMAIL);
+    expect(call.key).toBe(row.dedupeKey);
+    expect(call.body.subject).toBe(`Novi lid · TEST elektromobilnost · Probna vožnja · TEST test-volta-x2 — ${NAME}`);
+    expect(call.body.text).toContain("TEST test-volta-x2 — Probna vožnja, 09.10.2026. 10:00");
+    expect(call.body.text).toContain(`Telefon: ${PHONE_E164}`);
+    expect(call.body.text).toContain(`Email: ${EMAIL}`);
+    expect(call.body.text).toContain("Posetilac je dao saglasnost da ga TEST izlagač TA kontaktira");
+    expect(call.body.text).toContain("Odgovor na ovaj mejl ide direktno posetiocu.");
+    expect(await deliveryRow(f, row._id)).toMatchObject({ status: "sent", exhibitorBatch: { to: NOTIFY, leadIds: [row.leadId] } });
+    const [lead] = await rows(f, "fairLeads");
+    expect(lead).toMatchObject({ status: "delivered", deliveredAt: DAY1 + FAIR_EXHIBITOR_EMAIL_DELAY_MS + 2 });
+  });
+
+  test("brand page: 3 models of one visitor → ONE email; the other rows are skipped/EXHIBITOR_DELIVERY_MERGED; another exhibitor is never merged", async () => {
+    const f = await setup();
+    await notify(f, NOTIFY);
+    const hash = visitor();
+    await submit(f, hash, f.models.starter);
+    await submit(f, hash, f.models.advanced);
+    await submit(f, hash, f.models.advanced, { kind: "test_drive", phone: PHONE });
+    await submit(f, hash, f.models.advancedB);
+    expect(await exhibitorRows(f)).toHaveLength(3);
+    await runExhibitorEmails(f);
+    expect(exhibitorCalls()).toHaveLength(1);
+    const [call] = exhibitorCalls();
+    expect(call.body.subject).toMatch(/^Novi lid · TEST elektromobilnost · Više upita · .+ \+1 — /);
+    for (const model of ["TEST test-volta-x1 — Zainteresovan sam", "TEST test-volta-x2 — Zainteresovan sam", "TEST test-volta-x2 — Probna vožnja"]) {
+      expect(call.body.text).toContain(model);
+    }
+    expect(call.body.text).not.toContain("test-om-z2");
+    const outcome = (await exhibitorRows(f)).map((row) => `${row.status}:${row.lastError ?? ""}`).sort();
+    expect(outcome).toEqual(["sent:", "skipped:EXHIBITOR_DELIVERY_MERGED", "skipped:EXHIBITOR_DELIVERY_MERGED"]);
+    const leads = await rows(f, "fairLeads");
+    expect(leads.filter((lead) => lead.participationId === f.a.participationId).every((lead) => lead.status === "delivered")).toBe(true);
+    expect(leads.find((lead) => lead.participationId === f.b.participationId)?.status).toBe("received");
+  });
+
+  test("retry after 503: same key, same recipients, same body; a lead left meanwhile is not merged into it and gets its own email", async () => {
+    const f = await setup();
+    await notify(f, NOTIFY);
+    const hash = visitor();
+    await submit(f, hash, f.models.starter);
+    await runDueNow(f);
+    const confirmations = calls.length;
+    respond = (call) => (call === confirmations + 1 ? new Response("unavailable", { status: 503 }) : Response.json({ id: `re_test_message_${call}` }));
+    await runExhibitorEmails(f);
+    const [first] = await exhibitorRows(f);
+    expect(first).toMatchObject({ status: "queued", attemptCount: 1, lastError: "PROVIDER_UNAVAILABLE:503" });
+    // The visitor adds a model while the retry waits: never folded into the claimed batch.
+    await submit(f, hash, f.models.advanced);
+    await runExhibitorEmails(f);
+    await f.t.finishAllScheduledFunctions(vi.runAllTimers);
+    const sent = exhibitorCalls();
+    const firstCalls = sent.filter((call) => call.key === first.dedupeKey);
+    expect(firstCalls).toHaveLength(2);
+    expect(firstCalls[1].body).toEqual(firstCalls[0].body);
+    expect(firstCalls[1].body.text).not.toContain("test-volta-x2");
+    const rowsNow = await exhibitorRows(f);
+    expect(rowsNow.map((row) => row.status)).toEqual(["sent", "sent"]);
+    expect(sent.filter((call) => call.key !== first.dedupeKey)).toHaveLength(1);
+    expect(sent.find((call) => call.key !== first.dedupeKey)!.body.text).toContain("test-volta-x2");
+  });
+
+  test("a lead before the opening queues no exhibitor email (test leads)", async () => {
+    const f = await setup();
+    await notify(f, NOTIFY);
+    vi.setSystemTime(BEFORE_OPENING);
+    await submit(f, visitor(), f.models.starter);
+    expect(await rows(f, "fairLeads")).toHaveLength(1);
+    expect(await exhibitorRows(f)).toHaveLength(0);
+  });
+
+  test("an admin-session lead queues no exhibitor email; a duplicate submit adds no row", async () => {
+    const f = await setup();
+    await notify(f, NOTIFY);
+    await f.admin.mutation(api.fairLeads.submitLead, {
+      gatewaySecret: GATEWAY_SECRET, visitorHash: visitor(), eventModelId: f.models.starter, kind: "interest", submissionId: submissionId(),
+      contactName: NAME, email: EMAIL, consentAccepted: true, consentVersion: 1,
+    });
+    expect(await rows(f, "fairLeads")).toHaveLength(1);
+    expect(await exhibitorRows(f)).toHaveLength(0);
+    const id = submissionId();
+    const hash = visitor();
+    await submit(f, hash, f.models.starter, { submissionId: id });
+    await submit(f, hash, f.models.starter, { submissionId: id });
+    await submit(f, hash, f.models.starter);
+    expect(await exhibitorRows(f)).toHaveLength(1);
+  });
+
+  test("switched off before the send → skipped/EXHIBITOR_NOTIFY_OFF; leads switch off → skipped/LEADS_DISABLED; the sweep never revives them", async () => {
+    const f = await setup();
+    await notify(f, NOTIFY);
+    await submit(f, visitor(), f.models.starter);
+    await submit(f, visitor(), f.models.advanced);
+    const [off, disabled] = await exhibitorRows(f);
+    await notify(f, []);
+    // The clock only (no scheduled send fires): the claims below are the ones under test.
+    vi.setSystemTime(DAY1 + FAIR_EXHIBITOR_EMAIL_DELAY_MS + 1);
+    expect(await f.t.mutation(internal.fairEmails.claimDelivery, { deliveryId: off._id })).toEqual({ action: "skip" });
+    await notify(f, NOTIFY);
+    process.env.FAIR_LEADS_ENABLED = "false";
+    expect(await f.t.mutation(internal.fairEmails.claimDelivery, { deliveryId: disabled._id })).toEqual({ action: "skip" });
+    expect(await deliveryRow(f, off._id)).toMatchObject({ status: "skipped", lastError: "EXHIBITOR_NOTIFY_OFF" });
+    expect(await deliveryRow(f, disabled._id)).toMatchObject({ status: "skipped", lastError: "LEADS_DISABLED" });
+    vi.advanceTimersByTime(10 * 60 * 1000);
+    await f.t.mutation(internal.fairEmails.requeueStaleDeliveries, {});
+    await f.t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(exhibitorCalls()).toHaveLength(0);
+  });
+
+  test("an event with its own earlier purge moment refuses leads although the global one is later", async () => {
+    const f = await setup();
+    await f.t.run(async (ctx) => { await ctx.db.patch(f.eventId, { piiPurgeAt: DAY1 - 1 }); });
+    await expectCode(submit(f, visitor(), f.models.starter), "EVENT_NOT_ACTIVE");
+    expect(fairEventPiiOpen({ piiPurgeAt: DAY1 + 1 }, DAY1)).toBe(true);
+    expect(fairEventPiiOpen({ piiPurgeAt: DAY1 }, DAY1)).toBe(false);
+    expect(fairEventPiiOpen({ piiPurgeAt: Number.MAX_SAFE_INTEGER }, FAIR_PII_PURGE_AT_MS)).toBe(false);
+  });
+
+  test("sendExhibitorLeadTestEmail sends TEST data to the given address (or the configured ones) and writes nothing", async () => {
+    const f = await setup();
+    vi.useRealTimers();
+    expect(await f.t.action(internal.fairEmailSender.sendExhibitorLeadTestEmail, { participationId: f.a.participationId })).toMatchObject({ ok: false, error: "EXHIBITOR_NOTIFY_OFF" });
+    expect(await f.t.action(internal.fairEmailSender.sendExhibitorLeadTestEmail, { participationId: f.a.participationId, to: "nije adresa" })).toMatchObject({ ok: false, error: "INVALID_INPUT" });
+    const result = await f.t.action(internal.fairEmailSender.sendExhibitorLeadTestEmail, { participationId: f.a.participationId, to: "Proba@Example.invalid" });
+    expect(result).toMatchObject({ ok: true, recipients: 1 });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body.to).toEqual(["proba@example.invalid"]);
+    expect(calls[0].body.subject).toMatch(/^TEST: Novi lid · TEST elektromobilnost · /);
+    expect(calls[0].body.text).toContain("TEST poruka");
+    expect(await rows(f, "fairLeads")).toHaveLength(0);
+    expect(await rows(f, "fairEmailDeliveries")).toHaveLength(0);
+  });
+
+  test("normalizeFairLeadNotifyEmails", () => {
+    expect(normalizeFairLeadNotifyEmails([" A@B.example ", "a@b.example"])).toEqual(["a@b.example"]);
+    expect(normalizeFairLeadNotifyEmails([])).toEqual([]);
+    expect(normalizeFairLeadNotifyEmails(["x"])).toBeNull();
+    expect(normalizeFairLeadNotifyEmails(["a@b.example", "c@d.example", "e@f.example", "g@h.example"])).toBeNull();
+  });
+
+  test("sendFairResendEmail: an address list and a per-message Reply-To", async () => {
+    const outcome = await sendFairResendEmail(
+      { subject: "S", text: "T", html: "<p>T</p>" },
+      { apiKey: "re_test_not_a_real_key", from: "ScanMe TEST <test-sender@example.invalid>", replyTo: "posetilac@example.invalid", to: ["a@example.invalid", "b@example.invalid"], idempotencyKey: "k" },
+      fetch,
+    );
+    expect(outcome).toMatchObject({ ok: true });
+    expect(calls[0].body).toMatchObject({ to: ["a@example.invalid", "b@example.invalid"], reply_to: "posetilac@example.invalid" });
   });
 });

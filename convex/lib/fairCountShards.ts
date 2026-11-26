@@ -6,7 +6,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 // (TASK-24), but its OWN table: the fair never writes memoriesCountShards.
 //
 // Raw rows (fairScanEvents, fairUniqueScans) stay the source of truth; these
-// shards are the read projection that survives the 16 Nov 2026 PII purge as an
+// shards are the read projection that survives the 16 Dec 2026 PII purge as an
 // anonymous aggregate (keys carry model/stand ids and Belgrade time buckets,
 // never a visitor).
 //

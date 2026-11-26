@@ -111,7 +111,7 @@ describe("A8 lead inbox", () => {
     expect(html).toContain(`>${t.fromLabel}</label>`);
     expect(html).toContain(`>${t.toLabel}</label>`);
     expect(html.match(/min="2026-10-01"/g)).toHaveLength(2);
-    expect(html.match(/max="2026-11-15"/g)).toHaveLength(2);
+    expect(html.match(/max="2026-12-15"/g)).toHaveLength(2);
     expect(html).toContain("TEST Izlagač A");
     expect(html).toContain(t.kindOptions["probna-voznja"]);
     expect(html).toContain(t.deliveryOptions.ne);
@@ -158,7 +158,7 @@ describe("A8 lead inbox", () => {
     for (const text of [
       t.colLead, t.colReceived, t.colKindModel, t.colExhibitor, t.colDelivery, t.colEmails,
       t.delivered, t.notDelivered, t.markDelivered, t.open,
-      fmt(t.undelivered, { count: 2 }), fmt(t.deadlineDays, { days: 37 }),
+      fmt(t.undelivered, { count: 2 }), fmt(t.deadlineDays, { days: 67 }),
       adminEventsSr.deliveryErrors.FOLLOW_UP_MERGED, "TEST Volta X2", "TEST Izlagač A", t.formsLink, t.followUpLink, t.settingsLink,
     ]) expect(html).toContain(text.replace(/"/g, "&quot;"));
     // The detail is a link (`?lead=`), so Back closes the drawer (the vitest next/link stub keeps href only).
@@ -246,9 +246,9 @@ describe("A8 inbox logic", () => {
   });
 
   test("delivery deadline: days left, the last day, then passed", () => {
-    expect(leadDeliveryDeadline(AT)).toEqual({ kind: "days", days: 37 });
-    expect(leadDeliveryDeadline(Date.parse("2026-11-14T23:30:00+01:00"))).toEqual({ kind: "days", days: 1 });
-    expect(leadDeliveryDeadline(Date.parse("2026-11-15T00:10:00+01:00"))).toEqual({ kind: "today" });
+    expect(leadDeliveryDeadline(AT)).toEqual({ kind: "days", days: 67 });
+    expect(leadDeliveryDeadline(Date.parse("2026-12-14T23:30:00+01:00"))).toEqual({ kind: "days", days: 1 });
+    expect(leadDeliveryDeadline(Date.parse("2026-12-15T00:10:00+01:00"))).toEqual({ kind: "today" });
     expect(leadDeliveryDeadline(FAIR_LEAD_DELIVERY_DEADLINE_MS)).toEqual({ kind: "today" });
     expect(leadDeliveryDeadline(FAIR_PII_PURGE_AT_MS)).toEqual({ kind: "passed" });
   });

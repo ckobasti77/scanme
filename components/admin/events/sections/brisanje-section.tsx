@@ -7,13 +7,13 @@ import { AdminEventsRetention, type RetentionActions, type RetentionView } from 
 import { interactionOutcome } from "@/components/admin/events/event-outcome";
 
 // B7 — container of `brisanje` (convex/fairRetention.ts). The purge is
-// global (both fairs share the 16 Nov date), so it does not depend on the
+// global (both fairs share the 16 Dec date), so it does not depend on the
 // chosen event.
 
 export function BrisanjeSection() {
   const overview = useQuery(api.fairRetention.getRetentionOverview, {});
   const startDryRun = useMutation(api.fairRetention.startPurgeDryRun);
-  // Browser time, read once per mount: the countdown to 16 Nov (A9).
+  // Browser time, read once per mount: the countdown to 16 Dec (A9).
   const [now] = useState(() => Date.now());
   const view: RetentionView | undefined = useMemo(() => {
     if (!overview) return undefined;

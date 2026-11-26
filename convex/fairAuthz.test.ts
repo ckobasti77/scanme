@@ -133,6 +133,8 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
       exportLeads: A, setFollowUpSuppressed: A, retryEmailDelivery: A,
       // Admin UX A7 — lead forms per exhibitor and the K3 switch state.
       getEventLeadForms: A, upsertParticipationLeadDefault: A, applyLeadDefaultsToModels: A, clearLeadOverride: A, getLeadSwitches: A,
+      // 26 Nov 2026 — the exhibitor's addresses for the new-lead email.
+      setLeadNotifyEmails: A,
     },
   },
   // Admin UX A8 — the lead inbox (activity next to a lead, delivery) and the follow-up per exhibitor.
@@ -168,15 +170,16 @@ const AUTHZ: Record<string, { module: Record<string, unknown>; functions: Record
   fairAnalytics: { module: fairAnalytics, functions: { reportContext: I, modelDayRaw: I, organizerScope: I, organizerStandDays: I, organizerParticipationLeads: I } },
   fairScans: { module: fairScans, functions: { modelScanCounts: I } },
   // N5: requeueStaleDeliveries — the 5-minute outbox sweep (cron only).
-  fairEmails: { module: fairEmails, functions: { claimDelivery: I, markSent: I, markFailed: I, purgeLeadPiiBatch: I, requeueStaleDeliveries: I } },
-  fairEmailSender: { module: fairEmailSender, functions: { sendDelivery: I, sendDevTestEmail: I } },
+  // 26 Nov 2026: exhibitorTestContext / sendExhibitorLeadTestEmail — the exhibitor test email (CLI only).
+  fairEmails: { module: fairEmails, functions: { claimDelivery: I, markSent: I, markFailed: I, purgeLeadPiiBatch: I, requeueStaleDeliveries: I, exhibitorTestContext: I } },
+  fairEmailSender: { module: fairEmailSender, functions: { sendDelivery: I, sendDevTestEmail: I, sendExhibitorLeadTestEmail: I } },
   fairDevFixtures: {
     module: fairDevFixtures,
     // Aleksa (8. 10.): seedElectromobilityReviewCatalog — DEV review catalog of the real event.
     functions: { seedTestCatalog: I, seedTestQr: I, seedTestPassport: I, seedTestSponsoredSnapshot: I, seedIntegrationTest: I, seedShowcaseCatalog: I, seedElectromobilityReviewCatalog: I },
   },
   // Aleksa (8. 10., ebb3102): the real elektromobilnost-2026 setup, internal only (RUNBOOK-EVENT-SETUP.md).
-  fairSetup: { module: fairSetup, functions: { bootstrapEvent: I, importDryRun: I, importCommit: I, publishEventModels: I, setupAudienceQuestions: I, setupSurveys: I, setupLeads: I, amfQrHousekeeping: I, pointSponsoredToDay: I, scheduleSponsoredDays: I, setModelHighlight: I, setSponsoredOverride: I, recomputePopularModelHighlight: I, setHighlightAutoMode: I } },
+  fairSetup: { module: fairSetup, functions: { bootstrapEvent: I, importDryRun: I, importCommit: I, publishEventModels: I, setupAudienceQuestions: I, setupSurveys: I, setupLeads: I, amfQrHousekeeping: I, pointSponsoredToDay: I, scheduleSponsoredDays: I, setModelHighlight: I, setSponsoredOverride: I, recomputePopularModelHighlight: I, setHighlightAutoMode: I, setEventStatus: I, setLeadNotifyEmails: I } },
   fairAmfReview: { module: fairAmfReview, functions: { applySpecs: I, removeAccidentalVote: I, removeReviewLead: I, backfillAmfScans: I, setupSingleModelPassports: I } },
   // JOVAN-DELTA 2026-10-08b — "Resetuj pre-event podatke" (admin) and the one-off package alignment (CLI).
   fairPreEvent: { module: fairPreEvent, functions: { previewPreEventReset: A, resetPreEventData: A, resetPreEventContinue: I, alignFuturePackageActivations: I } },
@@ -216,7 +219,7 @@ async function setup() {
     const survey = (await ctx.db.query("fairSurveys").withIndex("by_eventModelId_and_status", (q) => q.eq("eventModelId", model._id).eq("status", "published")).unique())!;
     const passport = (await ctx.db.query("fairPassportConfigs").withIndex("by_eventId_and_brandId", (q) => q.eq("eventId", event._id).eq("brandId", model.brandId)).unique())!;
     // Exhibitor data that must never reach a public function.
-    await ctx.db.patch(model.participationId, { reportRecipientEmail: "izvestaji-a@example.invalid", leadDeliveryNote: "TEST napomena o predaji" });
+    await ctx.db.patch(model.participationId, { reportRecipientEmail: "izvestaji-a@example.invalid", leadDeliveryNote: "TEST napomena o predaji", leadNotifyEmails: ["lidovi-a@example.invalid"] });
     return { eventId: event._id, modelId: model._id, participationId: model.participationId, brandId: model.brandId, dayId: day._id, questionId: question._id, surveyId: survey._id, passportId: passport._id };
   });
   return { t, admin, member, seed, ...ids };
@@ -316,6 +319,7 @@ describe("B7 authz table of every fair function", () => {
       ["getEventLeadForms", (c) => c.query(api.fairLeadsAdmin.getEventLeadForms, { eventId: f.eventId })],
       ["upsertParticipationLeadDefault", (c) => c.mutation(api.fairLeadsAdmin.upsertParticipationLeadDefault, { participationId: f.participationId, leadKind: "interest", enabled: true, contactRequirement: "one_of" })],
       ["applyLeadDefaultsToModels", (c) => c.mutation(api.fairLeadsAdmin.applyLeadDefaultsToModels, { participationId: f.participationId })],
+      ["setLeadNotifyEmails", (c) => c.mutation(api.fairLeadsAdmin.setLeadNotifyEmails, { participationId: f.participationId, emails: [] })],
       ["clearLeadOverride", (c) => c.mutation(api.fairLeadsAdmin.clearLeadOverride, { eventModelId: f.modelId, leadKind: "interest" })],
       ["getLeadSwitches", (c) => c.query(api.fairLeadsAdmin.getLeadSwitches, {})],
       ["listEventLeads", (c) => c.query(api.fairLeadsInbox.listEventLeads, { eventId: f.eventId, paginationOpts: { numItems: 10, cursor: null } })],
@@ -424,6 +428,6 @@ describe("B7 authz table of every fair function", () => {
       ...f.seed.qr.map((row) => row.resolverCode), "SMK-TEST", "SML-TEST", "@example.invalid",
     ];
     for (const secret of secrets) expect({ secret, leaked: text.includes(secret) }).toEqual({ secret, leaked: false });
-    expect(text).not.toMatch(/"(sum|average|ratingCount|ratingSum|count|totalVotes|packageTier|reportRecipientEmail|leadDeliveryNote|recipient|visitorId|visitorHash|consentTextSnapshot|consentedAt|contactName)"\s*:/);
+    expect(text).not.toMatch(/"(sum|average|ratingCount|ratingSum|count|totalVotes|packageTier|reportRecipientEmail|leadDeliveryNote|leadNotifyEmails|exhibitorBatch|recipient|visitorId|visitorHash|consentTextSnapshot|consentedAt|contactName)"\s*:/);
   });
 });

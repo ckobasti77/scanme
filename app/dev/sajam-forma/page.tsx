@@ -30,7 +30,7 @@ const scalar = (value: string | string[] | undefined) => (Array.isArray(value) ?
 const TEST_MODEL = "TEST Volta X1 TEST Premium";
 const TEST_EXHIBITOR = "TEST Izlagač A";
 const TEST_CONSENT =
-  "TEST saglasnost: ScanMe prima vaše ime i kontakt i prosleđuje ih samo izlagaču TEST Izlagač A, koji će vas kontaktirati povodom ovog zahteva. Podaci se trajno brišu 16. 11. 2026.";
+  "TEST saglasnost: ScanMe prima vaše ime i kontakt i prosleđuje ih samo izlagaču TEST Izlagač A, koji će vas kontaktirati povodom ovog zahteva. Podaci se trajno brišu 16. 12. 2026.";
 const FILLED: FairLeadDraft = { values: { contactName: "TEST Posetilac", email: "posetilac@example.invalid", phone: "064 000 0000" }, consent: "accept" };
 
 function requirement(value: string | undefined, kind: FairLeadSheetKind): FairContactRequirement {

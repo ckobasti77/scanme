@@ -67,7 +67,7 @@ export function hasLeadInboxFilter(query: AdminQueryState): boolean {
 
 export type LeadDeadline = { kind: "days"; days: number } | { kind: "today" } | { kind: "passed" };
 
-/** Calendar days (Belgrade) until 15 Nov 2026, the last day to hand leads over (MASTER §13). */
+/** Calendar days (Belgrade) until 15 Dec 2026, the last day to hand leads over (MASTER §13). */
 export function leadDeliveryDeadline(now: number): LeadDeadline {
   if (now > FAIR_LEAD_DELIVERY_DEADLINE_MS) return { kind: "passed" };
   const today = belgradeParts(now);

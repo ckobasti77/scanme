@@ -16,7 +16,7 @@ const { fairGarageEmailHash } = await import("../lib/fair-server/garage-email");
 
 const modules = import.meta.glob("./**/*.ts");
 const DAY1 = Date.parse("2026-10-30T12:00:00+01:00");
-const PURGE_AT = Date.parse("2026-11-16T00:00:00+01:00");
+const PURGE_AT = Date.parse("2026-12-16T00:00:00+01:00");
 const ADMIN_EMAIL = "fair-admin@scanme.test";
 const ISSUER = "https://fair-garage.test";
 const SECRET = "test-fair-visitor-secret-0123456789abcdef";
@@ -205,7 +205,7 @@ describe("Sačuvaj garažu — Convex", () => {
     await request(f, { email: "isti@example.invalid" });
   });
 
-  test("no address and no send log left after the 16 Nov purge", async () => {
+  test("no address and no send log left after the 16 Dec purge", async () => {
     const f = await setup();
     await request(f);
     vi.setSystemTime(PURGE_AT + 1);

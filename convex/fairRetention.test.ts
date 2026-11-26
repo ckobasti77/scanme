@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-// Sajam 2026 B7 — the 16 Nov 2026 PII purge (BACKEND-HANDOFF §5.6, §12
+// Sajam 2026 B7 — the 16 Dec 2026 PII purge (BACKEND-HANDOFF §5.6, §12
 // "purge batch ne prelazi limit, briše sve PII/visitor-linked izvore i ne dira
 // ne-PII agregate"; MASTER §13, §18). The catalog comes from the B7
 // integration TEST seed; the visitor-linkable rows are inserted directly so
@@ -157,7 +157,7 @@ describe("B7 purge preview and dry run", () => {
     expect(await counts(f, PII_TABLES)).toEqual(before);
   });
 
-  test("before 16 Nov 00:00 (Belgrade) the cron never deletes", async () => {
+  test("before 16 Dec 00:00 (Belgrade) the cron never deletes", async () => {
     const f = await setup();
     const before = await counts(f, PII_TABLES);
     vi.setSystemTime(FAIR_PII_PURGE_AT_MS - 1);
@@ -167,7 +167,7 @@ describe("B7 purge preview and dry run", () => {
   });
 });
 
-describe("B7 purge execution (16 Nov 2026)", () => {
+describe("B7 purge execution (16 Dec 2026)", () => {
   test("bounded batches in order delete every PII row, leave no orphan, keep aggregates and catalog, audit without identifiers", async () => {
     const f = await setup();
     const before = await counts(f, PII_TABLES);

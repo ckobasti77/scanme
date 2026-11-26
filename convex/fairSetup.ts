@@ -12,7 +12,8 @@ import { fairModelTierAt } from "./lib/fairInteractions";
 import { fairScanCountKey, readFairCount } from "./lib/fairCountShards";
 import { fairAnalyticsCutoff, fairDayCountFrom } from "./lib/fairPreEvent";
 import { applyDestination, prepareDestination, syncChannel } from "./lib/accessOperations";
-import { fairContactRequirement, fairLeadKind, fairModelHighlight } from "./lib/fairValidators";
+import { fairContactRequirement, fairEventStatus, fairLeadKind, fairModelHighlight } from "./lib/fairValidators";
+import { writeFairLeadNotifyEmails } from "./lib/fairLeads";
 import type { Doc } from "./_generated/dataModel";
 import { createEventOnlyClient } from "./fairAdmin";
 import { commitFairImport, fairImportPayload, planFairImport } from "./fairImport";
@@ -22,6 +23,7 @@ import {
   FAIR_AUDIENCE_OPTIONS_MIN,
   FAIR_SURVEY_MAX_QUESTIONS,
   FAIR_SURVEY_OPTIONS_MAX,
+  normalizeFairLeadNotifyEmails,
 } from "../lib/fair-contract";
 import { getFairEntitlements } from "../lib/fair-entitlements";
 
@@ -92,6 +94,26 @@ const EVENTS: Record<string, SetupEvent> = {
       { code: "NIKOM", accountName: "Nikom grupacija (NIKOM-AUTO DOO)", shortName: "Nikom", brands: ["Dongfeng", "Fiat"] },
       { code: "GRAND-MOTORS", accountName: "Grand Motors d.o.o.", shortName: "Grand Motors", brands: ["MG", "Ford", "Ineos"] },
       { code: "SWM", accountName: "SWM", shortName: "SWM", brands: ["SWM"] },
+    ],
+  },
+  "auto-expo-2026": {
+    code: "auto-expo-2026",
+    title: "Auto Expo 2026",
+    venueName: "Šumadija sajam, Kragujevac",
+    // 26 Nov 2026 (owner): Fri and Sat 10:00–20:00, Sun 10:00–18:00. The
+    // passport set freezes at the opening, so the intake goes in before it.
+    startsAt: Date.parse("2026-11-27T10:00:00+01:00"),
+    endsAt: Date.parse("2026-11-29T18:00:00+01:00"),
+    garagePriority: 3,
+    days: [
+      { dateKey: "2026-11-27", label: "Petak, 27. novembar" },
+      { dateKey: "2026-11-28", label: "Subota, 28. novembar" },
+      { dateKey: "2026-11-29", label: "Nedelja, 29. novembar" },
+    ],
+    // ScanMe is not the fair's partner: only Grand Motors (the same client as
+    // on Elektro and AMF, same SMK/SML codes), represented by VIVA COMPANY.
+    exhibitors: [
+      { code: "GRAND-MOTORS", accountName: "Grand Motors d.o.o.", shortName: "Grand Motors", brands: ["Ford", "MG"] },
     ],
   },
 };
@@ -695,6 +717,71 @@ export const setSponsoredOverride = internalMutation({
       await writeAdminAudit(ctx, { actorUserId, action: "fair_setup_sponsored_override", detail: { eventCode: event.code, modelSlug: model.slug, enabled: args.enabled, questionChosen: chosenId !== null }, now });
     }
     return { eventModelId: model._id, enabled: args.enabled, questionChosen: chosenId !== null, sync };
+  },
+});
+
+/**
+ * 26 Nov 2026: closes (or reopens) a fair event without an admin session —
+ * `bootstrapEvent` always publishes. Same write path as `fairAdmin.upsertEvent`
+ * (`upsertFairEvent`), with every other field kept as stored. `ended` refuses
+ * leads and other interactions (EVENT_NOT_ACTIVE). Idempotent.
+ */
+export const setEventStatus = internalMutation({
+  args: { eventCode: v.string(), status: fairEventStatus, actorEmail: v.string() },
+  returns: v.object({ eventId: v.id("fairEvents"), previous: fairEventStatus, result: v.union(v.literal("updated"), v.literal("unchanged")) }),
+  handler: async (ctx, args) => {
+    const actorUserId = await setupActor(ctx, args.actorEmail);
+    const event = await fairEventByCode(ctx, args.eventCode);
+    if (!event) throw new Error("fair_setup_event_missing");
+    const now = Date.now();
+    const { result } = await upsertFairEvent(ctx, {
+      code: event.code,
+      slug: event.slug,
+      title: event.title,
+      venueName: event.venueName,
+      startsAt: event.startsAt,
+      endsAt: event.endsAt,
+      garagePriority: event.garagePriority,
+      status: args.status,
+    }, now);
+    if (result === "updated") {
+      await writeAdminAudit(ctx, { actorUserId, action: "fair_setup_event_status", detail: { eventCode: event.code, from: event.status, to: args.status }, now });
+    }
+    return { eventId: event._id, previous: event.status, result: result === "updated" ? "updated" as const : "unchanged" as const };
+  },
+});
+
+/**
+ * 26 Nov 2026 (owner): who gets a new lead of this exhibitor by email right
+ * away (outbox kind `exhibitor_delivery`). Empty list = off. At most
+ * FAIR_LEAD_NOTIFY_EMAILS_MAX addresses, normalized like a visitor email.
+ */
+export const setLeadNotifyEmails = internalMutation({
+  args: { eventCode: v.string(), participationExternalKey: v.string(), emails: v.array(v.string()), actorEmail: v.string() },
+  returns: v.object({ participationId: v.id("fairParticipations"), emails: v.array(v.string()), result: v.union(v.literal("updated"), v.literal("unchanged")) }),
+  handler: async (ctx, args) => {
+    const actorUserId = await setupActor(ctx, args.actorEmail);
+    const event = await fairEventByCode(ctx, args.eventCode);
+    if (!event) throw new Error("fair_setup_event_missing");
+    const participation = await ctx.db
+      .query("fairParticipations")
+      .withIndex("by_eventId_and_externalKey", (q) => q.eq("eventId", event._id).eq("externalKey", args.participationExternalKey))
+      .unique();
+    if (!participation) throw new Error(`fair_setup_participation_missing:${args.participationExternalKey}`);
+    const emails = normalizeFairLeadNotifyEmails(args.emails);
+    if (!emails) throw new Error("fair_setup_lead_notify_emails_invalid");
+    const result = await writeFairLeadNotifyEmails(ctx, participation, emails, Date.now());
+    if (result === "updated") {
+      await writeAdminAudit(ctx, {
+        actorUserId,
+        accountId: participation.accountId,
+        businessId: participation.businessId,
+        action: "fair_lead_notify_emails_set",
+        detail: { eventCode: event.code, participationId: participation._id, count: emails.length },
+        now: Date.now(),
+      });
+    }
+    return { participationId: participation._id, emails, result };
   },
 });
 

@@ -353,7 +353,7 @@ export function buildFairDashboard(facts: FairDashboardFacts) {
   }
   if (P === "sajam") add("passport_missing", "info", missingPassport, "interakcije", { stanje: "nije-napravljen" });
 
-  // Rule 20: days until the 16 Nov purge (count = days, shown also on its last day).
+  // Rule 20: days until the 16 Dec purge (count = days, shown also on its last day).
   if (P === "posle") {
     const daysLeft = Math.max(0, Math.floor((event.piiPurgeAt - at) / DAY_MS));
     actions.push({ rule: "pii_purge_countdown", tone: daysLeft <= PURGE_SOON_DAYS ? "uskoro" : "info", count: daysLeft, section: "brisanje", query: {} });

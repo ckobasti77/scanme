@@ -49,6 +49,8 @@ export type InboxLead = {
   followUpSuppressed: boolean;
   confirmation: InboxDelivery;
   followUp: InboxDelivery;
+  /** 26 Nov 2026: the email to the exhibitor; absent while the exhibitor's lead email is off. */
+  exhibitor?: InboxDelivery;
 };
 
 type Group<T> = { shared: boolean; capped: boolean; items: T[] };
@@ -113,7 +115,11 @@ function emailLine(delivery: InboxDelivery, label: string, followUp: boolean) {
 }
 
 function emailsText(row: InboxLead) {
-  return [emailLine(row.confirmation, dict.confirmationLabel, false), ...(row.followUp ? [emailLine(row.followUp, dict.followUpLabel, true)] : [])].join(" · ");
+  return [
+    emailLine(row.confirmation, dict.confirmationLabel, false),
+    ...(row.followUp ? [emailLine(row.followUp, dict.followUpLabel, true)] : []),
+    ...(row.exhibitor ? [emailLine(row.exhibitor, dict.exhibitorLabel, false)] : []),
+  ].join(" · ");
 }
 
 function contactText(row: Pick<InboxLead, "email" | "phone">) {
@@ -174,7 +180,7 @@ function DateField({ label, value, onChange }: { label: string; value: string | 
   return (
     <div className="grid min-w-0 gap-1.5">
       <label htmlFor={id} className="text-xs font-semibold">{label}</label>
-      <input id={id} type="date" value={value ?? ""} min="2026-10-01" max="2026-11-15" onChange={(event) => onChange(event.target.value || null)} className={adminFieldClass} />
+      <input id={id} type="date" value={value ?? ""} min="2026-10-01" max="2026-12-15" onChange={(event) => onChange(event.target.value || null)} className={adminFieldClass} />
     </div>
   );
 }
@@ -483,6 +489,7 @@ export function LeadDetailPanel({ detail, names, brandName, actions }: { detail:
       <DetailBlock title={t.emailsTitle} aside={<Mail className="size-4 text-[var(--admin-text-muted)]" aria-hidden="true" />}>
         <p className="text-sm">{emailLine(lead.confirmation, dict.confirmationLabel, false)}</p>
         {lead.followUp ? <p className="text-sm">{emailLine(lead.followUp, dict.followUpLabel, true)}</p> : null}
+        {lead.exhibitor ? <p className="text-sm">{emailLine(lead.exhibitor, dict.exhibitorLabel, false)}</p> : null}
         {lead.suppressedAt ? <Meta>{fmt(t.suppressedOn, { date: dateOnly.format(lead.suppressedAt) })}</Meta> : null}
         <div className="flex flex-wrap gap-2">
           {lead.followUp?.status === "queued" && !lead.followUpSuppressed ? (
@@ -496,6 +503,9 @@ export function LeadDetailPanel({ detail, names, brandName, actions }: { detail:
           ) : null}
           {lead.followUp?.status === "failed" ? (
             <button type="button" className={adminSecondaryButtonClass} disabled={run.pending} onClick={() => void run.run(() => actions.retryDelivery(lead.followUp!.id), dict.retryDone)}>{dict.retryFollowUp}</button>
+          ) : null}
+          {lead.exhibitor?.status === "failed" ? (
+            <button type="button" className={adminSecondaryButtonClass} disabled={run.pending} onClick={() => void run.run(() => actions.retryDelivery(lead.exhibitor!.id), dict.retryDone)}>{dict.retryExhibitor}</button>
           ) : null}
         </div>
         <Feedback message={run.message} />

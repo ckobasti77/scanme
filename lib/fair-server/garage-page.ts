@@ -22,6 +22,14 @@ const EVENT_DEFINITIONS = [
     fallbackStartsAt: Date.parse("2026-10-30T10:00:00+01:00"),
     fallbackEndsAt: Date.parse("2026-11-01T20:00:00+01:00"),
   },
+  {
+    publicSlug: "auto-expo-2026",
+    fallbackId: "auto-expo-2026",
+    fallbackTitle: dict.autoExpoTitle,
+    fallbackDates: dict.autoExpoDates,
+    fallbackStartsAt: Date.parse("2026-11-27T10:00:00+01:00"),
+    fallbackEndsAt: Date.parse("2026-11-29T18:00:00+01:00"),
+  },
 ] as const;
 
 type FairGarageEventDefinition = (typeof EVENT_DEFINITIONS)[number];
