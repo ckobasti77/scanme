@@ -210,3 +210,68 @@ Lid ostavljen večeras ne pravi red za izlagača (pravilo „pre otvaranja“), 
    ```
 
 > **Upozorenje: posle uključivanja Jelene testirati samo iz admin sesije.** Lid iz admin sesije se nikad ne šalje izlagaču. Probni lid sa telefona bez admin prijave otišao bi Jeleni. Ako se to ipak desi, odmah ga označiti preko `markLeadAsTest` (zatvara ga ako još čeka 90 s; ako je već poslat, mejl se ne može povući).
+
+## Produkcija 27.11.
+
+Urađeno u noći 26./27. 11. (01:15–02:00), deo A, uz dopune vlasnika. Jelena nije ni na jednoj listi; sve probe su išle samo na jovanm028@gmail.com.
+
+### Šta je pušteno
+
+- **Commit `64f35e9`** na `main`, push na `origin main` i `aleksa main` (fast-forward sa `56fcd16`). Vercel produkcija se gradi iz `aleksadjor3/scanme` `main`.
+- **Convex PROD** (`adamant-warbler-746`): `npx convex deploy` uspešan, bez brisanja indeksa. Redosled je bio backend pa frontend, kao u A2/A3.
+- **Podaci vozila** (dopuna vlasnika, zvanični sajtovi 27. 11.):
+  - Ford Puma i Kuga **bez verzije**; „od 18.490 €“ i „od 25.990 €“ (najniže akcijske cene, cenovnici ford.rs), uz „Najniža akcijska cena modela (ford.rs)“. Ostale su samo specifikacije modela: Puma 1,0 EcoBoost mHEV i prtljažnik 456/1.126 l; Kuga prtljažnik do 536 l i ekran 13,2" SYNC 4.
+  - MG ZS Hybrid+: 1,5 l turbo + baterija 1,83 kWh, 145 kW, 5,1 l/100 km (WLTP), 0–100 za 8,7 s, prtljažnik 443/1.457 l, 2 × 12,3", felne 18". Proverio sam i na mgmotor.rs: sve se poklapa.
+  - MG HS Hybrid+: 165 kW / 224 KS, 340 Nm, 5,5 l/100 km, 0–100 za 7,9 s, prtljažnik 507/1.484 l, felne 19".
+  - CO₂ je izbačen kod oba MG modela, jer ga mgmotor.rs više ne prikazuje. MG3 je bio usklađen.
+  - **Napomena:** na vetrobranu Kuge na štandu piše „FORD KUGA ST LINE – AUTOMATIK, CENA OD 27.490 €“. Na ScanMe-u je, po odluci vlasnika, „od 25.990 €“ bez verzije.
+- **Novi internal `fairSetup:pointInventoryQrToUrl`**: slobodna (nikad vezana) nalepnica inventara dobija svoj dinamički link i vodi na stranicu ScanMe-a, kroz isti put kao paneli (`applyDestination`). Odbija nalepnicu vezanu za auto, nalepnicu koja već vodi negde drugde i URL van `https://www.scanme.rs/`. Ima `dryRun` i test u `convex/fairSetup.test.ts`.
+
+### Komande na PROD-u (redom)
+
+| Korak | Rezultat |
+|---|---|
+| A4 `setEventStatus` AMF i Elektro → `ended` | oba `updated` (bili `published`) |
+| A5 `bootstrapEvent --event auto-expo-2026` | događaj `created`, ID **`pn7zphsrkkfyex35zgv6z76ggx8k1kqb`**; 3 dana; Grand Motors `unchanged`; brendovi Ford i MG `unchanged` |
+| `fairExhibitorImport:linkEventQrInventory` → `SML-SAJAM-26-QR` | `updated` (isti inventar kao AMF i Elektro) |
+| `importDryRun` | `ok: true`, 0 grešaka; jedino upozorenje `FAIR_PHOTO_MISSING` (MG3); 5 QR dodela |
+| `importCommit` | 1 učešće, 1 štand, 5 modela, 5 QR dodela |
+| `publishEventModels` | objavljeno 5 modela |
+| A6 `setupLeads` | consents 2, defaults 2, modelConfigs 10, skippedNotEntitled 0 |
+| A7 `setLeadNotifyEmails` | `["jovanm028@gmail.com"]`, **ID učešća `qn7kxsv9qrpymfs1sfaywyj43s8k1ekw`** |
+| A8 `sendExhibitorLeadTestEmail` (`to` = jovanm028) | `ok`, 1 primalac, Resend id `01a21a6c-ec4b-7db0-8811-6d83ab57922a` |
+| `pointInventoryQrToUrl` (dry run, pa commit) | SA26-097 → `/brend/ford`, SA26-096 → `/brend/mg` |
+
+### QR kodovi (`tmp/KG_QR`, dekodirano jsQR-om)
+
+Svih 7 su slobodne nalepnice inventara `SML-SAJAM-26-QR` (isti inventar kao AMF i Elektro). Pre dodele (PROD, samo čitanje): `legacy`, bez odredišta, bez ijedne `fairQrAssignments` veze, 0 skenova. Nijedan kod AMF-a ili drugog klijenta nije prepisan. Druga fotografija Kuge je dekodirana tek iz isečka; daje isti kod.
+
+| Folder | Nalepnica | Kod | Odredište | `curl -sI /r/<kod>` |
+|---|---|---|---|---|
+| MG3 | SA26-086 | `S7KJ805K` | model `mg3` | 302 → `/sajam/auto-expo-2026/model/mg3` |
+| MG ZS Hybrid | SA26-088 | `TRMDB395` | model `mg-zs-hybrid` | 302 → `/sajam/auto-expo-2026/model/mg-zs-hybrid` |
+| MG HS | SA26-087 | `0TWBBCDF` | model `mg-hs-hybrid` | 302 → `/sajam/auto-expo-2026/model/mg-hs-hybrid` |
+| Ford Puma | SA26-089 | `TPY1WFKP` | model `ford-puma-mhev` | 302 → `/sajam/auto-expo-2026/model/ford-puma-mhev` |
+| Ford Kuga | SA26-090 | `XG9C0T37` | model `ford-kuga` | 302 → `/sajam/auto-expo-2026/model/ford-kuga` |
+| Stand Ford | SA26-097 | `EVTCYP76` | URL (dinamički link `auto-expo-2026-stand-ford`) | 302 → `/sajam/auto-expo-2026/brend/ford` |
+| Stand MG | SA26-096 | `5FPC168Z` | URL (dinamički link `auto-expo-2026-stand-mg`) | 302 → `/sajam/auto-expo-2026/brend/mg` |
+
+Modeli su vezani kroz `assignedResolverCode` u payload-u (isti mehanizam kao AMF), a štandovi kroz `pointInventoryQrToUrl`. Sva preusmerenja idu na `https://www.scanme.rs/…`.
+
+### Provere (posle Vercel builda, 01:39)
+
+- `POST /api/fair/visitor`: **200** sa `Set-Cookie: scanme_fair_visitor` (ističe 15. 12. 23:00 UTC). Ranije je bilo 503.
+- `POST /api/fair/lead` sa praznim telom: **400 `INVALID_INPUT`**, nije 503.
+- **200:** `/sajam/auto-expo-2026`, `/brend/ford`, `/brend/mg` i svih 5 model stranica (`ford-puma-mhev`, `ford-kuga`, `mg-zs-hybrid`, `mg-hs-hybrid`, `mg3`), kao i `/sajam/privatnost`.
+- `/sajam/privatnost` prikazuje „najkasnije **16. decembra 2026.**“
+- Sadržaj: nigde nema „ST-Line“. Kuga „od 25.990 €“ i „SYNC 4“; Puma „od 18.490 €“ i „1,0 EcoBoost“; ZS „8,7 s“ i „443 l“. `/brend/mg` prikazuje MG3, ZS Hybrid+ i HS Hybrid+.
+- **Test mejl** je stigao na jovanm028@gmail.com: „TEST: Novi lid · Auto Expo 2026 · Više upita · Ford Puma mHEV, Ford Kuga +1 — TEST Posetilac“. Jedini primalac je jovanm028.
+- Testovi:
+  - `npx vitest run convex/fairSetup.test.ts convex/fairLeads.test.ts convex/fairImport.test.ts`: 84/84;
+  - `npx tsc --noEmit`: čisto;
+  - eslint izmenjenih fajlova: čisto.
+  - Ceo `npm run check` nije pokrenut; Vercel build je prošao.
+
+### Ostaje (deo B, posle 10:00, radi vlasnik)
+
+B1–B4 kao gore. Lista izlagača je i dalje **samo** `["jovanm028@gmail.com"]`, a Jelena nije uključena. Otvorena pitanja 1, 2 i 4 važe i dalje. MG3 je i dalje bez fotografije.
