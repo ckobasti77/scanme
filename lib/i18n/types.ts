@@ -957,6 +957,7 @@ export interface FairSalonDict {
   sliderPause: string;
   sliderPlay: string;
   sliderColors: string;
+  sliderColorsToggle: string;
   sliderColor: string;
   sliderAltColor: string;
   sliderAltPhoto: string;

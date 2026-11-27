@@ -216,65 +216,15 @@
 }
 
 .cardActions {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 8px;
   margin-top: 10px;
-}
-
-.primary,
-.secondary {
-  display: inline-flex;
-  min-height: 48px;
-  padding: 0 14px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border-radius: var(--fair-radius-md);
-  font: inherit;
-  font-size: 15px;
-  font-weight: 760;
-  cursor: pointer;
-  transition:
-    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
-    transform var(--fair-dur-feedback) var(--fair-ease-enter);
-}
-
-.primary svg {
-  width: 20px;
-  height: 20px;
-  flex: none;
-}
-
-.primary {
-  border: 1px solid var(--fair-accent-strong);
-  background: var(--fair-accent);
-  color: var(--fair-accent-ink);
-}
-
-.secondary {
-  border: var(--fair-border);
-  background: var(--fair-surface);
-  color: var(--fair-ink);
-}
-
-@media (hover: hover) {
-  .primary:hover {
-    background: var(--fair-accent-strong);
-  }
-}
-
-.primary:active,
-.secondary:active {
-  transform: translateY(1px);
 }
 
 .details {
   display: inline-flex;
-  min-height: 48px;
+  min-height: 44px;
   padding: 0 6px;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   color: var(--fair-ink);
   font-size: 14px;
@@ -282,24 +232,23 @@
   text-decoration: none;
 }
 
+@media (hover: hover) {
+  .details:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
 .details svg {
   width: 17px;
   height: 17px;
+  transition: transform var(--fair-dur-feedback) var(--fair-ease-enter);
 }
 
-.sent {
-  display: inline-flex;
-  min-height: 48px;
-  align-items: center;
-  gap: 6px;
-  color: var(--fair-accent-strong);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.sent svg {
-  width: 18px;
-  height: 18px;
+@media (hover: hover) {
+  .details:hover svg {
+    transform: translateX(2px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -307,7 +256,8 @@
     transition: none;
   }
 
-  .card:hover .cutout {
+  .card:hover .cutout,
+  .details:hover svg {
     transform: none;
   }
 }

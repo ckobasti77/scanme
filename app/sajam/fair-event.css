@@ -451,31 +451,55 @@ body:has(.fair-event) [data-theme-toggle="global"] {
   background: var(--fair-surface-warm);
 }
 
-/* Auto Expo: the photo slider sits above, the hero is the name and price row below it. */
+/* Auto Expo (27. 11.): the hero is the photo slider (components/fair/gallery/model-slider), with
+   the AMF overlay on top: stand chip top left, name and price on a dark fade at the bottom. The
+   slider's colour chip and pause take the top right corner, so the badge moves under the chip. */
 .fair-model-hero--gallery {
-  display: grid;
-  aspect-ratio: auto;
-  gap: var(--fair-space-2);
-  padding: 16px;
-  border: var(--fair-border);
-  background: var(--fair-surface);
-  box-shadow: none;
+  overflow: clip;
+  background: #ffffff;
 }
 
-.fair-model-hero--gallery .fair-model-hero__scrim,
-.fair-model-hero--gallery .fair-model-stand {
-  display: none;
+.fair-model-hero--gallery .fair-model-hero__scrim {
+  z-index: 1;
+  background: linear-gradient(180deg, rgb(8 10 14 / 0.18) 0, rgb(8 10 14 / 0) 18%);
+  pointer-events: none;
 }
 
 .fair-model-hero--gallery .fair-model-identity {
-  position: static;
-  color: var(--fair-ink);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+}
+
+/* The bottom fade follows the name block, so a two-line name ("Puma mHEV") stays on dark too. */
+.fair-model-hero--gallery .fair-model-identity::before {
+  position: absolute;
+  z-index: -1;
+  inset: -60px -16px -14px;
+  background: linear-gradient(
+    0deg,
+    rgb(8 10 14 / 0.9) 0,
+    rgb(8 10 14 / 0.64) 55%,
+    rgb(8 10 14 / 0) 100%
+  );
+  content: "";
+  pointer-events: none;
 }
 
 .fair-model-hero--gallery .fair-model-highlight {
-  position: static;
-  justify-self: start;
-  max-width: 100%;
+  right: auto;
+  left: 12px;
+}
+
+.fair-model-hero--gallery:has(.fair-model-stand) .fair-model-highlight {
+  top: 54px;
+}
+
+.fair-model-hero--gallery:has(.fair-model-highlight) .fair-survey-head-wrap {
+  top: 10px;
+}
+
+/* Auto Expo: "Probna vožnja" over "Zainteresovan sam", both full width (model and brand pages). */
+.fair-event--auto-expo .fair-action-grid {
+  grid-template-columns: 1fr;
 }
 
 .fair-model-hero--no-photo .fair-model-hero__scrim {
@@ -2315,6 +2339,13 @@ body:has(.fair-event) [data-theme-toggle="global"] {
 
   .fair-model-page:is([data-package="starter"], [data-package="advanced"]) .fair-model-main:has(.fair-new-stamp-slot):has(.fair-model-external) .fair-model-hero {
     height: clamp(140px, calc(100svh - 553px), 260px);
+  }
+
+  /* Auto Expo: the slider hero is 4:3 on a phone, so the car keeps clear of the name and price. */
+  .fair-event.fair-model-page.fair-event--auto-expo .fair-model-main .fair-model-hero.fair-model-hero--gallery {
+    height: auto;
+    max-height: none;
+    aspect-ratio: 4 / 3;
   }
 
   /* 40 px touch target, 28 px in the layout. */

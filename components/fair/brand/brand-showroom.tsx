@@ -77,15 +77,21 @@ export function FairBrandShowroom({ brand, models, eventSlug, requestedIds, onDr
                     ))}
                   </dl>
                 ) : null}
-                <div className={styles.cardActions}>
+                {/* The same two actions as the header, stacked full width: test drive, then interest. */}
+                <div className={`fair-action-grid ${styles.cardActions}`}>
                   {sent ? (
-                    <span className={styles.sent}><Check aria-hidden="true" />{dict.panelSent}</span>
+                    <span className="fair-action-done"><Check aria-hidden="true" />{dict.panelSent}</span>
                   ) : (
-                    <button type="button" className={styles.primary} onClick={() => onDrive(model.id)}>
+                    <button type="button" data-highlight="true" onClick={() => onDrive(model.id)}>
+                      <span className="fair-action-highlight__shine" aria-hidden="true" />
                       <TbSteeringWheel aria-hidden="true" />
-                      {dict.tileDrive}
+                      <span>{dict.tileDrive}</span>
                     </button>
                   )}
+                  <button type="button" onClick={() => onInterest(model.id)}>
+                    <ThumbsUp aria-hidden="true" />
+                    <span>{fairModelSr.submitInterest}</span>
+                  </button>
                   <Link href={href} className={styles.details}>
                     {dict.panelDetails}
                     <ArrowRight aria-hidden="true" />

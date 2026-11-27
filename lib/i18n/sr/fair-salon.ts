@@ -25,6 +25,7 @@ export const fairSalonSr = {
   sliderPause: "Zaustavi automatsko listanje",
   sliderPlay: "Pokreni automatsko listanje",
   sliderColors: "Boje",
+  sliderColorsToggle: "Boje, izabrana {color}",
   sliderColor: "Boja: {color}",
   sliderAltColor: "{model}, boja {color}, fotografija {index}",
   sliderAltPhoto: "{model}, fotografija {index}",

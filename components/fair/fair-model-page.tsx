@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FairModelSlider } from "./gallery/model-slider";
 import { fairModelGallery } from "@/lib/fair-gallery";
+import { fairSalonEvent } from "@/lib/fair-salon";
 import { ExternalLink, MapPin } from "lucide-react";
 import type {
   FairFixtureMode,
@@ -179,21 +180,25 @@ export function FairModelPage({
   adminTools?: ReactNode;
 }) {
   const amf = model.eventSlug === "auto-moto-fest-2026";
-  // Auto Expo: a photo slider replaces the single hero photo (lib/fair-gallery).
+  // Auto Expo (27. 11.): the AMF model page layout in the Auto Expo colours, a photo slider as the hero.
+  const salon = fairSalonEvent(model.eventSlug) !== null;
+  const amfLayout = amf || salon;
   const gallery = fairModelGallery(model.eventSlug, model.modelSlug);
   const specs = model.specificationGroups.flatMap((group) => group.items);
-  const keySpecs = fairModelKeySpecs(specs, amf);
-  const drivetrainTitle = amf && !fairModelHasTractionBattery(specs) ? dict.specsGroupEngine : dict.specsGroupDrivetrain;
+  const keySpecs = fairModelKeySpecs(specs, amfLayout);
+  const drivetrainTitle = amfLayout && !fairModelHasTractionBattery(specs) ? dict.specsGroupEngine : dict.specsGroupDrivetrain;
   const specGroups = fairModelSpecGroups(model.specificationGroups, {
     drivetrain: drivetrainTitle,
     performance: dict.specsGroupPerformance,
-    fallback: amf ? drivetrainTitle : undefined,
+    fallback: amfLayout ? drivetrainTitle : undefined,
   });
   const testDriveFormAvailable = !interactions || interactions.leadForms.testDrive?.state === "open";
+  const interestActions = model.capabilities.canSubmitInterest
+    ? [{ kind: "interest" as const, label: dict.submitInterest }]
+    : [];
   const actions = [
-    ...(model.capabilities.canSubmitInterest
-      ? [{ kind: "interest" as const, label: dict.submitInterest }]
-      : []),
+    // Auto Expo: the test drive first, stacked full width (fair-event.css).
+    ...(salon ? [] : interestActions),
     ...(model.capabilities.canRequestTestDrive
       ? [
           {
@@ -204,6 +209,7 @@ export function FairModelPage({
           },
         ]
       : []),
+    ...(salon ? interestActions : []),
   ];
   const audienceSearch = new URLSearchParams({
     mode: selection.mode,
@@ -216,6 +222,50 @@ export function FairModelPage({
   const audienceHref = interactions
     ? `${routePath}/glas-publike`
     : `${routePath}/glas-publike?${audienceSearch.toString()}`;
+
+  // Scrim, stand chip, badge, name and price: over the photo, or over the slider (Auto Expo).
+  const heroOverlay = (
+    <>
+      <div className="fair-model-hero__scrim" aria-hidden="true" />
+      {stand ? (
+        <Link
+          className="fair-model-stand"
+          href={stand.href}
+          aria-label={fmt(dict.standChipAria, { stand: stand.text })}
+        >
+          <MapPin aria-hidden="true" />
+          {stand.text}
+        </Link>
+      ) : null}
+      {model.highlight ? (
+        <div className="fair-model-highlight">
+          <span className="fair-model-highlight__shine" aria-hidden="true" />
+          <span className="fair-model-highlight__label">
+            {dict.modelHighlights[model.highlight]}
+          </span>
+        </div>
+      ) : null}
+      <div className="fair-model-identity">
+        <div className="fair-model-identity__name">
+          {brandHref ? (
+            <Link prefetch={false} href={brandHref}>
+              {model.brandName}
+            </Link>
+          ) : (
+            <span>{model.brandName}</span>
+          )}
+          <ModelName>{model.displayName}</ModelName>
+          {model.variant ? <p>{model.variant}</p> : null}
+        </div>
+        <p className="fair-model-price">
+          <small>{fairModelPriceLabel(model.eventSlug, model.brandName, dict)}</small>
+          <span>{fairModelPriceValue(model.priceText, dict)}</span>
+          {model.priceSecondaryText ? <small className="fair-model-price__secondary">{model.priceSecondaryText}</small> : null}
+        </p>
+      </div>
+      <SurveyChatHead />
+    </>
+  );
 
   return (
     <div
@@ -247,71 +297,41 @@ export function FairModelPage({
         openSurvey={openSurvey}
       >
       <main className="fair-model-main">
-        {gallery ? <FairModelSlider gallery={gallery} modelName={model.displayName} /> : null}
-        <section
-          className={`fair-model-hero${gallery ? " fair-model-hero--gallery" : model.photoUrl ? "" : " fair-model-hero--no-photo"}`}
-          data-presentation={model.photoPresentation}
-        >
-          {gallery ? null : model.photoUrl ? (
-            <Image
-              src={model.photoUrl}
-              alt={fmt(dict.modelPhotoAlt, { model: model.displayName })}
-              fill
-              priority
-              sizes="(max-width: 767px) 100vw, 560px"
-              unoptimized={fairPhotoUnoptimized(model.photoUrl)}
-              className="fair-model-hero__image"
-              style={fairVehiclePhotoStyle(model.photoUrl)}
-            />
-          ) : (
-            <div className="fair-model-hero__tonal-mark" aria-hidden="true">
-              {model.brandName.slice(0, 1)}
-            </div>
-          )}
-          <div className="fair-model-hero__scrim" aria-hidden="true" />
-          {stand ? (
-            <Link
-              className="fair-model-stand"
-              href={stand.href}
-              aria-label={fmt(dict.standChipAria, { stand: stand.text })}
-            >
-              <MapPin aria-hidden="true" />
-              {stand.text}
-            </Link>
-          ) : null}
-          {model.highlight ? (
-            <div className="fair-model-highlight">
-              <span className="fair-model-highlight__shine" aria-hidden="true" />
-              <span className="fair-model-highlight__label">
-                {dict.modelHighlights[model.highlight]}
-              </span>
-            </div>
-          ) : null}
-          <div className="fair-model-identity">
-            <div className="fair-model-identity__name">
-              {brandHref ? (
-                <Link prefetch={false} href={brandHref}>
-                  {model.brandName}
-                </Link>
-              ) : (
-                <span>{model.brandName}</span>
-              )}
-              <ModelName>{model.displayName}</ModelName>
-              {model.variant ? <p>{model.variant}</p> : null}
-            </div>
-            <p className="fair-model-price">
-              <small>{fairModelPriceLabel(model.eventSlug, model.brandName, dict)}</small>
-              <span>{fairModelPriceValue(model.priceText, dict)}</span>
-              {model.priceSecondaryText ? <small className="fair-model-price__secondary">{model.priceSecondaryText}</small> : null}
-            </p>
-          </div>
-          <SurveyChatHead />
-        </section>
+        {gallery ? (
+          <section className="fair-model-hero fair-model-hero--gallery" data-presentation={model.photoPresentation}>
+            <FairModelSlider gallery={gallery} modelName={model.displayName}>
+              {heroOverlay}
+            </FairModelSlider>
+          </section>
+        ) : (
+          <section
+            className={`fair-model-hero${model.photoUrl ? "" : " fair-model-hero--no-photo"}`}
+            data-presentation={model.photoPresentation}
+          >
+            {model.photoUrl ? (
+              <Image
+                src={model.photoUrl}
+                alt={fmt(dict.modelPhotoAlt, { model: model.displayName })}
+                fill
+                priority
+                sizes="(max-width: 767px) 100vw, 560px"
+                unoptimized={fairPhotoUnoptimized(model.photoUrl)}
+                className="fair-model-hero__image"
+                style={fairVehiclePhotoStyle(model.photoUrl)}
+              />
+            ) : (
+              <div className="fair-model-hero__tonal-mark" aria-hidden="true">
+                {model.brandName.slice(0, 1)}
+              </div>
+            )}
+            {heroOverlay}
+          </section>
+        )}
 
         <ModelNewStamp eventSlug={model.eventSlug} modelSlug={model.modelSlug} />
 
         <ModelSpecsCard
-          uniformValues={amf}
+          uniformValues={amfLayout}
           keySpecs={keySpecs}
           groups={specGroups}
           description={model.description || undefined}
