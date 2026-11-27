@@ -50,7 +50,7 @@ import { PassportSeal, passportBrandSealTexts, passportEventSealTexts } from "./
 import { PassportTickets } from "./passport-tickets";
 import { PassportUnlockCard } from "./passport-unlock-card";
 import { StampPassport } from "./stamp-passport";
-import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
+import { fairPublicMapEnabled } from "@/lib/fair-salon";
 
 type EventView = {
   id: string;
@@ -132,6 +132,13 @@ const REVIEW_BRAND_PRESENTATIONS: Record<string, { backdropUrl?: string; logoUrl
 };
 
 const EASE_OUT = "cubic-bezier(.2,.9,.2,1)";
+
+/** "Find on the map" target of a locked model: the stand on the event map, or null while the
+ * event has no public map (Auto Expo: its map URL is the event home, which is not public). */
+function fairPassportMapHref(eventSlug: string, mapLocation: string | undefined): string | null {
+  if (!fairPublicMapEnabled(eventSlug)) return null;
+  return mapLocation ? `/sajam/${eventSlug}?stand=${encodeURIComponent(mapLocation)}` : `/sajam/${eventSlug}`;
+}
 
 function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -585,10 +592,7 @@ function PassportDetail({
 
   const closeFinale = useCallback(() => setFinaleOpen(false), []);
 
-  const mapLocation = passport.standMapLocationIds[0];
-  const mapHref = mapLocation
-    ? `/sajam/${event.publicSlug}?stand=${encodeURIComponent(mapLocation)}`
-    : `/sajam/${event.publicSlug}`;
+  const mapHref = fairPassportMapHref(event.publicSlug, passport.standMapLocationIds[0]);
   const presentation = brandPresentation(passport.brandName);
   const thumbs = passport.models.map((passportModel) => ({
     id: passportModel.eventModelId,
@@ -695,7 +699,7 @@ function PassportDetail({
               {!collected ? (
                 <span className={styles.lockState}><LockKeyhole aria-hidden="true" /></span>
               ) : null}
-              {!collected && FAIR_PUBLIC_MAP_ENABLED ? <span className={styles.mapHint}><MapPin aria-hidden="true" />{dict.findOnMap}</span> : null}
+              {!collected && mapHref ? <span className={styles.mapHint}><MapPin aria-hidden="true" />{dict.findOnMap}</span> : null}
             </>
           );
           return collected ? (
@@ -707,7 +711,7 @@ function PassportDetail({
             >
               {content}
             </article>
-          ) : !FAIR_PUBLIC_MAP_ENABLED ? (
+          ) : !mapHref ? (
             <article
               key={passportModel.eventModelId}
               className={`${styles.modelCard} ${styles.modelCardLocked}`}
@@ -1089,9 +1093,7 @@ export function FairPassportExperience({
           devThreshold={devThreshold}
           focusModelSlug={focusModelSlug}
           loaded={loadState === "ready"}
-          mapHref={selected.standMapLocationIds[0]
-            ? `/sajam/${event.publicSlug}?stand=${encodeURIComponent(selected.standMapLocationIds[0])}`
-            : `/sajam/${event.publicSlug}`}
+          mapHref={fairPassportMapHref(event.publicSlug, selected.standMapLocationIds[0])}
         />
       ) : selected ? (
         <PassportDetail

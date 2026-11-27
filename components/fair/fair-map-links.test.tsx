@@ -88,3 +88,48 @@ describe.each([true, false])("javna mapa: enabled=%s", (enabled) => {
     expect(fairModelStand({ code: "elektromobilnost-2026" }, { standMapLocationId: "nema-na-mapi" }, "elektromobilnost-2026")).toBeNull();
   });
 });
+
+// Auto Expo (owner, 27. 11.): the event home is not public whatever the map switch says, and no
+// public link leads to it; the other events keep the behaviour above.
+describe.each([true, false])("Auto Expo bez početne stranice: mapa=%s", (enabled) => {
+  beforeEach(() => {
+    mapState.enabled = enabled;
+  });
+
+  test("/sajam vodi na pasoše Auto Expo-a", async () => {
+    const { loadFairActiveEventSlug } = await import("@/lib/fair-server/garage-page");
+    vi.mocked(loadFairActiveEventSlug).mockResolvedValueOnce("auto-expo-2026");
+    const response = await GET();
+    expect(response.status).toBe(307);
+    expect(response.headers.get("Location")).toBe("/sajam/auto-expo-2026/pasosi");
+  });
+
+  test("/sajam/auto-expo-2026 je 404 bez čitanja događaja", async () => {
+    const { fetchQuery } = await import("convex/nextjs");
+    vi.mocked(fetchQuery).mockClear();
+    navigation.redirect.mockClear();
+    await expect(
+      FairEventMapPage({
+        params: Promise.resolve({ eventSlug: "auto-expo-2026" }),
+        searchParams: Promise.resolve({ stand: "hala" }),
+      }),
+    ).rejects.toThrow("NOT_FOUND");
+    expect(fetchQuery).not.toHaveBeenCalled();
+    expect(navigation.redirect).not.toHaveBeenCalled();
+  });
+
+  test("zaglavlje nema link ka početnoj stranici", () => {
+    const html = renderToStaticMarkup(
+      <FairEventShell eventId="e1" eventSlug="auto-expo-2026" eventTitle="Sajam automobila" eventName="Auto Expo 2026" dict={fairModelSr} currentBrand="ford" />,
+    );
+    expect(html).not.toContain(`href="/sajam/auto-expo-2026"`);
+    expect(html).not.toContain(`href="/sajam/auto-expo-2026?`);
+    expect(html).toContain(`href="/sajam/auto-expo-2026/brend/mg"`);
+    expect(html).toContain(`href="/sajam/auto-expo-2026/pasosi"`);
+  });
+
+  test("čip štanda na stranici modela je samo oznaka", () => {
+    const stand = fairModelStand({ code: "auto-expo-2026" }, { standMapLocationId: "hala" }, "auto-expo-2026");
+    if (stand) expect(stand.href).toBeNull();
+  });
+});

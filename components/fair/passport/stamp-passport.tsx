@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowLeft, Heart } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { FairPassportCatalogEntry, FairPassportProgress } from "@/lib/fair-contract";
-import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
 import { fairHaptic } from "@/lib/fair-client/haptics";
 import { createFavoriteSync, type FavoriteSync } from "@/lib/fair-client/favorite-sync";
 import { devFavoriteResult, favoriteLeaders } from "@/lib/fair-client/passport-unlock";
@@ -181,7 +180,8 @@ export function StampPassport({
   devThreshold: "public" | "below";
   focusModelSlug?: string;
   loaded: boolean;
-  mapHref: string;
+  /** null while the event has no public map (lib/fair-salon fairPublicMapEnabled). */
+  mapHref: string | null;
 }) {
   const brand = cleanLabel(passport.brandName);
   const parts = eventParts(event.title);
@@ -656,7 +656,7 @@ export function StampPassport({
             } else {
               info = (
                 <>
-                  {FAIR_PUBLIC_MAP_ENABLED ? (
+                  {mapHref ? (
                     <Link prefetch={false} href={mapHref} className={styles.find}>{dict.stampFindOnMap}</Link>
                   ) : (
                     <div className={styles.state}>{dict.stampLockedHint}</div>

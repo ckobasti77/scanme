@@ -12,6 +12,7 @@ import { fairMapEventSlugCandidates, fairMapLocationById } from "@/lib/fair-map"
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr } from "@/lib/i18n/sr/fair-map";
 import { FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
+import { fairPublicMapEnabled } from "@/lib/fair-salon";
 
 export const loadFairModelPage = cache(async (publicEventSlug: string, modelSlug: string) => {
   for (const candidate of fairMapEventSlugCandidates(
@@ -78,8 +79,9 @@ export function fairTodayDateKey(now = Date.now()): string {
   return epochToBelgradeLocal(now).slice(0, 10);
 }
 
-/** Model page v2 stand chip: "Štand 9 · Hala" and the map deep link that focuses it. */
-export type FairModelStand = { text: string; href: string };
+/** Model page v2 stand chip: "Štand 9 · Hala" and the map deep link that focuses it (null: a
+ * plain label, for an event without a public map such as Auto Expo). */
+export type FairModelStand = { text: string; href: string | null };
 
 /** From the event map geometry (no extra read); null when the location is not on the map. */
 export function fairModelStand(event: { code: string }, model: { standMapLocationId: string }, publicEventSlug: string): FairModelStand | null {
@@ -91,7 +93,8 @@ export function fairModelStand(event: { code: string }, model: { standMapLocatio
   const showStandNumber = event.code.replace(/^test-/, "") !== "auto-moto-fest-2026";
   const text =
     found.location.kind === "stand" && showStandNumber ? fmt(fairMapSr.standLocation, { label: found.location.label, zone }) : zone;
-  return { text, href: `/sajam/${publicEventSlug}?stand=${encodeURIComponent(model.standMapLocationId)}` };
+  const href = fairPublicMapEnabled(publicEventSlug) ? `/sajam/${publicEventSlug}?stand=${encodeURIComponent(model.standMapLocationId)}` : null;
+  return { text, href };
 }
 
 /** Prompt of today's first Glas publike question (the card on the model page), or null. */

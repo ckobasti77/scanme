@@ -227,7 +227,7 @@ export function FairModelPage({
   const heroOverlay = (
     <>
       <div className="fair-model-hero__scrim" aria-hidden="true" />
-      {stand ? (
+      {stand?.href ? (
         <Link
           className="fair-model-stand"
           href={stand.href}
@@ -236,6 +236,11 @@ export function FairModelPage({
           <MapPin aria-hidden="true" />
           {stand.text}
         </Link>
+      ) : stand ? (
+        <span className="fair-model-stand">
+          <MapPin aria-hidden="true" />
+          {stand.text}
+        </span>
       ) : null}
       {model.highlight ? (
         <div className="fair-model-highlight">

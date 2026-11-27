@@ -38,6 +38,8 @@ export type FairSalonEvent = {
 
 export type FairSalonImage = { src: string; width: number; height: number };
 
+import { FAIR_PUBLIC_MAP_ENABLED } from "./fair-contract";
+
 const SALON_ROOT = "/fair/auto-expo-2026/salon";
 
 const AUTO_EXPO_2026: FairSalonEvent = {
@@ -81,6 +83,22 @@ export function fairSalonEvent(eventSlug: string): FairSalonEvent | null {
 
 export function fairSalonBrand(eventSlug: string, brandSlug: string): FairSalonBrand | null {
   return fairSalonEvent(eventSlug)?.brands.find((brand) => brand.brandSlug === brandSlug) ?? null;
+}
+
+/** Auto Expo (owner, 27. 11.): an event with salons has no public home — `/sajam/<event>`
+ * answers 404 — and no map. This is where the bare `/sajam` sends visitors instead. */
+export function fairEventHomeHidden(eventSlug: string): boolean {
+  return fairSalonEvent(eventSlug) !== null;
+}
+
+export function fairEventEntryPath(eventSlug: string): string {
+  return fairEventHomeHidden(eventSlug) ? `/sajam/${eventSlug}/pasosi` : `/sajam/${eventSlug}`;
+}
+
+/** The public map switch for one event: off for an event without a public home, whose map URL
+ * (`/sajam/<event>?stand=…`) is that home. */
+export function fairPublicMapEnabled(eventSlug: string): boolean {
+  return FAIR_PUBLIC_MAP_ENABLED && !fairEventHomeHidden(eventSlug);
 }
 
 // --- Geometry ---------------------------------------------------------------------------------

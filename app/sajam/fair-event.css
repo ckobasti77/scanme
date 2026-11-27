@@ -149,12 +149,6 @@
   pointer-events: none;
 }
 
-.fair-event--auto-expo a.fair-event-lockup {
-  border-radius: var(--fair-radius-sm);
-  color: inherit;
-  text-decoration: none;
-}
-
 .fair-event--auto-expo .fair-event-lockup strong {
   max-width: none;
   overflow: visible;

@@ -15,9 +15,7 @@ import { fairEventThemeClass } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
-import { fairSalonSr } from "@/lib/i18n/sr/fair-salon";
-import { fairSalonEvent } from "@/lib/fair-salon";
-import { FairSalonEntry } from "@/components/fair/salon/salon-entry";
+import { fairEventHomeHidden } from "@/lib/fair-salon";
 import { MapSection } from "../_mapa/map-section";
 import { MapSkeleton } from "../_mapa/map-skeleton";
 import { MapUnavailable } from "../_mapa/map-unavailable";
@@ -50,6 +48,7 @@ const getEvent = cache(async (slug: string) => {
 export async function generateMetadata({ params }: { params: Promise<RouteParams> }): Promise<Metadata> {
   const { eventSlug } = await params;
   const robots = { index: false, follow: false };
+  if (fairEventHomeHidden(eventSlug)) return { title: dict.notFoundTitle, robots };
   const event = await getEvent(eventSlug).catch(() => null);
   if (!event) {
     if (eventSlug === "auto-moto-fest-2026") {
@@ -62,7 +61,7 @@ export async function generateMetadata({ params }: { params: Promise<RouteParams
     return { title: dict.notFoundTitle, robots };
   }
   return {
-    title: fmt(fairSalonEvent(eventSlug) ? fairSalonSr.entryMetaTitle : dict.metaTitle, { event: event.title }),
+    title: fmt(dict.metaTitle, { event: event.title }),
     description: fmt(dict.metaDescription, { event: event.title }),
     robots,
   };
@@ -76,6 +75,9 @@ export default async function FairEventMapPage({
   searchParams: Promise<RouteSearchParams>;
 }) {
   const [{ eventSlug }, query] = await Promise.all([params, searchParams]);
+  // Auto Expo (owner, 27. 11.): the event home was never meant to be public. It answers like a
+  // page that does not exist; /sajam and every link into the fair go to the passports or brands.
+  if (fairEventHomeHidden(eventSlug)) notFound();
   let event = null;
   let fetchFailed = false;
   try {
@@ -229,17 +231,6 @@ export default async function FairEventMapPage({
     );
   }
   if (!event) notFound();
-
-  // Auto Expo (27. 11.): no map — the entry with one tile per brand salon.
-  const salon = fairSalonEvent(eventSlug);
-  if (salon) {
-    return (
-      <div className={`fair-event ${fairEventThemeClass(eventSlug)}`} data-reveal="off">
-        <FairEventShell eventId={event.id} eventSlug={eventSlug} eventTitle={dict.umbrellaTitle} eventName={event.title} dict={fairModelSr} adminTools={<FairAdminTools event={{ id: event.id, slug: eventSlug, dataSlug: event.slug, title: event.title }} />} />
-        <FairSalonEntry eventSlug={eventSlug} salon={salon} dict={fairSalonSr} />
-      </div>
-    );
-  }
 
   const display = (Array.isArray(query.prikaz) ? query.prikaz[0] : query.prikaz) === "ekran";
 

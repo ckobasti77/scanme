@@ -1,5 +1,6 @@
 import { loadFairActiveEventSlug } from "@/lib/fair-server/garage-page";
 import { AMF_PUBLIC_GATE_OPENS_AT, FAIR_PUBLIC_MAP_ENABLED } from "@/lib/fair-contract";
+import { fairEventEntryPath, fairEventHomeHidden } from "@/lib/fair-salon";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,8 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const slug = await loadFairActiveEventSlug();
   const isPreAmf = slug === "auto-moto-fest-2026" && Date.now() < AMF_PUBLIC_GATE_OPENS_AT;
+  // Auto Expo has no public home (404): the bare fair URL opens its passports.
+  if (fairEventHomeHidden(slug)) return new Response(null, { status: 307, headers: { Location: fairEventEntryPath(slug) } });
   return new Response(null, {
     status: 307,
     // While the map is hidden (FAIR_PUBLIC_MAP_ENABLED false) the active fair opens on its garage,

@@ -50,16 +50,16 @@ export function FairEventShell({
     <header className="fair-shell">
       <div className="fair-shell__inner">
         {salon ? (
-          // With the map gone, the lockup is the way back to the entry with the brand tiles. It
-          // reads like the fair's own logo: "AUTO EXPO" over the year (from the slug, so the
-          // loading shell shows it too).
-          <Link href={`/sajam/${eventSlug}`} className="fair-event-lockup" aria-label={salonName.full}>
+          // The lockup reads like the fair's own logo: "AUTO EXPO" over the year (from the slug, so
+          // the loading shell shows it too). Not a link: the event home is not public (owner,
+          // 27. 11.), and the brands, passports and garage are all in the menu next to it.
+          <div className="fair-event-lockup" aria-label={salonName.full}>
             <span className="fair-event-lockup__mark" aria-hidden="true" />
             <span>
               <strong>{salonName.name}</strong>
               <small>{salonName.year}</small>
             </span>
-          </Link>
+          </div>
         ) : (
           <div className="fair-event-lockup" aria-label={`${eventTitle}, ${publicEventName}`}>
             <span className="fair-event-lockup__mark" aria-hidden="true" />
