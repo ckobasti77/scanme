@@ -14,6 +14,7 @@ import { fairAnalyticsCutoff, fairDayCountFrom } from "./lib/fairPreEvent";
 import { applyDestination, prepareDestination, syncChannel } from "./lib/accessOperations";
 import { fairContactRequirement, fairEventStatus, fairLeadKind, fairModelHighlight } from "./lib/fairValidators";
 import { fairLeadDelivery, writeFairLeadNotifyEmails } from "./lib/fairLeads";
+import { activeFairAssignmentForSubject } from "./lib/fairQr";
 import type { Doc } from "./_generated/dataModel";
 import { createEventOnlyClient } from "./fairAdmin";
 import { commitFairImport, fairImportPayload, planFairImport } from "./fairImport";
@@ -493,6 +494,54 @@ export const amfQrHousekeeping = internalMutation({
     }
     if (!args.dryRun) await writeAdminAudit(ctx, { actorUserId, businessId: inventory._id, action: "fair_setup_amf_qr_housekeeping", detail: { retired: args.retireLabels, panel: args.panelLabel, panelUrl: args.panelUrl }, now });
     return out;
+  },
+});
+
+/**
+ * Auto Expo 27 Nov 2026: points one never-linked sticker of a fair QR
+ * inventory at a fixed ScanMe page (a brand page on the stand) through the
+ * regular retarget path: its own dynamic link + applyDestination, like the
+ * panels. Refuses a code outside the inventory, a sticker linked to a car
+ * (fairQrAssignments) and a code that already leads anywhere else.
+ * Idempotent; `dryRun` only reports.
+ */
+export const pointInventoryQrToUrl = internalMutation({
+  args: { actorEmail: v.string(), inventorySmlCode: v.string(), resolverCode: v.string(), url: v.string(), linkSlug: v.string(), reason: v.string(), dryRun: v.boolean() },
+  returns: v.object({ label: v.string(), before: v.string(), after: v.string(), result: v.union(v.literal("updated"), v.literal("unchanged"), v.literal("dry_run")) }),
+  handler: async (ctx, args) => {
+    const actorUserId = await setupActor(ctx, args.actorEmail);
+    if (!/^https:\/\/www\.scanme\.rs\/\S+$/.test(args.url)) throw new Error("fair_setup_url_not_scanme");
+    const inventory = await ctx.db.query("businesses").withIndex("by_smlCode", (q) => q.eq("smlCode", args.inventorySmlCode)).first();
+    if (!inventory) throw new Error("fair_qr_inventory_business_missing");
+    const code = args.resolverCode.trim().toUpperCase();
+    const channel = await ctx.db.query("accessChannels").withIndex("by_resolverCode", (q) => q.eq("resolverCode", code)).first();
+    if (!channel || channel.businessId !== inventory._id || channel.kind !== "qr") throw new Error(`fair_setup_qr_not_in_inventory:${code}`);
+    const subject = await ctx.db.get(channel.subjectId);
+    if (!subject) throw new Error(`fair_setup_qr_missing:${code}`);
+    if (await activeFairAssignmentForSubject(ctx, subject._id)) throw new Error(`fair_setup_qr_linked_to_model:${code}`);
+    const label = (channel.cardId ? (await ctx.db.get(channel.cardId))?.label : undefined) ?? code;
+    let link = await ctx.db.query("dynamicLinks").withIndex("by_slug", (q) => q.eq("slug", args.linkSlug)).unique();
+    if (link && link.businessId !== inventory._id) throw new Error("fair_setup_link_slug_conflict");
+    const input = subject.destinationInput;
+    const ownLink = link !== null && input?.kind === "dynamic_link" && input.dynamicLinkId === link._id;
+    if (subject.destinationKind !== "legacy" && !ownLink) throw new Error(`fair_setup_qr_has_destination:${code}`);
+    const target = subject.currentTargetId ? await ctx.db.get(subject.currentTargetId) : null;
+    const before = `${channel.state} → ${target?.kind === "url" ? target.url : subject.destinationKind}`;
+    if (ownLink && link?.destinationUrl === args.url && target?.url === args.url) return { label, before, after: before, result: "unchanged" as const };
+    if (args.dryRun) return { label, before, after: `active → ${args.url}`, result: "dry_run" as const };
+    const now = Date.now();
+    if (!link) {
+      const linkId = await ctx.db.insert("dynamicLinks", { businessId: inventory._id, slug: args.linkSlug, destinationUrl: args.url, type: "google_review", active: true, scanCount: 0, createdAt: now, updatedAt: now });
+      link = (await ctx.db.get(linkId))!;
+    } else {
+      await ctx.db.patch(link._id, { destinationUrl: args.url, updatedAt: now });
+    }
+    const destination = { kind: "dynamic_link" as const, dynamicLinkId: link._id };
+    const prepared = await prepareDestination(ctx, subject.businessId, destination);
+    await applyDestination(ctx, subject, destination, prepared, actorUserId, args.reason, now);
+    const freshChannel = (await ctx.db.get(channel._id))!;
+    await writeAdminAudit(ctx, { actorUserId, businessId: inventory._id, action: "fair_setup_qr_pointed_to_url", detail: { resolverCode: code, label, url: args.url, linkSlug: args.linkSlug }, now });
+    return { label, before, after: `${freshChannel.state} → ${args.url}`, result: "updated" as const };
   },
 });
 

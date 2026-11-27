@@ -310,3 +310,31 @@ test("popular model leader: no runs outside the event window (and keeps final le
   });
   expect(highlighted).toEqual(["ineos-grenadier"]);
 });
+
+test("pointInventoryQrToUrl: a free sticker leads to a ScanMe page; dry run writes nothing; idempotent; other destinations refused", async () => {
+  const t = await setup();
+  const printed = await t.mutation(internal.fairPrintInventory.provisionBatch, { ownerEmail: ADMIN_EMAIL, startOrdinal: 1, count: 2 });
+  const [first, second] = printed;
+  const url = "https://www.scanme.rs/sajam/auto-expo-2026/brend/mg";
+  const base = { actorEmail: ADMIN_EMAIL, inventorySmlCode: "SML-SAJAM-26-QR", resolverCode: first.resolverCode, url, linkSlug: "auto-expo-2026-stand-mg", reason: "test" };
+  const subjectOf = (resolverCode: string) => t.run(async (ctx) => {
+    const channel = (await ctx.db.query("accessChannels").withIndex("by_resolverCode", (q) => q.eq("resolverCode", resolverCode)).first())!;
+    const subject = (await ctx.db.get(channel.subjectId))!;
+    const target = subject.currentTargetId ? await ctx.db.get(subject.currentTargetId) : null;
+    return { kind: subject.destinationKind, url: target?.url ?? null, state: channel.state };
+  });
+
+  const dry = await t.mutation(internal.fairSetup.pointInventoryQrToUrl, { ...base, dryRun: true });
+  expect(dry).toMatchObject({ label: first.printedCode, result: "dry_run" });
+  expect(await subjectOf(first.resolverCode)).toMatchObject({ kind: "legacy", url: null });
+
+  const done = await t.mutation(internal.fairSetup.pointInventoryQrToUrl, { ...base, dryRun: false });
+  expect(done).toMatchObject({ result: "updated", after: `active → ${url}` });
+  expect(await subjectOf(first.resolverCode)).toEqual({ kind: "dynamic_url", url, state: "active" });
+  expect((await t.mutation(internal.fairSetup.pointInventoryQrToUrl, { ...base, dryRun: false })).result).toBe("unchanged");
+
+  // A sticker that already leads elsewhere, another link's slug, a foreign URL: refused.
+  await expect(t.mutation(internal.fairSetup.pointInventoryQrToUrl, { ...base, linkSlug: "other-slug", dryRun: true })).rejects.toThrow("fair_setup_qr_has_destination");
+  await expect(t.mutation(internal.fairSetup.pointInventoryQrToUrl, { ...base, resolverCode: second.resolverCode, url: "https://example.com/x", dryRun: true })).rejects.toThrow("fair_setup_url_not_scanme");
+  await expect(t.mutation(internal.fairSetup.pointInventoryQrToUrl, { ...base, resolverCode: "ZZZZZZZZ", dryRun: true })).rejects.toThrow("fair_setup_qr_not_in_inventory");
+});

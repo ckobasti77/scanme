@@ -21,9 +21,8 @@
             {
               "externalKey": "auto-expo-2026-ford-puma-mhev",
               "displayName": "Ford Puma mHEV",
-              "variant": "ST-Line",
               "slug": "ford-puma-mhev",
-              "priceText": "od 21.740 €",
+              "priceText": "od 18.490 €",
               "externalUrl": "https://ford.rs/puma",
               "packageTier": "starter",
               "specifications": [
@@ -34,122 +33,43 @@
                   "isHighlight": true
                 },
                 {
-                  "label": "Gorivo",
-                  "value": "Benzin, blagi hibrid",
-                  "order": 2,
-                  "isHighlight": true
-                },
-                {
-                  "label": "Snaga",
-                  "value": "92 kW / 125 KS",
-                  "order": 3,
-                  "isHighlight": true
-                },
-                {
-                  "label": "Menjač",
-                  "value": "Automatski, 7 brzina",
-                  "order": 4,
-                  "isHighlight": true
-                },
-                {
-                  "label": "Dostupni motori (ST-Line)",
-                  "value": "Motor, Snaga, Menjač; 1,0 EcoBoost mHEV, 92 kW / 125 KS, ručni 6; 1,0 EcoBoost mHEV, 92 kW / 125 KS, automatski 7; 1,0 EcoBoost mHEV, 114 kW / 155 KS, automatski 7",
-                  "order": 5
-                },
-                {
                   "label": "Zapremina prtljažnika",
-                  "value": "456 l (1,126 l sa preklopljenim sedištima)",
-                  "order": 6
-                },
-                {
-                  "label": "Naplatci",
-                  "value": "17\" aluminijumski naplatci 215/55 R17 94H",
-                  "order": 7
-                },
-                {
-                  "label": "Centralni ekran",
-                  "value": "12\"",
-                  "order": 8
-                },
-                {
-                  "label": "Digitalna kontrolna tabla vozača",
-                  "value": "12,8\"",
-                  "order": 9
+                  "value": "456 l (1.126 l sa preklopljenim sedištima)",
+                  "order": 2
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/ford-puma-mhev.webp",
               "passportEligible": true,
               "sortOrder": 1,
-              "priceSecondaryText": "ST-Line, 1,0 EcoBoost mHEV automatski 7"
+              "priceSecondaryText": "Najniža akcijska cena modela (ford.rs)",
+              "assignedResolverCode": "TPY1WFKP"
             },
             {
               "externalKey": "auto-expo-2026-ford-kuga",
               "displayName": "Ford Kuga",
-              "variant": "ST-Line",
               "slug": "ford-kuga",
-              "priceText": "od 27.490 €",
+              "priceText": "od 25.990 €",
               "externalUrl": "https://ford.rs/nova-kuga",
               "packageTier": "starter",
               "specifications": [
                 {
-                  "label": "Motor",
-                  "value": "1,5 EcoBoost",
+                  "label": "Zapremina prtljažnika",
+                  "value": "do 536 l",
                   "order": 1,
                   "isHighlight": true
                 },
                 {
-                  "label": "Gorivo",
-                  "value": "Benzin",
+                  "label": "Ekran osetljiv na dodir",
+                  "value": "13,2\" SYNC 4",
                   "order": 2,
                   "isHighlight": true
-                },
-                {
-                  "label": "Snaga",
-                  "value": "137 kW / 186 KS",
-                  "order": 3,
-                  "isHighlight": true
-                },
-                {
-                  "label": "Menjač",
-                  "value": "Automatski, 8 brzina",
-                  "order": 4,
-                  "isHighlight": true
-                },
-                {
-                  "label": "Dostupni motori (ST-Line)",
-                  "value": "Motor, Snaga, Menjač; 1,5 EcoBoost, 110 kW / 150 KS, ručni 6; 1,5 EcoBoost, 137 kW / 186 KS, automatski 8; 2,5 FHEV, 132 kW / 180 KS, automatski CVT; 2,5 FHEV, 134 kW / 183 KS, automatski CVT; 2,5 PHEV, 178 kW / 243 KS, automatski CVT",
-                  "order": 5
-                },
-                {
-                  "label": "Zapremina prtljažnika",
-                  "value": "do 536 l",
-                  "order": 6
-                },
-                {
-                  "label": "Naplatci",
-                  "value": "18\" aluminijumske felne 225/60 R18",
-                  "order": 7
-                },
-                {
-                  "label": "Ogibljenje",
-                  "value": "Sportsko ogibljenje",
-                  "order": 8
-                },
-                {
-                  "label": "Ekran osetljiv na dodir",
-                  "value": "13,2\"",
-                  "order": 9
-                },
-                {
-                  "label": "Digitalna instrument tabla",
-                  "value": "12,3\"",
-                  "order": 10
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/ford-kuga.webp",
               "passportEligible": true,
               "sortOrder": 2,
-              "priceSecondaryText": "ST-Line, 1,5 EcoBoost automatski 8"
+              "priceSecondaryText": "Najniža akcijska cena modela (ford.rs)",
+              "assignedResolverCode": "XG9C0T37"
             }
           ]
         },
@@ -173,48 +93,54 @@
               "specifications": [
                 {
                   "label": "Motor",
-                  "value": "1,5 l Hybrid+",
+                  "value": "1,5 l turbo benzinski + baterija 1,83 kWh",
                   "order": 1,
                   "isHighlight": true
                 },
                 {
-                  "label": "Snaga",
-                  "value": "145 kW / 197 KS",
+                  "label": "Snaga (kombinovano)",
+                  "value": "145 kW",
                   "order": 2,
                   "isHighlight": true
                 },
                 {
                   "label": "Potrošnja (WLTP)",
-                  "value": "5,0–5,1 l/100 km",
+                  "value": "5,1 l/100 km",
                   "order": 3,
                   "isHighlight": true
                 },
                 {
-                  "label": "Emisija CO₂ (WLTP)",
-                  "value": "113–115 g/km",
+                  "label": "Ubrzanje 0–100 km/h",
+                  "value": "8,7 s",
                   "order": 4,
                   "isHighlight": true
                 },
                 {
-                  "label": "Dužina × širina × visina",
-                  "value": "4.430 × 1.818 × 1.635 mm",
+                  "label": "Zapremina prtljažnika",
+                  "value": "443 l (1.457 l sa preklopljenim sedištima)",
                   "order": 5
                 },
                 {
-                  "label": "Naplatci",
-                  "value": "18\" Aluminijumske felne",
+                  "label": "Ekrani",
+                  "value": "2 × 12,3\"",
                   "order": 6
                 },
                 {
-                  "label": "Dimenzije guma",
-                  "value": "215/50R18",
+                  "label": "Naplatci",
+                  "value": "18\" aluminijumske felne",
                   "order": 7
+                },
+                {
+                  "label": "Dužina × širina × visina",
+                  "value": "4.430 × 1.818 × 1.635 mm",
+                  "order": 8
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/mg-zs-hybrid.webp",
               "passportEligible": true,
               "sortOrder": 3,
-              "priceSecondaryText": "Početna cena modela (mgmotor.rs)"
+              "priceSecondaryText": "Početna cena modela (mgmotor.rs)",
+              "assignedResolverCode": "TRMDB395"
             },
             {
               "externalKey": "auto-expo-2026-mg-hs-hybrid",
@@ -231,38 +157,49 @@
                   "isHighlight": true
                 },
                 {
-                  "label": "Snaga",
+                  "label": "Snaga (kombinovano)",
                   "value": "165 kW / 224 KS",
                   "order": 2,
                   "isHighlight": true
                 },
                 {
-                  "label": "Potrošnja (WLTP)",
-                  "value": "5,5 l/100 km",
+                  "label": "Obrtni moment (kombinovano)",
+                  "value": "340 Nm",
                   "order": 3,
                   "isHighlight": true
                 },
                 {
-                  "label": "Emisija CO₂ (WLTP)",
-                  "value": "126 g/km",
+                  "label": "Potrošnja",
+                  "value": "5,5 l/100 km",
                   "order": 4,
                   "isHighlight": true
                 },
                 {
-                  "label": "Dužina × širina × visina",
-                  "value": "4.670 × 1.890 × 1.665 mm",
+                  "label": "Ubrzanje 0–100 km/h",
+                  "value": "7,9 s",
                   "order": 5
                 },
                 {
-                  "label": "Točkovi i pneumatici",
-                  "value": "19\" \"Diamond cut Blade\" Aluminijumske felne 225/55 R19",
+                  "label": "Zapremina prtljažnika",
+                  "value": "507 l (1.484 l sa preklopljenim sedištima)",
                   "order": 6
+                },
+                {
+                  "label": "Naplatci",
+                  "value": "19\" aluminijumske felne",
+                  "order": 7
+                },
+                {
+                  "label": "Dužina × širina × visina",
+                  "value": "4.670 × 1.890 × 1.665 mm",
+                  "order": 8
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/mg-hs-hybrid.webp",
               "passportEligible": true,
               "sortOrder": 4,
-              "priceSecondaryText": "Početna cena modela (mgmotor.rs)"
+              "priceSecondaryText": "Početna cena modela (mgmotor.rs)",
+              "assignedResolverCode": "0TWBBCDF"
             },
             {
               "externalKey": "auto-expo-2026-mg3",
@@ -319,7 +256,8 @@
                 }
               ],
               "passportEligible": true,
-              "sortOrder": 5
+              "sortOrder": 5,
+              "assignedResolverCode": "S7KJ805K"
             }
           ]
         }
