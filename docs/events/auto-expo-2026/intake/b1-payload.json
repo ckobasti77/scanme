@@ -33,9 +33,47 @@
                   "isHighlight": true
                 },
                 {
+                  "label": "Gorivo",
+                  "value": "Benzin, blagi hibrid",
+                  "order": 2,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Snaga",
+                  "value": "92 kW / 125 KS",
+                  "order": 3,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Menjač",
+                  "value": "Automatski, 7 brzina",
+                  "order": 4,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Pogon",
+                  "value": "Prednji",
+                  "order": 5
+                },
+                {
+                  "label": "Dostupni motori",
+                  "value": "Motor, Snaga, Menjač; 1,0 EcoBoost mHEV, 92 kW / 125 KS, ručni 6; 1,0 EcoBoost mHEV, 92 kW / 125 KS, automatski 7; 1,0 EcoBoost mHEV, 114 kW / 155 KS, automatski 7; 1,0 EcoBoost mHEV, 118 kW / 160 KS, automatski 7",
+                  "order": 6
+                },
+                {
                   "label": "Zapremina prtljažnika",
                   "value": "456 l (1.126 l sa preklopljenim sedištima)",
-                  "order": 2
+                  "order": 7
+                },
+                {
+                  "label": "Centralni ekran",
+                  "value": "12\" SYNC 4",
+                  "order": 8
+                },
+                {
+                  "label": "Digitalna kontrolna tabla vozača",
+                  "value": "12,8\"",
+                  "order": 9
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/ford-puma-mhev.webp",
@@ -53,16 +91,88 @@
               "packageTier": "starter",
               "specifications": [
                 {
-                  "label": "Zapremina prtljažnika",
-                  "value": "do 536 l",
+                  "label": "Motor",
+                  "value": "1,5 EcoBoost",
                   "order": 1,
                   "isHighlight": true
                 },
                 {
-                  "label": "Ekran osetljiv na dodir",
-                  "value": "13,2\" SYNC 4",
+                  "label": "Gorivo",
+                  "value": "Benzin",
                   "order": 2,
                   "isHighlight": true
+                },
+                {
+                  "label": "Snaga",
+                  "value": "137 kW / 186 KS",
+                  "order": 3,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Obrtni moment",
+                  "value": "240 Nm",
+                  "order": 4
+                },
+                {
+                  "label": "Menjač",
+                  "value": "Automatski, 8 brzina",
+                  "order": 5,
+                  "isHighlight": true
+                },
+                {
+                  "label": "Pogon",
+                  "value": "Prednji",
+                  "order": 6
+                },
+                {
+                  "label": "Potrošnja (WLTP)",
+                  "value": "6,3–7,2 l/100 km",
+                  "order": 7
+                },
+                {
+                  "label": "Dostupni motori",
+                  "value": "Motor, Snaga, Menjač, Pogon; 1,5 EcoBoost, 110 kW / 150 KS, ručni 6, prednji; 1,5 EcoBoost, 137 kW / 186 KS, automatski 8, prednji; 2,5 FHEV, 132 kW / 180 KS, automatski CVT, prednji; 2,5 FHEV, 134 kW / 183 KS, automatski CVT, AWD; 2,5 PHEV, 178 kW / 243 KS, automatski CVT, prednji",
+                  "order": 8
+                },
+                {
+                  "label": "Emisija CO₂ (WLTP)",
+                  "value": "144–163 g/km",
+                  "order": 9
+                },
+                {
+                  "label": "Ubrzanje 0–100 km/h",
+                  "value": "9,5 s",
+                  "order": 10
+                },
+                {
+                  "label": "Maksimalna brzina",
+                  "value": "195 km/h",
+                  "order": 11
+                },
+                {
+                  "label": "Dužina × širina × visina",
+                  "value": "4.604 × 1.882 × 1.679 mm (širina sa retrovizorima 2.177 mm)",
+                  "order": 12
+                },
+                {
+                  "label": "Međuosovinsko rastojanje",
+                  "value": "2.711 mm",
+                  "order": 13
+                },
+                {
+                  "label": "Zapremina prtljažnika",
+                  "value": "553 l (1.534 l sa preklopljenim sedištima)",
+                  "order": 14
+                },
+                {
+                  "label": "Broj sedišta",
+                  "value": "5",
+                  "order": 15
+                },
+                {
+                  "label": "Ekran osetljiv na dodir",
+                  "value": "13,2\" SYNC 4",
+                  "order": 16
                 }
               ],
               "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/ford-kuga.webp",
