@@ -25,3 +25,8 @@ DEV je usklađen sa PROD-om uvozom `b1-payload.json` (importDryRun pa importComm
 
 ## Admin
 Detalj modela prikazuje "Probna vožnja" prema `getFairEntitlements(tier, event.code)`, pa se poštuje `testDriveEvents`. `EventModelDetailView` ima novi prop `eventCode`.
+
+## Hero slider kao AMF (kadar po autu)
+- `FairGallerySlide.box?: [x0, y0, x1, y1]`: gde je auto na studijskoj slici, kao deo slike. Računa ga `scripts/fair/auto-expo-slider-assets.mjs`. Sve boje istog ugla dobijaju bbox crnog auta, jer se beli krov na beloj pozadini ne vidi.
+- `model-slider` slajdu sa `box` daje CSS promenljive (`--car-w`, `--car-h`, `--car-cx`, `--car-y1`, `--car-ratio`). Na telefonu se slika uvećava dok auto ne zauzme 92 % širine ili 78 % visine hero-a, auto je centriran, a točkovi su na 92,5 % visine, u nivou naziva i cene. Visina hero-a se ne menja.
+- `.corner` (birač boja) više ne prima tapove u praznom delu. Na niskom hero-u je pokrivao strelicu „Sledeća" (bilo je i na PROD-u posle c59aaac).

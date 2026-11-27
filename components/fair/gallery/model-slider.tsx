@@ -177,6 +177,8 @@ export function FairModelSlider({
               key={slide.src}
               className={styles.slide}
               data-fit={slide.fit}
+              data-framed={slide.box ? "" : undefined}
+              style={slide.box ? carFrame(slide.box, slide.height / slide.width) : undefined}
               data-current={slideIndex === index ? "" : undefined}
               role="group"
               aria-roledescription="slide"
@@ -293,4 +295,17 @@ export function FairModelSlider({
       </span>
     </section>
   );
+}
+
+/** A studio render framed on its car (`box`, fractions of the image): model-slider.module.css
+ * scales the image so the car fills the hero and its wheels sit on the name and price line. */
+function carFrame(box: readonly [number, number, number, number], ratio: number): CSSProperties {
+  const [x0, y0, x1, y1] = box;
+  return {
+    "--car-w": x1 - x0,
+    "--car-h": y1 - y0,
+    "--car-cx": (x0 + x1) / 2,
+    "--car-y1": y1,
+    "--car-ratio": ratio,
+  } as CSSProperties;
 }

@@ -48,16 +48,28 @@
   object-fit: cover;
 }
 
-/* Auto Expo on a phone (27. 11.): the renders keep ~20 % empty white above the car, so the image
-   spans the hero width and is lifted; the car fills the frame above the name and price.
+/* Auto Expo on a phone (27. 11., like the AMF photo heroes): each studio render is framed on its
+   own car box (data-framed, carFrame in model-slider.tsx), since the renders keep a lot of white
+   around the car and every angle and MG shot is framed differently. The image grows until the car
+   is 92 % of the hero width or 78 % of its height, is centred, and the wheels sit on the name and
+   price line (92.5 %); the name and price lie over the lower body on the bottom fade.
    next/image puts the fill box inline, hence !important. */
 @media (max-width: 767px) {
-  :global(.fair-event--auto-expo) .slide[data-fit="contain"] img {
-    top: -16% !important;
+  .slide[data-framed] {
+    container-type: size;
+  }
+
+  .slide[data-framed] img {
+    --iw: min(calc(92cqw / var(--car-w)), calc(78cqh / (var(--car-h) * var(--car-ratio))));
+    top: calc(92.5cqh - var(--iw) * var(--car-ratio) * var(--car-y1)) !important;
+    right: auto !important;
     bottom: auto !important;
-    height: auto !important;
-    aspect-ratio: 16 / 9;
+    left: calc(50cqw - var(--iw) * var(--car-cx)) !important;
+    width: var(--iw) !important;
+    max-width: none;
+    height: calc(var(--iw) * var(--car-ratio)) !important;
     padding: 0;
+    object-fit: fill;
   }
 }
 
@@ -150,6 +162,13 @@
   display: grid;
   justify-items: end;
   gap: 8px;
+  /* The closed colour list still takes room down the right edge; on the low phone hero that box
+     lay over the "next" arrow. Only the chip row and the open list take taps. */
+  pointer-events: none;
+}
+
+.corner > * {
+  pointer-events: auto;
 }
 
 /* A Glas publike chat head takes the corner: the cluster moves under it. */
