@@ -28,3 +28,59 @@
   padding: 0;
   list-style: none;
 }
+
+/* Phones: one test-drive button stays at the bottom of the screen on the salon pages. */
+.sticky {
+  position: fixed;
+  z-index: 15;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, transparent, rgb(244 239 230 / 0.92) 30%);
+}
+
+.sticky button {
+  width: 100%;
+  box-shadow: 0 10px 24px -12px rgb(72 52 42 / 0.6);
+}
+
+.stickySpacer {
+  height: 84px;
+}
+
+@media (min-width: 768px) {
+  .sticky,
+  .stickySpacer {
+    display: none;
+  }
+}
+
+/* Auto Expo brand page: the wide showroom instead of the 560 px passport column. */
+.salonPage {
+  display: grid;
+  padding-bottom: 32px;
+}
+
+.leadPrimary {
+  display: inline-flex;
+  min-height: 50px;
+  padding: 0 14px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--fair-accent-strong);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.leadPrimary svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}

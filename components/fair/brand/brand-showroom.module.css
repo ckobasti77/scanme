@@ -1,0 +1,316 @@
+/* Auto Expo brand page: header + car cards, in the fair tokens. */
+
+.wrap {
+  display: grid;
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding: var(--fair-space-5, 20px) var(--fair-space-3) 0;
+  gap: var(--fair-space-5, 20px);
+}
+
+.hero {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  padding: 24px 20px 20px;
+  justify-items: start;
+  gap: 10px;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
+  background: var(--fair-surface);
+  box-shadow: 0 14px 36px -26px rgb(72 52 42 / 0.5);
+}
+
+/* The Auto Expo stripe along the top edge of the header card. */
+.hero::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--fair-expo-stripe, var(--fair-accent));
+  content: "";
+}
+
+.mark {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-canvas);
+  color: var(--fair-ink);
+}
+
+.mark svg {
+  width: 28px;
+  height: 28px;
+}
+
+.hero h1 {
+  margin: 4px 0 0;
+  font-size: clamp(40px, 9vw, 64px);
+  font-weight: 860;
+  letter-spacing: -0.045em;
+  line-height: 0.92;
+}
+
+.hero p {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.heroActions {
+  display: grid;
+  width: 100%;
+  max-width: 460px;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.site {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 6px;
+  color: var(--fair-accent-strong);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.site svg {
+  width: 15px;
+  height: 15px;
+}
+
+.grid {
+  display: grid;
+  gap: var(--fair-space-4, 16px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 768px) {
+  .hero {
+    padding: 32px 32px 26px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid[data-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.card {
+  display: grid;
+  overflow: hidden;
+  grid-template-rows: auto 1fr;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
+  background: var(--fair-surface);
+  box-shadow: 0 12px 30px -24px rgb(72 52 42 / 0.5);
+}
+
+.photo {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 10;
+  background: linear-gradient(180deg, #ffffff 0%, #ffffff 62%, #f2ede5 100%);
+}
+
+/* A soft floor shadow under the cut-out car. */
+.photo::after {
+  position: absolute;
+  right: 16%;
+  bottom: 11%;
+  left: 16%;
+  height: 7%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(34 24 16 / 0.28), transparent);
+  content: "";
+}
+
+.cutout {
+  z-index: 1;
+  padding: 7% 7% 12%;
+  object-fit: contain;
+  object-position: 50% 100%;
+  transition: transform var(--fair-dur-overlay) var(--fair-ease-enter);
+}
+
+.cover {
+  object-fit: cover;
+}
+
+@media (hover: hover) {
+  .card:hover .cutout {
+    transform: translateY(-2px) scale(1.015);
+  }
+}
+
+.body {
+  display: grid;
+  padding: 16px 18px 18px;
+  align-content: start;
+  gap: 6px;
+}
+
+.body h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 820;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+
+.body h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.price {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+}
+
+.priceNote {
+  margin: -2px 0 0;
+  color: var(--fair-ink-muted);
+  font-size: 12.5px;
+}
+
+.specs {
+  display: grid;
+  margin: 6px 0 0;
+  border-top: var(--fair-border);
+}
+
+.specs > div {
+  display: flex;
+  padding: 8px 0;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: var(--fair-border);
+  font-size: 13.5px;
+}
+
+.specs dt {
+  color: var(--fair-ink-muted);
+}
+
+.specs dd {
+  margin: 0;
+  font-weight: 680;
+  text-align: right;
+}
+
+.cardActions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  min-height: 48px;
+  padding: 0 14px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--fair-radius-md);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 760;
+  cursor: pointer;
+  transition:
+    background-color var(--fair-dur-feedback) var(--fair-ease-enter),
+    transform var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.primary svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.primary {
+  border: 1px solid var(--fair-accent-strong);
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+}
+
+.secondary {
+  border: var(--fair-border);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+}
+
+@media (hover: hover) {
+  .primary:hover {
+    background: var(--fair-accent-strong);
+  }
+}
+
+.primary:active,
+.secondary:active {
+  transform: translateY(1px);
+}
+
+.details {
+  display: inline-flex;
+  min-height: 48px;
+  padding: 0 6px;
+  align-items: center;
+  gap: 4px;
+  color: var(--fair-ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.details svg {
+  width: 17px;
+  height: 17px;
+}
+
+.sent {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 6px;
+  color: var(--fair-accent-strong);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sent svg {
+  width: 18px;
+  height: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cutout {
+    transition: none;
+  }
+
+  .card:hover .cutout {
+    transform: none;
+  }
+}

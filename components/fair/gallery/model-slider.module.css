@@ -1,0 +1,222 @@
+/* Auto Expo 2026 — model page photo slider: a white studio frame, one crossfade at a time,
+   counter + arrows bottom left, pause bottom right, a thin timer line in the logo colours. */
+
+.slider {
+  display: grid;
+  gap: 10px;
+}
+
+.stage {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  isolation: isolate;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
+  background: #ffffff;
+  box-shadow: var(--fair-shadow-2);
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(1.015);
+  transition:
+    opacity var(--fair-dur-focal) var(--fair-ease-enter),
+    transform calc(var(--fair-dur-focal) * 1.6) var(--fair-ease-enter);
+}
+
+.slide[data-current] {
+  z-index: 1;
+  opacity: 1;
+  transform: none;
+}
+
+.slide img {
+  object-fit: contain;
+  -webkit-user-drag: none;
+}
+
+.slide[data-fit="contain"] img {
+  padding: 4% 5% 9%;
+}
+
+.slide[data-fit="cover"] img {
+  object-fit: cover;
+}
+
+.controls {
+  position: absolute;
+  z-index: 3;
+  bottom: 12px;
+  left: 12px;
+  display: inline-flex;
+  padding: 3px;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid rgb(23 25 24 / 0.08);
+  border-radius: var(--fair-radius-pill);
+  background: rgb(255 253 248 / 0.9);
+  box-shadow: 0 6px 16px -10px rgb(72 52 42 / 0.5);
+}
+
+.arrow,
+.pause {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fair-ink);
+  cursor: pointer;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.arrow svg,
+.pause svg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (hover: hover) {
+  .arrow:hover,
+  .pause:hover {
+    background: var(--fair-surface-muted);
+  }
+}
+
+.arrow:focus-visible,
+.pause:focus-visible,
+.swatch:focus-visible {
+  outline: 3px solid var(--fair-focus);
+  outline-offset: 2px;
+}
+
+.counter {
+  display: inline-flex;
+  min-width: 58px;
+  justify-content: center;
+  gap: 3px;
+  color: var(--fair-ink);
+  font-size: 13px;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.counter span {
+  color: var(--fair-ink-muted);
+  font-weight: 500;
+}
+
+.pause {
+  position: absolute;
+  z-index: 3;
+  right: 12px;
+  bottom: 12px;
+  border: 1px solid rgb(23 25 24 / 0.08);
+  background: rgb(255 253 248 / 0.9);
+  box-shadow: 0 6px 16px -10px rgb(72 52 42 / 0.5);
+}
+
+.pause svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Timer line: fills over the current wait in the logo stripe colours, empty while held. */
+.progress {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: rgb(23 25 24 / 0.06);
+}
+
+.progress > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--fair-expo-stripe, var(--fair-accent));
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.progress > span[data-running] {
+  animation: fill var(--slider-delay) linear forwards;
+}
+
+@keyframes fill {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0 2px;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.swatch::before {
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.14),
+    inset 0 2px 3px rgb(255 255 255 / 0.35);
+  content: "";
+}
+
+.swatch::after {
+  position: absolute;
+  inset: 5px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  content: "";
+  transition: border-color var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+.swatch[aria-pressed="true"]::after {
+  border-color: var(--fair-ink);
+}
+
+.swatchLabel {
+  margin-left: 4px;
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide {
+    transform: none;
+    transition: opacity var(--fair-dur-state) linear;
+  }
+
+  .progress > span[data-running] {
+    animation: none;
+  }
+}

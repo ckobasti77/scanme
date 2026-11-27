@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { FairModelSlider } from "./gallery/model-slider";
+import { fairModelGallery } from "@/lib/fair-gallery";
 import { ExternalLink, MapPin } from "lucide-react";
 import type {
   FairFixtureMode,
@@ -177,6 +179,8 @@ export function FairModelPage({
   adminTools?: ReactNode;
 }) {
   const amf = model.eventSlug === "auto-moto-fest-2026";
+  // Auto Expo: a photo slider replaces the single hero photo (lib/fair-gallery).
+  const gallery = fairModelGallery(model.eventSlug, model.modelSlug);
   const specs = model.specificationGroups.flatMap((group) => group.items);
   const keySpecs = fairModelKeySpecs(specs, amf);
   const drivetrainTitle = amf && !fairModelHasTractionBattery(specs) ? dict.specsGroupEngine : dict.specsGroupDrivetrain;
@@ -243,11 +247,12 @@ export function FairModelPage({
         openSurvey={openSurvey}
       >
       <main className="fair-model-main">
+        {gallery ? <FairModelSlider gallery={gallery} modelName={model.displayName} /> : null}
         <section
-          className={`fair-model-hero${model.photoUrl ? "" : " fair-model-hero--no-photo"}`}
+          className={`fair-model-hero${gallery ? " fair-model-hero--gallery" : model.photoUrl ? "" : " fair-model-hero--no-photo"}`}
           data-presentation={model.photoPresentation}
         >
-          {model.photoUrl ? (
+          {gallery ? null : model.photoUrl ? (
             <Image
               src={model.photoUrl}
               alt={fmt(dict.modelPhotoAlt, { model: model.displayName })}

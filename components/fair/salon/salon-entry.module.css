@@ -1,0 +1,230 @@
+/* Auto Expo 2026 — /sajam/<event>: the two brand salons. */
+
+.entry {
+  display: grid;
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding: var(--fair-space-5, 20px) var(--fair-space-3) var(--fair-space-8, 32px);
+  gap: var(--fair-space-5, 20px);
+}
+
+.head {
+  display: grid;
+  gap: 8px;
+  max-width: 40rem;
+}
+
+.head h1 {
+  margin: 0;
+  font-size: clamp(30px, 6.4vw, 52px);
+  font-weight: 860;
+  font-stretch: 105%;
+  letter-spacing: -0.04em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.head p {
+  margin: 0;
+  color: var(--fair-ink-muted);
+  font-size: 16px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.tiles {
+  display: grid;
+  gap: var(--fair-space-4, 16px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 768px) {
+  .tiles {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--fair-space-5, 20px);
+  }
+}
+
+.tile {
+  display: grid;
+  gap: 8px;
+}
+
+.tileLink {
+  display: grid;
+  overflow: hidden;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-xl);
+  background: var(--fair-surface);
+  color: var(--fair-ink);
+  text-decoration: none;
+  box-shadow: 0 14px 36px -24px rgb(72 52 42 / 0.5);
+  transition:
+    transform var(--fair-dur-state) var(--fair-ease-enter),
+    box-shadow var(--fair-dur-state) var(--fair-ease-enter);
+}
+
+@media (hover: hover) {
+  .tileLink:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 44px -24px rgb(72 52 42 / 0.55);
+  }
+
+  .tileLink:hover .car {
+    transform: translate(-50%, -101.5%);
+  }
+}
+
+.tileLink:active {
+  transform: translateY(0);
+}
+
+.room {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  background: linear-gradient(180deg, #ece6dc 0%, #e6dfd3 62%, #d8cfc2 63%, #f1ece4 100%);
+}
+
+.roomPhoto {
+  object-fit: cover;
+}
+
+/* Same podium as the salon (lib/fair-salon.ts, aspect 16/10). */
+.podium {
+  position: absolute;
+  top: 76%;
+  left: 50%;
+  width: 54%;
+  height: 12%;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, #fdfaf5 0%, #f1eae0 62%, #dcd2c3 100%);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.9) inset,
+    0 5px 0 -1px #cfc3b2,
+    0 14px 20px -10px rgb(72 52 42 / 0.4);
+}
+
+.car {
+  position: absolute;
+  height: auto;
+  transform: translate(-50%, -100%);
+  filter: drop-shadow(0 6px 6px rgb(48 34 22 / 0.18));
+  transition: transform var(--fair-dur-overlay) var(--fair-ease-enter);
+}
+
+.body {
+  display: flex;
+  padding: 14px 16px;
+  align-items: center;
+  gap: 12px;
+}
+
+.icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  border: var(--fair-border);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-canvas);
+}
+
+.icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.text strong {
+  font-size: 22px;
+  font-weight: 840;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.text span {
+  color: var(--fair-ink-muted);
+  font-size: 13px;
+  font-weight: 560;
+}
+
+.enter {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  color: var(--fair-accent-strong);
+  font-size: 14px;
+  font-weight: 760;
+}
+
+.enter svg {
+  width: 18px;
+  height: 18px;
+}
+
+.drive {
+  display: inline-flex;
+  min-height: 48px;
+  padding: 0 16px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--fair-accent-strong);
+  border-radius: var(--fair-radius-md);
+  background: var(--fair-accent);
+  color: var(--fair-accent-ink);
+  font-size: 15px;
+  font-weight: 760;
+  text-decoration: none;
+  transition: background-color var(--fair-dur-feedback) var(--fair-ease-enter);
+}
+
+.drive svg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (hover: hover) {
+  .drive:hover {
+    background: var(--fair-accent-strong);
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tileLink,
+  .car {
+    transition: none;
+  }
+
+  .tileLink:hover,
+  .tileLink:hover .car {
+    transform: none;
+  }
+
+  .tileLink:hover .car {
+    transform: translate(-50%, -100%);
+  }
+}

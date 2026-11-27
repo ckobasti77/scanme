@@ -8,6 +8,9 @@ import { FairBrandHero } from "./brand-hero";
 import { FairBrandLeadSheet } from "./brand-lead-sheet";
 import { FairBrandLeadSuccess } from "./brand-lead-success";
 import { FairBrandModelRow } from "./brand-model-row";
+import { TbSteeringWheel } from "react-icons/tb";
+import { FairBrandShowroom } from "./brand-showroom";
+import type { FairSalonBrand } from "@/lib/fair-salon";
 import { getDict } from "@/lib/i18n";
 import { fmt } from "@/lib/i18n/format";
 import type { FairBrandPageData } from "@/lib/fair-server/brand-page";
@@ -20,23 +23,44 @@ import styles from "./brand-page.module.css";
  * the page. After a lead is sent the page keeps its `success` record and renders
  * `FairBrandLeadSuccess` in place of the hero + list until the visitor leaves the confirmation
  * or starts another lead. */
-export function FairBrandPage({ data }: { data: FairBrandPageData }) {
+export function FairBrandPage({ data, salon, initialDrive = false }: {
+  data: FairBrandPageData;
+  /** Auto Expo: the brand salon replaces the header sheet (lib/fair-salon.ts). */
+  salon?: { brand: FairSalonBrand } | null;
+  /** `?voznja=1` from the entry tiles: the test-drive form opens on arrival. */
+  initialDrive?: boolean;
+}) {
   const dict = getDict("fair-brand");
   const modelDict = getDict("fair-model");
-  const [sheet, setSheet] = useState<{ kind: "testDrive" | "interest"; preselectedIds: string[] } | null>(null);
+  const salonDict = getDict("fair-salon");
+  const [sheet, setSheet] = useState<{ kind: "testDrive" | "interest"; preselectedIds: string[] } | null>(
+    initialDrive ? { kind: "testDrive", preselectedIds: [] } : null,
+  );
   const [requestedIds, setRequestedIds] = useState<string[]>([]);
   // What the sheet's onSent came with: the kind of the closed sheet, the ids it sent
   // and the contact line as the payload had it — FairBrandLeadSuccess renders these verbatim.
   const [success, setSuccess] = useState<{ kind: "testDrive" | "interest"; ids: string[]; contactLine: string } | null>(null);
+  const openDrive = (modelId: string | null) => setSheet({ kind: "testDrive", preselectedIds: modelId ? [modelId] : [] });
   return (
     <>
     {/* The stamp passport's 560px column (same width, padding and paper variables as the
         passport and model pages), then the fair footer. */}
-    <main className={`${passport.main} ${styles.page}`}>
+    <main className={salon && success === null ? styles.salonPage : `${passport.main} ${styles.page}`}>
       {/* Once a lead is sent, the confirmation screen from `success` replaces the hero +
           label row + list until the visitor leaves it; the sheet block stays below. */}
       {success === null ? (
         <>
+          {salon ? (
+            <FairBrandShowroom
+              brand={salon.brand}
+              models={data.models}
+              eventSlug={data.eventSlug}
+              requestedIds={requestedIds}
+              onDrive={openDrive}
+              onInterest={(modelId) => setSheet({ kind: "interest", preselectedIds: modelId ? [modelId] : [] })}
+            />
+          ) : (
+          <>
           <FairBrandHero
             dict={dict}
             brandName={data.brand.name}
@@ -70,6 +94,8 @@ export function FairBrandPage({ data }: { data: FairBrandPageData }) {
               </li>
             ))}
           </ul>
+          </>
+          )}
         </>
       ) : (
         // Sent models in the brand's own order (success.ids is the pick order, not the stand
@@ -117,7 +143,16 @@ export function FairBrandPage({ data }: { data: FairBrandPageData }) {
         />
       )}
       </AnimatePresence>
+      {salon && success === null ? <div className={styles.stickySpacer} aria-hidden="true" /> : null}
     </main>
+    {salon && success === null && sheet === null ? (
+      <div className={styles.sticky}>
+        <button type="button" className={styles.leadPrimary} onClick={() => openDrive(null)}>
+          <TbSteeringWheel aria-hidden="true" />
+          {salonDict.stickyDrive}
+        </button>
+      </div>
+    ) : null}
     <footer className="fair-footer">
       <span>{modelDict.poweredBy}</span>
       <Link prefetch={false} href={FAIR_PRIVACY_PATH} className="fair-dev-entry">{modelDict.privacyLink}</Link>

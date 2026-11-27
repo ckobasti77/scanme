@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { FairBrandPage } from "@/components/fair/brand/brand-page";
 import { FairEventShell } from "@/components/fair/event-shell";
 import { loadFairBrandPage } from "@/lib/fair-server/brand-page";
+import { fairSalonBrand } from "@/lib/fair-salon";
 import { fairEventThemeClass } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
@@ -25,10 +26,20 @@ export async function generateMetadata({ params }: { params: Promise<RouteParams
   };
 }
 
-export default async function FairBrandPageRoute({ params }: { params: Promise<RouteParams> }) {
-  const { eventSlug, brandSlug } = await params;
+export default async function FairBrandPageRoute({
+  params,
+  searchParams,
+}: {
+  params: Promise<RouteParams>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [{ eventSlug, brandSlug }, query] = await Promise.all([params, searchParams]);
   const data = await loadFairBrandPage(eventSlug, brandSlug);
   if (!data) notFound();
+  // Auto Expo: the brand page is the brand's salon (lib/fair-salon.ts).
+  const salonBrand = fairSalonBrand(eventSlug, brandSlug);
+  const salon = salonBrand ? { brand: salonBrand } : null;
+  const drive = (Array.isArray(query.voznja) ? query.voznja[0] : query.voznja) === "1";
 
   return (
     <div className={`fair-event ${fairEventThemeClass(eventSlug)}`} data-reveal="off">
@@ -38,9 +49,9 @@ export default async function FairBrandPageRoute({ params }: { params: Promise<R
         eventTitle={dict.umbrellaTitle}
         eventName={data.eventName}
         dict={fairModelSr}
-        current="passports"
+        {...(salon ? { currentBrand: brandSlug } : { current: "passports" as const })}
       />
-      <FairBrandPage data={data} />
+      <FairBrandPage data={data} salon={salon} initialDrive={drive} />
     </div>
   );
 }

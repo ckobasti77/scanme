@@ -15,6 +15,9 @@ import { fairEventThemeClass } from "@/lib/fair-theme";
 import { fmt } from "@/lib/i18n/format";
 import { fairMapSr as dict } from "@/lib/i18n/sr/fair-map";
 import { fairModelSr } from "@/lib/i18n/sr/fair-model";
+import { fairSalonSr } from "@/lib/i18n/sr/fair-salon";
+import { fairSalonEvent } from "@/lib/fair-salon";
+import { FairSalonEntry } from "@/components/fair/salon/salon-entry";
 import { MapSection } from "../_mapa/map-section";
 import { MapSkeleton } from "../_mapa/map-skeleton";
 import { MapUnavailable } from "../_mapa/map-unavailable";
@@ -59,7 +62,7 @@ export async function generateMetadata({ params }: { params: Promise<RouteParams
     return { title: dict.notFoundTitle, robots };
   }
   return {
-    title: fmt(dict.metaTitle, { event: event.title }),
+    title: fmt(fairSalonEvent(eventSlug) ? fairSalonSr.entryMetaTitle : dict.metaTitle, { event: event.title }),
     description: fmt(dict.metaDescription, { event: event.title }),
     robots,
   };
@@ -226,6 +229,18 @@ export default async function FairEventMapPage({
     );
   }
   if (!event) notFound();
+
+  // Auto Expo (27. 11.): no map — the entry with one tile per brand salon.
+  const salon = fairSalonEvent(eventSlug);
+  if (salon) {
+    return (
+      <div className={`fair-event ${fairEventThemeClass(eventSlug)}`} data-reveal="off">
+        <FairEventShell eventId={event.id} eventSlug={eventSlug} eventTitle={dict.umbrellaTitle} eventName={event.title} dict={fairModelSr} adminTools={<FairAdminTools event={{ id: event.id, slug: eventSlug, dataSlug: event.slug, title: event.title }} />} />
+        <FairSalonEntry eventSlug={eventSlug} salon={salon} dict={fairSalonSr} />
+      </div>
+    );
+  }
+
   const display = (Array.isArray(query.prikaz) ? query.prikaz[0] : query.prikaz) === "ekran";
 
   return (

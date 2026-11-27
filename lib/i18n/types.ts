@@ -938,6 +938,45 @@ export type FairBrandSelectedCountWord = (count: number) => string;
 // label before the separator stays natural case and the stylesheet uppercases it.
 export type FairBrandSuccessEyebrow = (count: number) => string;
 
+// Auto Expo 2026 — the brand salon (/sajam/<event>/brend/<brand>), the event entry with the
+// brand tiles (/sajam/<event>) and the model photo slider (lib/i18n/sr/fair-salon.ts).
+export interface FairSalonDict {
+  entryMetaTitle: string;
+  entryTitle: string;
+  entryText: string;
+  tileCount: (count: number) => string;
+  tileEnter: string;
+  tileDrive: string;
+  salonTitle: string;
+  salonText: string;
+  salonStageLabel: string;
+  carAria: string;
+  carHint: string;
+  viewedCount: (seen: number, total: number) => string;
+  allViewed: string;
+  panelClose: string;
+  panelDrive: string;
+  panelInterest: string;
+  panelDetails: string;
+  panelSent: string;
+  siteLink: string;
+  leadTitle: string;
+  leadText: string;
+  leadDrive: string;
+  leadInterest: string;
+  stickyDrive: string;
+  sliderLabel: string;
+  sliderSlide: string;
+  sliderPrev: string;
+  sliderNext: string;
+  sliderPause: string;
+  sliderPlay: string;
+  sliderColors: string;
+  sliderColor: string;
+  sliderAltColor: string;
+  sliderAltPhoto: string;
+}
+
 // stranica brenda — the public brand page /sajam/<event>/brend/<brand>
 // (docs/events/stranica-brenda/MAPA-KODA.md, mockup
 // /workspace/scanme-brend-run/referenca/stranica-brenda-mockup.html). Everything
@@ -10726,6 +10765,7 @@ export interface DictBySurface {
   "fair-garage": FairGarageDict;
   "fair-passport": FairPassportDict;
   "fair-brand": FairBrandDict;
+  "fair-salon": FairSalonDict;
   "fair-admin-dev": FairAdminDevDict;
   "fair-privacy": FairPrivacyDict;
   "admin-v1": AdminV1Dict;

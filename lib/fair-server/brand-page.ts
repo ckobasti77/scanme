@@ -25,6 +25,11 @@ export type FairBrandPageModel = {
   name: string;
   priceText: string;
   photoUrl?: string;
+  /** Salon detail panel (Auto Expo): price source line, the maker's page, up to three
+   * highlighted specifications in the model's own order. */
+  priceSecondaryText?: string;
+  externalUrl?: string;
+  highlights?: { label: string; value: string }[];
 };
 
 export type FairBrandPageData = {
@@ -88,6 +93,14 @@ export function projectFairBrandPage(input: {
       priceText: model.priceText,
       // Only real photos reach the row — the model page does the same (mockup .mrow img).
       ...(model.photoUrl ? { photoUrl: model.photoUrl } : {}),
+      ...(model.priceSecondaryText ? { priceSecondaryText: model.priceSecondaryText } : {}),
+      ...(model.externalUrl ? { externalUrl: model.externalUrl } : {}),
+      highlights: (model.specificationGroups ?? [])
+        .flatMap((group) => group.items)
+        .filter((item) => item.isHighlight)
+        .sort((a, b) => a.order - b.order)
+        .slice(0, 3)
+        .map((item) => ({ label: item.label, value: item.value })),
     })),
     eventSlug: input.eventSlug,
     brandSlug: input.brandSlug,
