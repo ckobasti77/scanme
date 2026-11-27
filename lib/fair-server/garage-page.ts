@@ -3,6 +3,7 @@ import { api } from "@/convex/_generated/api";
 import type { FairGarageEventView } from "@/lib/fair-client/garage-view";
 import { fairMapEventSlugCandidates } from "@/lib/fair-map";
 import { fairNavigationEvent, fairPublicEventSlug } from "@/lib/fair-public-event";
+import { fairStandPhotoUrl } from "@/lib/fair-salon";
 import { fairGarageSr as dict } from "@/lib/i18n/sr/fair-garage";
 
 const EVENT_DEFINITIONS = [
@@ -173,8 +174,9 @@ export async function withDevSponsoredRotation(view: FairGarageEventView, reques
             displayName: model.displayName,
             ...(model.variant ? { variant: model.variant } : {}),
             priceText: model.priceText,
-            visual: model.photoUrl ? ("photo" as const) : ("event_placeholder" as const),
-            ...(model.photoUrl ? { photoUrl: model.photoUrl } : {}),
+            ...(fairStandPhotoUrl(model.eventSlug, model.slug, model.photoUrl)
+              ? { visual: "photo" as const, photoUrl: fairStandPhotoUrl(model.eventSlug, model.slug, model.photoUrl) }
+              : { visual: "event_placeholder" as const }),
             standMapLocationId: model.standMapLocationId,
             order,
           },

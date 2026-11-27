@@ -50,8 +50,8 @@ const AUTO_EXPO_2026: FairSalonEvent = {
       siteUrl: "https://www.ford.rs",
       siteLabel: "ford.rs",
       spots: [
-        { modelSlug: "ford-puma-mhev", angleDeg: -42, cutout: { src: `${SALON_ROOT}/ford-puma-34.webp`, width: 890, height: 500, worldWidth: 1.0, ground: 0.994 } },
-        { modelSlug: "ford-kuga", angleDeg: 42, cutout: { src: `${SALON_ROOT}/ford-kuga-34.webp`, width: 937, height: 545, worldWidth: 1.05, ground: 0.995 } },
+        { modelSlug: "ford-puma-mhev", angleDeg: -42, cutout: { src: `${SALON_ROOT}/ford-puma-bela.webp`, width: 890, height: 476, worldWidth: 1.0, ground: 0.997 } },
+        { modelSlug: "ford-kuga", angleDeg: 42, cutout: { src: `${SALON_ROOT}/ford-kuga-crna.webp`, width: 937, height: 516, worldWidth: 1.05, ground: 0.997 } },
       ],
     },
     {
@@ -60,8 +60,8 @@ const AUTO_EXPO_2026: FairSalonEvent = {
       siteUrl: "https://www.mgmotor.rs",
       siteLabel: "mgmotor.rs",
       spots: [
-        { modelSlug: "mg3", angleDeg: -68, cutout: { src: `${SALON_ROOT}/mg3.webp`, width: 1400, height: 643, worldWidth: 1.08, ground: 0.967 } },
-        { modelSlug: "mg-hs-hybrid", angleDeg: 0, cutout: { src: `${SALON_ROOT}/mg-hs-hybrid.webp`, width: 1400, height: 676, worldWidth: 1.2, ground: 0.919 } },
+        { modelSlug: "mg3", angleDeg: -68, cutout: { src: `${SALON_ROOT}/mg3-bela.webp`, width: 1400, height: 637, worldWidth: 1.08, ground: 0.967 } },
+        { modelSlug: "mg-hs-hybrid", angleDeg: 0, cutout: { src: `${SALON_ROOT}/mg-hs-hybrid-srebrna.webp`, width: 1400, height: 676, worldWidth: 1.2, ground: 0.919 } },
         { modelSlug: "mg-zs-hybrid", angleDeg: 68, cutout: { src: `${SALON_ROOT}/mg-zs-hybrid.webp`, width: 1400, height: 621, worldWidth: 1.12, ground: 0.957 } },
       ],
     },
@@ -83,6 +83,16 @@ export function fairSalonEvent(eventSlug: string): FairSalonEvent | null {
 
 export function fairSalonBrand(eventSlug: string, brandSlug: string): FairSalonBrand | null {
   return fairSalonEvent(eventSlug)?.brands.find((brand) => brand.brandSlug === brandSlug) ?? null;
+}
+
+/** Auto Expo (27. 11.): the model photo shows the colour of the car on the stand
+ * (scripts/fair/auto-expo-stand-photos.mjs). Production rows still carry the shared AMF photos,
+ * whose colours differ, so a model of a salon event always gets its stand photo; other events keep
+ * `photoUrl` as stored. */
+export function fairStandPhotoUrl(eventSlug: string, modelSlug: string, photoUrl: string | undefined): string | undefined {
+  const event = eventSlug.replace(/^test-/, "");
+  const onStand = fairSalonEvent(event)?.brands.some((brand) => brand.spots.some((spot) => spot.modelSlug === modelSlug));
+  return onStand ? `https://scanme.rs/fair/${event}/modeli/${modelSlug}.webp` : photoUrl;
 }
 
 /** Auto Expo (owner, 27. 11.): an event with salons has no public home — `/sajam/<event>`

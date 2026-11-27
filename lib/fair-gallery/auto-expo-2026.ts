@@ -8,58 +8,6 @@ export const AUTO_EXPO_2026_GALLERY: Readonly<Record<string, FairModelGallery>> 
     "mode": "angles",
     "groups": [
       {
-        "id": "bela",
-        "label": "Bela",
-        "swatch": "#f1f1ee",
-        "slides": [
-          {
-            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/01.webp",
-            "width": 1600,
-            "height": 900
-          },
-          {
-            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/02.webp",
-            "width": 1600,
-            "height": 900
-          },
-          {
-            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/03.webp",
-            "width": 1600,
-            "height": 900
-          },
-          {
-            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/04.webp",
-            "width": 1600,
-            "height": 900
-          },
-          {
-            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/05.webp",
-            "width": 1600,
-            "height": 900
-          },
-          {
-            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/06.webp",
-            "width": 1600,
-            "height": 900
-          },
-          {
-            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/07.webp",
-            "width": 1600,
-            "height": 900
-          },
-          {
-            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/08.webp",
-            "width": 1600,
-            "height": 900
-          },
-          {
-            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/09.webp",
-            "width": 1600,
-            "height": 900
-          }
-        ]
-      },
-      {
         "id": "crna",
         "label": "Crna",
         "swatch": "#17181a",
@@ -106,6 +54,58 @@ export const AUTO_EXPO_2026_GALLERY: Readonly<Record<string, FairModelGallery>> 
           },
           {
             "src": "/fair/auto-expo-2026/slider/ford-kuga/crna/09.webp",
+            "width": 1600,
+            "height": 900
+          }
+        ]
+      },
+      {
+        "id": "bela",
+        "label": "Bela",
+        "swatch": "#f1f1ee",
+        "slides": [
+          {
+            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/01.webp",
+            "width": 1600,
+            "height": 900
+          },
+          {
+            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/02.webp",
+            "width": 1600,
+            "height": 900
+          },
+          {
+            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/03.webp",
+            "width": 1600,
+            "height": 900
+          },
+          {
+            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/04.webp",
+            "width": 1600,
+            "height": 900
+          },
+          {
+            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/05.webp",
+            "width": 1600,
+            "height": 900
+          },
+          {
+            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/06.webp",
+            "width": 1600,
+            "height": 900
+          },
+          {
+            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/07.webp",
+            "width": 1600,
+            "height": 900
+          },
+          {
+            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/08.webp",
+            "width": 1600,
+            "height": 900
+          },
+          {
+            "src": "/fair/auto-expo-2026/slider/ford-kuga/bela/09.webp",
             "width": 1600,
             "height": 900
           }
@@ -630,6 +630,18 @@ export const AUTO_EXPO_2026_GALLERY: Readonly<Record<string, FairModelGallery>> 
     "mode": "colors",
     "groups": [
       {
+        "id": "srebrna",
+        "label": "Srebrna",
+        "swatch": "#c3c6c9",
+        "slides": [
+          {
+            "src": "/fair/auto-expo-2026/slider/mg-hs-hybrid/boje/srebrna.webp",
+            "width": 1600,
+            "height": 900
+          }
+        ]
+      },
+      {
         "id": "bela",
         "label": "Bela",
         "swatch": "#f1f1ee",
@@ -666,18 +678,6 @@ export const AUTO_EXPO_2026_GALLERY: Readonly<Record<string, FairModelGallery>> 
         ]
       },
       {
-        "id": "srebrna",
-        "label": "Srebrna",
-        "swatch": "#c3c6c9",
-        "slides": [
-          {
-            "src": "/fair/auto-expo-2026/slider/mg-hs-hybrid/boje/srebrna.webp",
-            "width": 1600,
-            "height": 900
-          }
-        ]
-      },
-      {
         "id": "plava",
         "label": "Plava",
         "swatch": "#1d4ea0",
@@ -707,6 +707,18 @@ export const AUTO_EXPO_2026_GALLERY: Readonly<Record<string, FairModelGallery>> 
   "mg-zs-hybrid": {
     "mode": "colors",
     "groups": [
+      {
+        "id": "crvena",
+        "label": "Crvena",
+        "swatch": "#a8201a",
+        "slides": [
+          {
+            "src": "/fair/auto-expo-2026/slider/mg-zs-hybrid/boje/crvena.webp",
+            "width": 1600,
+            "height": 900
+          }
+        ]
+      },
       {
         "id": "bela",
         "label": "Bela",
@@ -762,18 +774,6 @@ export const AUTO_EXPO_2026_GALLERY: Readonly<Record<string, FairModelGallery>> 
         "slides": [
           {
             "src": "/fair/auto-expo-2026/slider/mg-zs-hybrid/boje/plava.webp",
-            "width": 1600,
-            "height": 900
-          }
-        ]
-      },
-      {
-        "id": "crvena",
-        "label": "Crvena",
-        "swatch": "#a8201a",
-        "slides": [
-          {
-            "src": "/fair/auto-expo-2026/slider/mg-zs-hybrid/boje/crvena.webp",
             "width": 1600,
             "height": 900
           }

@@ -48,6 +48,19 @@
   object-fit: cover;
 }
 
+/* Auto Expo on a phone (27. 11.): the renders keep ~20 % empty white above the car, so the image
+   spans the hero width and is lifted; the car fills the frame above the name and price.
+   next/image puts the fill box inline, hence !important. */
+@media (max-width: 767px) {
+  :global(.fair-event--auto-expo) .slide[data-fit="contain"] img {
+    top: -16% !important;
+    bottom: auto !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+    padding: 0;
+  }
+}
+
 /* Overlay controls: the same dark glass as the stand chip, readable on white and on photos. */
 .arrow,
 .pause,

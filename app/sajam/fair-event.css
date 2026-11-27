@@ -2335,11 +2335,58 @@ body:has(.fair-event) [data-theme-toggle="global"] {
     height: clamp(140px, calc(100svh - 553px), 260px);
   }
 
-  /* Auto Expo: the slider hero is 4:3 on a phone, so the car keeps clear of the name and price. */
+  /* Auto Expo (27. 11.): the whole page fits one phone screen (390x844 and 360x780 with the
+     browser bars): a low hero whose car fills the frame (model-slider.module.css lifts the studio
+     render past its empty top), compact specs, then the actions. */
   .fair-event.fair-model-page.fair-event--auto-expo .fair-model-main .fair-model-hero.fair-model-hero--gallery {
     height: auto;
     max-height: none;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 16 / 9.4;
+  }
+
+  /* Tighter rhythm: every block and action above the fold on 360x780 with the browser bars. */
+  .fair-event.fair-model-page.fair-event--auto-expo .fair-model-main {
+    gap: 6px;
+    padding-top: 8px;
+  }
+
+  .fair-event.fair-model-page.fair-event--auto-expo .fair-action-section {
+    gap: 6px;
+  }
+
+  .fair-event.fair-model-page.fair-event--auto-expo :is(.fair-action-grid button, .fair-save-dock, .fair-save-compare) {
+    height: 44px;
+  }
+
+  .fair-event.fair-model-page.fair-event--auto-expo .fair-action-grid {
+    gap: 6px;
+  }
+
+  .fair-event.fair-model-page.fair-event--auto-expo .fair-rate-row {
+    min-height: 44px;
+  }
+
+  .fair-event.fair-model-page.fair-event--auto-expo .fair-save-bar {
+    margin-top: 0;
+    padding-block: 0 max(6px, env(safe-area-inset-bottom));
+  }
+
+  .fair-event--auto-expo .fair-model-hero--gallery .fair-model-identity::before {
+    inset-block-start: -36px;
+  }
+
+  /* One line for the longest name ("Puma mHEV") next to the price, so it stays off the wheels. */
+  .fair-event--auto-expo .fair-model-hero--gallery .fair-model-identity h1 {
+    font-size: clamp(24px, 7.2vw, 30px);
+  }
+
+  .fair-event.fair-model-page.fair-event--auto-expo .fair-specs__key {
+    padding-block: 5px 4px;
+    gap: 1px;
+  }
+
+  .fair-event.fair-model-page.fair-event--auto-expo .fair-specs__toggle {
+    height: 38px;
   }
 
   /* 40 px touch target, 28 px in the layout. */

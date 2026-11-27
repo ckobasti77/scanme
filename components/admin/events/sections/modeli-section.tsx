@@ -110,7 +110,7 @@ function useModelSummary(modelId: string): ModelDetailSummary {
 }
 
 export function ModelDetailSection({ modelId }: { modelId: string }) {
-  const { base } = useAdminEvent();
+  const { base, catalog } = useAdminEvent();
   const [query] = useAdminQueryState();
   const view = useCheckedCatalog();
   const actions = { ...useModelDetailActions(), ...useQrLookup() };
@@ -130,6 +130,7 @@ export function ModelDetailSection({ modelId }: { modelId: string }) {
       sectionHref={(path, extra) => eventSectionHref(base, path, extra)}
       interactionHref={(participationId, part, extra) => interactionExhibitorHref(base, participationId, extra, part)}
       summary={summary}
+      eventCode={catalog.event.code}
     />
   );
 }

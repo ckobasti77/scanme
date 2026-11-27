@@ -1,5 +1,6 @@
 import type { FairLeadFormView, FairModelCapabilities, FairPublicModel } from "@/lib/fair-contract";
 import type { FairPhotoPresentation, FairPublicModelFixture } from "@/lib/fair-client/model-fixtures";
+import { fairStandPhotoUrl } from "@/lib/fair-salon";
 
 // =============================================================================
 // Sajam 2026 N6 (F3) — the props of the public model page, from the server
@@ -113,7 +114,7 @@ export function fairModelPageFromPublic(model: FairPublicModel, input: { umbrell
         }),
     }))
     .filter((group) => group.items.length > 0);
-  const photoUrl = model.photoUrl?.trim();
+  const photoUrl = fairStandPhotoUrl(model.eventSlug, model.slug, model.photoUrl?.trim());
   const variant = model.variant?.trim();
   return {
     source: "convex",

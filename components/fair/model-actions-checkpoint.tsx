@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AnimatePresence } from "framer-motion";
 import { ChevronRight, Star, ThumbsUp } from "lucide-react";
 import { TbSteeringWheel } from "react-icons/tb";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
   FAIR_RATING_MAX,
   FAIR_RATING_MIN,
@@ -367,11 +367,14 @@ export function ModelActionsCheckpoint({
   actions,
   ratingMode,
   dict,
+  afterActions,
 }: {
   audience?: { eyebrow: string; question: string; href: string };
   actions: Action[];
   ratingMode: "none" | "overall" | "dimensions";
   dict: FairModelDict;
+  /** Auto Expo (27. 11.): the rating sits right under the actions, then this (garage | compare). */
+  afterActions?: ReactNode;
 }) {
   const { live, leadForms } = useFairModelInteractions();
   const [openSheet, setOpenSheet] = useState<SheetKind | null>(null);
@@ -381,7 +384,14 @@ export function ModelActionsCheckpoint({
     "model-action",
   );
 
-  if (!audience && ratingMode === "none" && actions.length === 0) return null;
+  if (!audience && ratingMode === "none" && actions.length === 0) return afterActions ? <>{afterActions}</> : null;
+  const ratingLast = afterActions !== undefined;
+  const rating = (
+    <>
+      {ratingMode === "overall" ? <StarterRating dict={dict} /> : null}
+      {ratingMode === "dimensions" ? <AdvancedRatingRow dict={dict} onOpen={() => setOpenSheet("rating")} /> : null}
+    </>
+  );
 
   return (
     <section className="fair-action-section">
@@ -401,8 +411,7 @@ export function ModelActionsCheckpoint({
         </Link>
       ) : null}
 
-      {ratingMode === "overall" ? <StarterRating dict={dict} /> : null}
-      {ratingMode === "dimensions" ? <AdvancedRatingRow dict={dict} onOpen={() => setOpenSheet("rating")} /> : null}
+      {ratingLast ? null : rating}
 
       {actions.length > 0 ? (
         <div className="fair-action-grid" data-count={actions.length}>
@@ -430,6 +439,13 @@ export function ModelActionsCheckpoint({
             );
           })}
         </div>
+      ) : null}
+
+      {ratingLast ? (
+        <>
+          {rating}
+          {afterActions}
+        </>
       ) : null}
 
       <AnimatePresence>

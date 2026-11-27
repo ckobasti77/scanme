@@ -2,6 +2,7 @@ import { cache } from "react";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import { FAIR_MAX_MODEL_IDS_PER_READ, type FairPublicModel } from "@/lib/fair-contract";
+import { fairStandPhotoUrl } from "@/lib/fair-salon";
 
 /** One entry of the model page "Uporedi" list (photo, name, price). */
 export type FairCompareOption = {
@@ -52,7 +53,7 @@ export function fairCompareOption(model: FairPublicModel): FairCompareOption {
     displayName: model.displayName,
     ...(model.variant ? { variant: model.variant } : {}),
     priceText: model.priceText,
-    ...(model.photoUrl ? { photoUrl: model.photoUrl } : {}),
+    ...(fairStandPhotoUrl(model.eventSlug, model.slug, model.photoUrl) ? { photoUrl: fairStandPhotoUrl(model.eventSlug, model.slug, model.photoUrl) } : {}),
   };
 }
 

@@ -6,6 +6,7 @@ import {
   type FairSponsoredRotationView,
 } from "@/lib/fair-contract";
 import { fairPublicEventSlug } from "@/lib/fair-public-event";
+import { fairStandPhotoUrl } from "@/lib/fair-salon";
 import { addFairGarageModel, type FairGarageDocument, type FairGarageItem } from "./garage-store";
 
 export type FairGarageEventView = {
@@ -100,7 +101,7 @@ export function fairLiveModelView(
     displayName: live.displayName,
     ...(live.variant ? { variant: live.variant } : {}),
     priceText: live.priceText,
-    ...(live.photoUrl ? { photoUrl: live.photoUrl } : {}),
+    ...(fairStandPhotoUrl(eventSlug, live.slug, live.photoUrl) ? { photoUrl: fairStandPhotoUrl(eventSlug, live.slug, live.photoUrl) } : {}),
     live,
     savedAt,
   };
@@ -120,7 +121,7 @@ export function fairGarageModelView(
     brandName: item.lastKnown.brandName,
     displayName: item.lastKnown.displayName,
     priceText: item.lastKnown.priceText,
-    ...(item.lastKnown.photoUrl ? { photoUrl: item.lastKnown.photoUrl } : {}),
+    ...(fairStandPhotoUrl(fallbackEventSlug, item.lastKnown.modelSlug, item.lastKnown.photoUrl) ? { photoUrl: fairStandPhotoUrl(fallbackEventSlug, item.lastKnown.modelSlug, item.lastKnown.photoUrl) } : {}),
     savedAt: item.savedAt,
   };
 }

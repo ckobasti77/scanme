@@ -36,6 +36,7 @@ import type { AdminQueryPatch, AdminQueryState } from "@/lib/admin-v1/query-stat
 import { hierarchyIntercept, hierarchySidebarOptions } from "@/lib/admin-v2/sidebar/hierarchy";
 import type { SidebarLive } from "@/lib/admin-v2/sidebar/types";
 import { FAIR_PACKAGE_TIERS, type FairPackageTier, type FairPassportConfigStatus, type FairSurveyStatus } from "@/lib/fair-contract";
+import { getFairEntitlements } from "@/lib/fair-entitlements";
 import { fmt } from "@/lib/i18n/format";
 import { adminEventsSr as dict } from "@/lib/i18n/sr/admin-events";
 import { adminUiSr } from "@/lib/i18n/sr/admin-ui";
@@ -287,9 +288,11 @@ export type EventModelDetailViewProps = {
   /** Izlagači 2026 — the exhibitor's Interakcije page at one part (`#glas-publike`…) with that part's keys. */
   interactionHref: (participationId: string, part: InteractionPart, query?: AdminQueryState) => string;
   summary?: ModelDetailSummary;
+  /** fairEvents.code: test drive is in the package of every tier on some events (`testDriveEvents`). */
+  eventCode?: string;
 };
 
-export function EventModelDetailView({ catalog, modelId, actions, query, listHref, modelHref, qrHref, sectionHref, interactionHref, summary = {} }: EventModelDetailViewProps) {
+export function EventModelDetailView({ catalog, modelId, actions, query, listHref, modelHref, qrHref, sectionHref, interactionHref, summary = {}, eventCode }: EventModelDetailViewProps) {
   const model = catalog.models.find((row) => row.id === modelId) ?? null;
   const [message, setMessage] = useState<EventMessage>(null);
   const [pending, setPending] = useState(false);
@@ -410,7 +413,7 @@ export function EventModelDetailView({ catalog, modelId, actions, query, listHre
           <Feedback message={message} />
           <ResolvePanel key={model.qrCode ?? ""} actions={actions} initialCode={model.qrCode ?? ""} help={detail.resolveHelp} />
         </div>
-        <ModelSummary model={model} summary={summary} sectionHref={sectionHref} interactionHref={interactionHref} />
+        <ModelSummary model={model} summary={summary} sectionHref={sectionHref} interactionHref={interactionHref} eventCode={eventCode} />
       </div>
     </div>
   );
@@ -515,8 +518,9 @@ function NeighbourLink({ model, href, label, aria, icon, after = false }: {
   return <Link href={href(model.id)} aria-label={fmt(aria, { model: modelName(model) })} className={className}>{content}</Link>;
 }
 
-function ModelSummary({ model, summary, sectionHref, interactionHref }: { model: ModelView; summary: ModelDetailSummary; sectionHref: EventModelDetailViewProps["sectionHref"]; interactionHref: EventModelDetailViewProps["interactionHref"] }) {
+function ModelSummary({ model, summary, sectionHref, interactionHref, eventCode }: { model: ModelView; summary: ModelDetailSummary; sectionHref: EventModelDetailViewProps["sectionHref"]; interactionHref: EventModelDetailViewProps["interactionHref"]; eventCode?: string }) {
   const advanced = model.tier === "advanced";
+  const testDriveInPackage = getFairEntitlements(model.tier, eventCode).testDrive;
   const loading = <p className="text-sm text-[var(--admin-text-muted)]">{dict.loading}</p>;
   const line = (text: string) => <p className="text-sm">{text}</p>;
   const muted = (text: string) => <p className="text-sm text-[var(--admin-text-muted)]">{text}</p>;
@@ -544,7 +548,7 @@ function ModelSummary({ model, summary, sectionHref, interactionHref }: { model:
       body: !summary.forms ? loading : (
         <ul className="grid gap-1 text-sm">
           <li>{detail.formInterest}: {model.tier === "included" ? detail.formNotInPackage : summary.forms.interest ? detail.formOn : detail.formOff}</li>
-          <li>{detail.formTestDrive}: {!advanced ? detail.formNotInPackage : summary.forms.testDrive ? detail.formOn : detail.formOff}</li>
+          <li>{detail.formTestDrive}: {!testDriveInPackage ? detail.formNotInPackage : summary.forms.testDrive ? detail.formOn : detail.formOff}</li>
         </ul>
       ),
     },

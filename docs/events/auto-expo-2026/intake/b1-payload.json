@@ -22,7 +22,7 @@
               "externalKey": "auto-expo-2026-ford-puma-mhev",
               "displayName": "Ford Puma mHEV",
               "slug": "ford-puma-mhev",
-              "priceText": "od 18.490 €",
+              "priceText": "od 18.990 €",
               "externalUrl": "https://ford.rs/puma",
               "packageTier": "starter",
               "specifications": [
@@ -76,17 +76,16 @@
                   "order": 9
                 }
               ],
-              "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/ford-puma-mhev.webp",
+              "photoUrl": "https://scanme.rs/fair/auto-expo-2026/modeli/ford-puma-mhev.webp",
               "passportEligible": true,
               "sortOrder": 1,
-              "priceSecondaryText": "Najniža akcijska cena modela (ford.rs)",
               "assignedResolverCode": "TPY1WFKP"
             },
             {
               "externalKey": "auto-expo-2026-ford-kuga",
               "displayName": "Ford Kuga",
               "slug": "ford-kuga",
-              "priceText": "od 25.990 €",
+              "priceText": "od 27.490 €",
               "externalUrl": "https://ford.rs/nova-kuga",
               "packageTier": "starter",
               "specifications": [
@@ -175,10 +174,9 @@
                   "order": 16
                 }
               ],
-              "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/ford-kuga.webp",
+              "photoUrl": "https://scanme.rs/fair/auto-expo-2026/modeli/ford-kuga.webp",
               "passportEligible": true,
               "sortOrder": 2,
-              "priceSecondaryText": "Najniža akcijska cena modela (ford.rs)",
               "assignedResolverCode": "XG9C0T37"
             }
           ]
@@ -246,10 +244,9 @@
                   "order": 8
                 }
               ],
-              "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/mg-zs-hybrid.webp",
+              "photoUrl": "https://scanme.rs/fair/auto-expo-2026/modeli/mg-zs-hybrid.webp",
               "passportEligible": true,
               "sortOrder": 3,
-              "priceSecondaryText": "Početna cena modela (mgmotor.rs)",
               "assignedResolverCode": "TRMDB395"
             },
             {
@@ -305,10 +302,9 @@
                   "order": 8
                 }
               ],
-              "photoUrl": "https://scanme.rs/fair/auto-moto-fest-2026/mg-hs-hybrid.webp",
+              "photoUrl": "https://scanme.rs/fair/auto-expo-2026/modeli/mg-hs-hybrid.webp",
               "passportEligible": true,
               "sortOrder": 4,
-              "priceSecondaryText": "Početna cena modela (mgmotor.rs)",
               "assignedResolverCode": "0TWBBCDF"
             },
             {
@@ -316,7 +312,6 @@
               "displayName": "MG3",
               "slug": "mg3",
               "priceText": "od 14.990 €",
-              "priceSecondaryText": "Početna cena modela (mgmotor.rs)",
               "externalUrl": "https://www.mgmotor.rs/model/mg3",
               "packageTier": "starter",
               "specifications": [
@@ -365,6 +360,7 @@
                   "order": 8
                 }
               ],
+              "photoUrl": "https://scanme.rs/fair/auto-expo-2026/modeli/mg3.webp",
               "passportEligible": true,
               "sortOrder": 5,
               "assignedResolverCode": "S7KJ805K"

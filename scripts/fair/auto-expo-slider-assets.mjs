@@ -14,6 +14,11 @@ const COLORS = {
   zelena: ["Zelena", "#4d5c45"], crvena: ["Crvena", "#a8201a"], svetlosiva: ["Svetlosiva", "#b8bbbe"],
   srebrna: ["Srebrna", "#c3c6c9"], zuta: ["Žuta", "#e9c12a"],
 };
+// Boja vozila na štandu (27. 11.) ide prva: podrazumevana na slideru, salonu i fotografiji modela.
+// Puma: naša "svetlosiva" (n4jc) je zelenkasta i ne liči na pravi auto, "siva" je pretamna -> bela.
+// MG HS: srebrna (Silver) najviše liči na auto sa štanda.
+const STAND_COLOR = { "ford-kuga": "crna", "ford-puma-mhev": "bela", "mg-zs-hybrid": "crvena", "mg-hs-hybrid": "srebrna", mg3: "bela" };
+const standFirst = (slug, groups) => [...groups].sort((a, b) => (b.id === STAND_COLOR[slug]) - (a.id === STAND_COLOR[slug]));
 const EN = { Black: "crna", Blue: "plava", Grey: "siva", Red: "crvena", Silver: "srebrna", White: "bela", Yellow: "zuta", Green: "zelena" };
 
 async function convert(src, dest) {
@@ -38,7 +43,7 @@ async function build() {
       const slides = await Promise.all(group.files.map(([s, d]) => convert(s, d)));
       groups.push({ id: group.id, label: COLORS[group.id][0], swatch: COLORS[group.id][1], slides });
     }
-    gallery[slug] = { mode: "angles", groups, extra: [] };
+    gallery[slug] = { mode: "angles", groups: standFirst(slug, groups), extra: [] };
   }
   const mgPick = {
     mg3: ["mg/mg3/boje-konfigurator", (f) => /_Comfort_/.test(f) && !/_150-31\.png$/.test(f), (f) => f.match(/Comfort_([A-Za-z]+)_/)[1]],
@@ -60,7 +65,7 @@ async function build() {
       for (const [i, f] of gal.entries()) extra.push(await convert(path.join(SRC, "mg/mg-zs-hybrid/galerija", f), path.join(OUT, slug, "galerija", String(i + 1).padStart(2, "0") + ".webp")));
       extra.push(await convert(path.join(SRC, "mg/mg-zs-hybrid/profil/MG-ZS-Hybrid-plus-side.webp"), path.join(OUT, slug, "profil.webp")));
     }
-    gallery[slug] = { mode: "colors", groups, extra };
+    gallery[slug] = { mode: "colors", groups: standFirst(slug, groups), extra };
   }
   const ts = `// Generisano: node scripts/fair/auto-expo-slider-assets.mjs — ne menjati ručno.
 export type FairGallerySlide = { src: string; width: number; height: number };

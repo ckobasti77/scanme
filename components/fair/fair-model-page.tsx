@@ -272,6 +272,45 @@ export function FairModelPage({
     </>
   );
 
+  // Auto Expo (27. 11.): every action fits one phone screen — Probna vožnja, Zainteresovan sam,
+  // the rating, then garage | compare; the exhibitor link goes below.
+  const standLayout = fairSalonEvent(model.eventSlug) !== null;
+  const externalLink = model.externalUrl ? (
+    <a className="fair-model-external" href={model.externalUrl} target="_blank" rel="noopener noreferrer">
+      {dict.externalModelLink}
+      <ExternalLink aria-hidden="true" />
+    </a>
+  ) : null;
+  const garageSave = (
+    <GarageSaveButton
+      eventId={model.eventId}
+      modelId={model.id}
+      saveLabel={dict.saveToGarage}
+      savedLabel={dict.garageSavedState}
+      openGarageLabel={dict.openGarage}
+      garageHref={`/sajam/${model.eventSlug}/garaza`}
+      errorLabel={dict.garageStorageError}
+      aside={
+        compareOptions.length > 0 ? (
+          <ModelCompareAction
+            eventSlug={model.eventSlug}
+            modelSlug={model.modelSlug}
+            options={compareOptions}
+            dict={dict}
+          />
+        ) : null
+      }
+      lastKnown={{
+        eventSlug: model.eventSlug,
+        modelSlug: model.modelSlug,
+        brandName: model.brandName,
+        displayName: model.displayName,
+        priceText: model.priceText,
+        ...(model.photoUrl ? { photoUrl: model.photoUrl } : {}),
+      }}
+    />
+  );
+
   return (
     <div
       className={`fair-event fair-model-page ${fairEventThemeClass(model.eventSlug)}`}
@@ -344,12 +383,7 @@ export function FairModelPage({
           dict={dict}
         />
 
-        {model.externalUrl ? (
-          <a className="fair-model-external" href={model.externalUrl} target="_blank" rel="noopener noreferrer">
-            {dict.externalModelLink}
-            <ExternalLink aria-hidden="true" />
-          </a>
-        ) : null}
+        {standLayout ? null : externalLink}
 
         <ModelActionsCheckpoint
           audience={
@@ -360,35 +394,10 @@ export function FairModelPage({
           actions={actions}
           ratingMode={model.capabilities.ratingMode}
           dict={dict}
+          afterActions={standLayout ? garageSave : undefined}
         />
 
-        <GarageSaveButton
-          eventId={model.eventId}
-          modelId={model.id}
-          saveLabel={dict.saveToGarage}
-          savedLabel={dict.garageSavedState}
-          openGarageLabel={dict.openGarage}
-          garageHref={`/sajam/${model.eventSlug}/garaza`}
-          errorLabel={dict.garageStorageError}
-          aside={
-            compareOptions.length > 0 ? (
-              <ModelCompareAction
-                eventSlug={model.eventSlug}
-                modelSlug={model.modelSlug}
-                options={compareOptions}
-                dict={dict}
-              />
-            ) : null
-          }
-          lastKnown={{
-            eventSlug: model.eventSlug,
-            modelSlug: model.modelSlug,
-            brandName: model.brandName,
-            displayName: model.displayName,
-            priceText: model.priceText,
-            ...(model.photoUrl ? { photoUrl: model.photoUrl } : {}),
-          }}
-        />
+        {standLayout ? externalLink : garageSave}
       </main>
       </FairModelInteractionsProvider>
 

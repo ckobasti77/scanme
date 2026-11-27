@@ -3,6 +3,7 @@ import { api } from "@/convex/_generated/api";
 import { fairBrandPageModels } from "../fair-brand-page";
 import { fairMapLocationById } from "../fair-map";
 import { fairPassportBrandSlug } from "../fair-passport";
+import { fairStandPhotoUrl } from "../fair-salon";
 import { loadFairPassportPage } from "./passport-page";
 import type { FairLeadFormView, FairPassportCatalogEntry, FairPublicModel } from "../fair-contract";
 
@@ -92,7 +93,7 @@ export function projectFairBrandPage(input: {
       name: model.displayName,
       priceText: model.priceText,
       // Only real photos reach the row — the model page does the same (mockup .mrow img).
-      ...(model.photoUrl ? { photoUrl: model.photoUrl } : {}),
+      ...(fairStandPhotoUrl(input.eventSlug, model.slug, model.photoUrl) ? { photoUrl: fairStandPhotoUrl(input.eventSlug, model.slug, model.photoUrl) } : {}),
       ...(model.priceSecondaryText ? { priceSecondaryText: model.priceSecondaryText } : {}),
       ...(model.externalUrl ? { externalUrl: model.externalUrl } : {}),
       highlights: (model.specificationGroups ?? [])

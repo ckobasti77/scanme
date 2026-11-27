@@ -192,7 +192,7 @@ describe("A3 Modeli list", () => {
 const ok = async () => ({ ok: true as const });
 const actions = { publish: ok, withdraw: ok, upgrade: ok, assignQr: ok, resolveTest: async () => ({ ok: true as const, value: { outcome: "fair_model" as const, problem: null, path: "/x" } }) };
 
-function detailHtml(modelId: string, query: AdminQueryState, summary?: ModelDetailSummary) {
+function detailHtml(modelId: string, query: AdminQueryState, summary?: ModelDetailSummary, eventCode?: string) {
   const listQuery = modelListQuery(query);
   return renderToStaticMarkup(
     <EventModelDetailView
@@ -206,6 +206,7 @@ function detailHtml(modelId: string, query: AdminQueryState, summary?: ModelDeta
       sectionHref={(path, extra) => eventSectionHref(BASE, path, extra)}
       interactionHref={(participationId, part, extra) => interactionExhibitorHref(BASE, participationId, extra, part)}
       summary={summary}
+      eventCode={eventCode}
     />,
   );
 }
@@ -263,6 +264,9 @@ describe("A3 model detail", () => {
     const starter = detailHtml("m2", {}, { forms: { interest: true, testDrive: false } });
     expect(starter).toContain(detail.advancedOnly);
     expect(starter).toContain(`${detail.formTestDrive}: ${detail.formNotInPackage}`);
+    // Auto Expo 27. 11.: test drive is in every package of an event listed in testDriveEvents.
+    const expo = detailHtml("m2", {}, { forms: { interest: true, testDrive: true } }, "auto-expo-2026");
+    expect(expo).toContain(`${detail.formTestDrive}: ${detail.formOn}`);
   });
 
   test("ADMIN v3 V1: the detail sections are cards and the linked summaries are rows", () => {
