@@ -9,17 +9,83 @@
   gap: var(--fair-space-5, 20px);
 }
 
+/* Header card: the brand's own mark as the heading, and the same mark oversized and faint in the
+   top-right corner over a soft glow in the brand colour (--brand-tone, set by the component; the
+   event accent when the brand has no vector mark). */
 .hero {
+  --brand-tone: var(--fair-accent);
+  --logo-h: 58px;
   position: relative;
   display: grid;
   overflow: hidden;
-  padding: 24px 20px 20px;
+  padding: 30px 20px 20px;
   justify-items: start;
   gap: 10px;
   border: var(--fair-border);
   border-radius: var(--fair-radius-xl);
   background: var(--fair-surface);
   box-shadow: 0 14px 36px -26px rgb(72 52 42 / 0.5);
+  isolation: isolate;
+}
+
+.hero[data-logo="square"] {
+  --logo-h: 76px;
+}
+
+.glow {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background:
+    radial-gradient(85% 75% at 100% 10%, color-mix(in srgb, var(--brand-tone) 16%, transparent) 0%, transparent 72%),
+    radial-gradient(60% 50% at 0% 100%, color-mix(in srgb, var(--fair-expo-yellow, var(--fair-accent)) 7%, transparent) 0%, transparent 80%);
+  pointer-events: none;
+}
+
+.watermark {
+  position: absolute;
+  z-index: -1;
+  top: 26px;
+  right: -64px;
+  display: block;
+  width: min(66%, 320px);
+  height: auto;
+  color: var(--brand-tone);
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.hero[data-logo="square"] .watermark {
+  top: 18px;
+  right: -48px;
+  width: min(48%, 220px);
+}
+
+.markFile {
+  background: currentColor;
+  -webkit-mask: var(--mark) center / contain no-repeat;
+  mask: var(--mark) center / contain no-repeat;
+}
+
+.logoHeading {
+  display: flex;
+  margin: 0 0 6px;
+}
+
+.logo {
+  display: block;
+  width: auto;
+  height: var(--logo-h);
+  color: var(--brand-tone);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 /* The Auto Expo stripe along the top edge of the header card. */
@@ -29,22 +95,6 @@
   height: 4px;
   background: var(--fair-expo-stripe, var(--fair-accent));
   content: "";
-}
-
-.mark {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border: var(--fair-border);
-  border-radius: var(--fair-radius-md);
-  background: var(--fair-canvas);
-  color: var(--fair-ink);
-}
-
-.mark svg {
-  width: 28px;
-  height: 28px;
 }
 
 .hero h1 {
@@ -96,7 +146,26 @@
 
 @media (min-width: 768px) {
   .hero {
-    padding: 32px 32px 26px;
+    --logo-h: 76px;
+    padding: 40px 36px 28px;
+  }
+
+  .hero[data-logo="square"] {
+    --logo-h: 96px;
+  }
+
+  .watermark,
+  .hero[data-logo="square"] .watermark {
+    top: 50%;
+    right: -2%;
+    width: min(42%, 460px);
+    opacity: 0.06;
+    transform: translateY(-50%);
+  }
+
+  .hero[data-logo="square"] .watermark {
+    right: 4%;
+    width: min(28%, 300px);
   }
 
   .grid {
@@ -123,38 +192,41 @@
 .photo {
   position: relative;
   display: block;
+  overflow: hidden;
   aspect-ratio: 16 / 10;
-  background: linear-gradient(180deg, #ffffff 0%, #ffffff 62%, #f2ede5 100%);
+  background: var(--fair-surface-warm, #f2ede5);
 }
 
-/* A soft floor shadow under the cut-out car. */
-.photo::after {
+/* The studio floor of a cut-out: a white wall that turns into a warm floor towards the ground
+   line (--floor-y, the same in every card), and under the car an ambient occlusion pool centred
+   just above that line, where the wheelbase meets the floor in a 3/4 view. */
+.photo[data-floor] {
+  --floor-y: 85%;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fdfcf9 48%, #f3eee6 74%, #e9e2d7 100%);
+}
+
+.photo[data-floor]::before {
   position: absolute;
-  right: 16%;
-  bottom: 11%;
-  left: 16%;
-  height: 7%;
+  top: calc(var(--floor-y) - 9%);
+  right: 9%;
+  left: 9%;
+  height: 13%;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(34 24 16 / 0.28), transparent);
+  background: radial-gradient(closest-side, rgb(40 28 18 / 0.3), rgb(40 28 18 / 0.1) 60%, transparent);
   content: "";
 }
 
+/* Every cut-out at the same width, its tyre line (--ground, a fraction of the image height) on
+   the floor line. The contact shadow follows the car's own silhouette. */
 .cutout {
-  z-index: 1;
-  padding: 7% 7% 12%;
-  object-fit: contain;
-  object-position: 50% 100%;
-  transition: transform var(--fair-dur-overlay) var(--fair-ease-enter);
-}
-
-.cover {
-  object-fit: cover;
-}
-
-@media (hover: hover) {
-  .card:hover .cutout {
-    transform: translateY(-2px) scale(1.015);
-  }
+  position: absolute;
+  bottom: calc(100% - var(--floor-y));
+  left: 50%;
+  width: 76%;
+  height: auto;
+  transform: translate(-50%, calc((1 - var(--ground, 1)) * 100%));
+  filter: drop-shadow(0 3px 2px rgb(30 20 12 / 0.38)) drop-shadow(0 10px 12px rgb(40 28 18 / 0.16));
 }
 
 .body {
@@ -252,11 +324,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cutout {
-    transition: none;
-  }
-
-  .card:hover .cutout,
   .details:hover svg {
     transform: none;
   }

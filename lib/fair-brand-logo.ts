@@ -25,7 +25,8 @@ import {
 // Covers the car brands of Auto Moto Fest 2026 (sajamautomobila.com/ucesnici-2026).
 
 export type FairBrandVector =
-  | { kind: "path"; path: string; hex: string }
+  /** `box`: the drawn area of the 24 × 24 path as an SVG viewBox, when it is not the whole square. */
+  | { kind: "path"; path: string; hex: string; box?: string }
   | { kind: "file"; src: string; width: number; height: number; hex: string };
 
 const icon = (value: SimpleIcon): FairBrandVector => ({ kind: "path", path: value.path, hex: `#${value.hex}` });
@@ -40,7 +41,8 @@ const VECTORS: Readonly<Record<string, FairBrandVector>> = {
   dacia: icon(siDacia),
   dongfeng: file("/fair/brands/dongfeng.svg", 42, 42, "#e60021"),
   fiat: icon(siFiat),
-  ford: icon(siFord),
+  // The oval fills only the middle band of the square (measured: y 7.5–16.5).
+  ford: { kind: "path", path: siFord.path, hex: `#${siFord.hex}`, box: "0 7.5 24 9" },
   geely: file("/fair/brands/geely.svg", 76, 42, "#1f4e9c"),
   honda: icon(siHonda),
   ineos: file("/fair/brands/ineos.svg", 95, 42, "#00083b"),

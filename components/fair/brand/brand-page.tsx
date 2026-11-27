@@ -53,6 +53,7 @@ export function FairBrandPage({ data, salon, initialDrive = false }: {
           {salon ? (
             <FairBrandShowroom
               brand={salon.brand}
+              logoUrl={data.brand.logoUrl}
               models={data.models}
               eventSlug={data.eventSlug}
               requestedIds={requestedIds}

@@ -9,6 +9,10 @@ export type FairSalonCutout = {
   height: number;
   /** World width of the car as photographed (a front view is narrower than a 3/4 view). */
   worldWidth: number;
+  /** Where the lowest tyre touches the floor, as a fraction of the image height (measured from the
+   * alpha channel; the MG files keep a soft baked shadow below it). The brand page cards put this
+   * line on their floor, so every car stands at the same height. */
+  ground: number;
 };
 
 export type FairSalonSpot = {
@@ -44,8 +48,8 @@ const AUTO_EXPO_2026: FairSalonEvent = {
       siteUrl: "https://www.ford.rs",
       siteLabel: "ford.rs",
       spots: [
-        { modelSlug: "ford-puma-mhev", angleDeg: -42, cutout: { src: `${SALON_ROOT}/ford-puma-34.webp`, width: 890, height: 500, worldWidth: 1.0 } },
-        { modelSlug: "ford-kuga", angleDeg: 42, cutout: { src: `${SALON_ROOT}/ford-kuga-34.webp`, width: 937, height: 545, worldWidth: 1.05 } },
+        { modelSlug: "ford-puma-mhev", angleDeg: -42, cutout: { src: `${SALON_ROOT}/ford-puma-34.webp`, width: 890, height: 500, worldWidth: 1.0, ground: 0.994 } },
+        { modelSlug: "ford-kuga", angleDeg: 42, cutout: { src: `${SALON_ROOT}/ford-kuga-34.webp`, width: 937, height: 545, worldWidth: 1.05, ground: 0.995 } },
       ],
     },
     {
@@ -54,9 +58,9 @@ const AUTO_EXPO_2026: FairSalonEvent = {
       siteUrl: "https://www.mgmotor.rs",
       siteLabel: "mgmotor.rs",
       spots: [
-        { modelSlug: "mg3", angleDeg: -68, cutout: { src: `${SALON_ROOT}/mg3.webp`, width: 1400, height: 643, worldWidth: 1.08 } },
-        { modelSlug: "mg-hs-hybrid", angleDeg: 0, cutout: { src: `${SALON_ROOT}/mg-hs-hybrid.webp`, width: 1400, height: 676, worldWidth: 1.2 } },
-        { modelSlug: "mg-zs-hybrid", angleDeg: 68, cutout: { src: `${SALON_ROOT}/mg-zs-hybrid.webp`, width: 1400, height: 621, worldWidth: 1.12 } },
+        { modelSlug: "mg3", angleDeg: -68, cutout: { src: `${SALON_ROOT}/mg3.webp`, width: 1400, height: 643, worldWidth: 1.08, ground: 0.967 } },
+        { modelSlug: "mg-hs-hybrid", angleDeg: 0, cutout: { src: `${SALON_ROOT}/mg-hs-hybrid.webp`, width: 1400, height: 676, worldWidth: 1.2, ground: 0.919 } },
+        { modelSlug: "mg-zs-hybrid", angleDeg: 68, cutout: { src: `${SALON_ROOT}/mg-zs-hybrid.webp`, width: 1400, height: 621, worldWidth: 1.12, ground: 0.957 } },
       ],
     },
   ],
