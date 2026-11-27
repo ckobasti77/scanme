@@ -35,6 +35,12 @@ export function FairEventShell({
   // Auto Expo: the "Mapa" item becomes one item per brand salon (owner, 27. 11.).
   const salon = fairSalonEvent(eventSlug);
   const mapEnabled = !salon && (FAIR_PUBLIC_MAP_ENABLED || demo);
+  const baseSlug = eventSlug.replace(/^test-/, "");
+  const salonName = {
+    name: baseSlug.replace(/-\d{4}$/, "").replace(/-/g, " "),
+    year: baseSlug.match(/-(\d{4})$/)?.[1] ?? "",
+    full: eventName || baseSlug.replace(/-/g, " "),
+  };
   const baseEventName = demo || eventSlug.replace(/^test-/, "") === "auto-moto-fest-2026" ? dict.autoMotoEventName : eventName
     .replace(/^TEST\s+/i, "")
     .replace(/\s+2026\s*$/i, "")
@@ -44,12 +50,14 @@ export function FairEventShell({
     <header className="fair-shell">
       <div className="fair-shell__inner">
         {salon ? (
-          // With the map gone, the lockup is the way back to the entry with the brand tiles.
-          <Link href={`/sajam/${eventSlug}`} className="fair-event-lockup" aria-label={`${eventTitle}, ${publicEventName}`}>
+          // With the map gone, the lockup is the way back to the entry with the brand tiles. It
+          // reads like the fair's own logo: "AUTO EXPO" over the year (from the slug, so the
+          // loading shell shows it too).
+          <Link href={`/sajam/${eventSlug}`} className="fair-event-lockup" aria-label={salonName.full}>
             <span className="fair-event-lockup__mark" aria-hidden="true" />
             <span>
-              <strong>{eventTitle}</strong>
-              <small>{publicEventName}</small>
+              <strong>{salonName.name}</strong>
+              <small>{salonName.year}</small>
             </span>
           </Link>
         ) : (

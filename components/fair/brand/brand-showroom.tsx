@@ -2,12 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Check, ExternalLink } from "lucide-react";
+import { ArrowRight, Check, ExternalLink, ThumbsUp } from "lucide-react";
 import { TbSteeringWheel } from "react-icons/tb";
 import { FairBrandIcon } from "../brand-icons";
 import type { FairSalonBrand } from "@/lib/fair-salon";
 import type { FairBrandPageModel } from "@/lib/fair-server/brand-page";
 import { fmt } from "@/lib/i18n/format";
+import { fairModelSr } from "@/lib/i18n/sr/fair-model";
 import { fairSalonSr as dict } from "@/lib/i18n/sr/fair-salon";
 import styles from "./brand-showroom.module.css";
 
@@ -25,14 +26,16 @@ export function FairBrandShowroom({ brand, models, eventSlug, requestedIds, onDr
       <header className={styles.hero}>
         <span className={styles.mark} aria-hidden="true"><FairBrandIcon brandSlug={brand.brandSlug} /></span>
         <h1>{brand.name}</h1>
-        <p>{fmt(dict.salonText, { brand: brand.name })}</p>
-        <div className={styles.heroActions}>
-          <button type="button" className={styles.primary} onClick={() => onDrive(null)}>
+        {/* The model page's action buttons: the test drive highlighted, interest plain. */}
+        <div className={`fair-action-grid ${styles.heroActions}`}>
+          <button type="button" data-highlight="true" onClick={() => onDrive(null)}>
+            <span className="fair-action-highlight__shine" aria-hidden="true" />
             <TbSteeringWheel aria-hidden="true" />
-            {dict.leadDrive}
+            <span>{dict.tileDrive}</span>
           </button>
-          <button type="button" className={styles.secondary} onClick={() => onInterest(null)}>
-            {dict.leadInterest}
+          <button type="button" onClick={() => onInterest(null)}>
+            <ThumbsUp aria-hidden="true" />
+            <span>{fairModelSr.submitInterest}</span>
           </button>
         </div>
         <a className={styles.site} href={brand.siteUrl} target="_blank" rel="noopener noreferrer">

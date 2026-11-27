@@ -64,12 +64,9 @@
 }
 
 .heroActions {
-  display: grid;
   width: 100%;
-  max-width: 460px;
-  grid-template-columns: 1.35fr 1fr;
-  gap: 8px;
-  margin-top: 6px;
+  max-width: 520px;
+  margin-top: 8px;
 }
 
 .site {

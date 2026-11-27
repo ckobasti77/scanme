@@ -18,7 +18,6 @@ export function FairSalonEntry({ eventSlug, salon, dict }: { eventSlug: string; 
     <main className={styles.entry}>
       <header className={styles.head}>
         <h1>{dict.entryTitle}</h1>
-        <p>{dict.entryText}</p>
       </header>
       <ul className={styles.tiles}>
         {salon.brands.map((brand, index) => {
